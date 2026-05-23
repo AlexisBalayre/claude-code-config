@@ -1,12 +1,14 @@
 # claude-code-power-config
 
-A complete, opinionated **[Claude Code](https://code.claude.com/docs)** configuration for a
-strict-convention TypeScript monorepo — rules, skills, slash commands, subagents, and
-deterministic hooks, wired together and documented end to end.
+A complete, opinionated **[Claude Code](https://code.claude.com/docs)** configuration — rules,
+skills, slash commands, subagents, and deterministic hooks, wired together and documented end to
+end. The framework and the worktree-first workflow are **language-agnostic**; only the included
+conventions and scaffolding are stack-specific, and you swap those for your own.
 
-It is refined through heavy daily use and fully genericized onto a fictional demo project
-(**"Acme"**, a real-time messaging platform), so you can read every piece in context, then lift
-what you want into your own repo.
+It is refined through heavy daily use and demonstrated on a fictional **TypeScript monorepo**
+(**"Acme"**, a real-time messaging platform), so every piece is readable in context. Working in
+Python, Go, Rust, or a single-package repo? Keep the structure, the hooks, and the workflow;
+replace the TypeScript conventions with yours.
 
 ![The bundled statusline: working directory, git branch, model, a context-usage bar, token counts, and live session cost](assets/statusline.png)
 
