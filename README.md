@@ -1,5 +1,7 @@
 # claude-code-power-config
 
+**[github.com/AlexisBalayre/claude-code-power-config](https://github.com/AlexisBalayre/claude-code-power-config)**
+
 A complete, opinionated **[Claude Code](https://code.claude.com/docs)** configuration for a
 strict-convention TypeScript monorepo — rules, skills, slash commands, subagents, and
 deterministic hooks, wired together and documented end to end.
@@ -54,6 +56,7 @@ their own worktree. Read the full loop in **[`docs/workflow.md`](docs/workflow.m
 
 1. **Copy the config into your repo.**
    ```bash
+   git clone https://github.com/AlexisBalayre/claude-code-power-config.git
    cp -R claude-code-power-config/.claude your-repo/.claude
    cp claude-code-power-config/CLAUDE.md your-repo/CLAUDE.md
    chmod +x your-repo/.claude/hooks/*.sh your-repo/.claude/statusline.sh
