@@ -27,7 +27,7 @@ Determine the enforcement domain based on the file path:
 Regardless of area, every file must satisfy:
 
 - **Exports:** Named exports ONLY. **Prohibited:** `export default`.
-- **Imports:** Use **extensionless** relative imports in source. The `.js` extensions are added automatically at build time by `scripts/fix-esm-imports.mjs` — do NOT add them in source.
+- **Imports:** Use **extensionless** relative imports in source. The `.js` extensions are added automatically at build time by a post-build step — do NOT add them in source.
 - **Documentation:** JSDoc is MANDATORY for every exported function, class, interface, type, and constant.
 - **Type Safety:** No `any` types allowed without a specific boundary justification comment.
 - **Booleans:** Use prefixes `is/has/should/can`.

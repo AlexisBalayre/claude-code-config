@@ -25,7 +25,7 @@ piece in context, then lift what you want into your own repo.
 | :---- | :---- | :----------- |
 | **`CLAUDE.md`** | 1 | Always-on project memory: role, workspaces, git workflow, key commands. Kept tiny on purpose. |
 | **`rules/`** | 9 | Path-scoped convention rules that auto-load `docs/conventions/*.md` only when you touch matching files (the "split pattern"). |
-| **`skills/`** | 14 | Auto-discoverable workflows: scaffolding (`new-api-endpoint`, `new-provider`…), engineering (`tdd`, `diagnose`, `find-dead-code`…), thinking (`grill-me`, `grill-with-docs`, `zoom-out`, `prototype`), and meta (`write-a-skill`, `handoff`, `caveman`). |
+| **`skills/`** | 17 | Auto-discoverable workflows: scaffolding (`new-api-endpoint`, `new-provider`…), engineering (`tdd`, `diagnose`, `find-dead-code`…), thinking (`grill-me`, `grill-with-docs`, `zoom-out`, `prototype`), meta (`write-a-skill`, `handoff`, `caveman`), and personal integrations (`obsidian-vault`, `to-issues`, `to-epic` — configured via `.env`). |
 | **`commands/`** | 1 | `/code-review` — a 6-agent PR review with a validation pass and inline comments. |
 | **`agents/`** | 4 | Isolated subagents: `convention-checker` (Haiku), `migration-reviewer` (Sonnet), `security-reviewer` (Opus), `architecture-explainer` (Sonnet). |
 | **`hooks/`** | 6 | Zero-LLM shell scripts on lifecycle events: quality gate, convention spot-check, git safety, generated-file protection, file-naming validation, compaction preservation. |
@@ -63,6 +63,9 @@ their own worktree. Read the full loop in **[`docs/workflow.md`](docs/workflow.m
    `test` scripts in `package.json` with your real toolchain.
 3. **Opt into your tools.** Copy `.claude/settings.local.json.example` to
    `.claude/settings.local.json` (gitignored) and add your personal permissions / MCP servers.
+4. **Personalize.** Copy `.env.example` to `.env` (gitignored) and fill in the values used by
+   the personal-workflow skills and the worktree scripts: your Obsidian vault path, issue-tracker
+   IDs, and (optionally) a non-default git trunk or branch prefix.
 
 The hooks no-op until you touch matching files, so nothing breaks before you've wired your
 toolchain.
@@ -91,11 +94,11 @@ the shared vocabulary.
 ```
 .
 ├── CLAUDE.md                  # always-on project memory
+├── .env.example               # personalization hub (vault path, tracker IDs, git trunk)
 ├── package.json               # worktree scripts + toolchain hooks
 ├── scripts/
 │   ├── worktree-create.sh     # pnpm worktree:create <name>
 │   ├── worktree-clean.sh      # pnpm worktree:clean
-│   ├── fix-esm-imports.mjs    # post-build: add .js to ESM imports
 │   └── pre-commit             # quality gate for human/CLI commits
 ├── .claude/
 │   ├── README.md              # architecture deep-dive (start here)

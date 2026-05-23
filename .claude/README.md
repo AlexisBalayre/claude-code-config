@@ -51,7 +51,8 @@ This directory contains all Claude Code customizations for the Acme project. Eve
 │   ├── new-api-endpoint/   new-frontend-route/   new-provider/   # scaffolding
 │   ├── grill-me/   grill-with-docs/   zoom-out/   prototype/     # thinking / design
 │   ├── tdd/   diagnose/   improve-codebase-architecture/   find-dead-code/  # engineering
-│   └── write-a-skill/   handoff/   caveman/                      # meta / workflow
+│   ├── write-a-skill/   handoff/   caveman/                      # meta / workflow
+│   └── obsidian-vault/   to-issues/   to-epic/                   # personal integrations (.env)
 │
 ├── commands/              # User-invoked slash commands
 │   └── code-review.md     # /code-review — multi-agent PR review

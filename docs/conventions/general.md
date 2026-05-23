@@ -28,8 +28,8 @@ files unreliable. The `convention-spot-check` Stop hook flags any `export defaul
 ## Imports
 
 - **Extensionless relative imports in source.** Write `from './session.service'`, not
-  `'./session.service.js'`. The `.js` extensions are appended at build time by
-  `scripts/fix-esm-imports.mjs`. Adding them by hand fights the build script.
+  `'./session.service.js'`. The `.js` extensions are appended at build time by a post-build
+  step. Adding them by hand fights the build.
 - **Prefer namespace imports for services** so call sites read as `Service.method`:
 
   ```ts

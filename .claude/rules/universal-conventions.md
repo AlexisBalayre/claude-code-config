@@ -35,7 +35,7 @@ paths:
 ## Exports & Imports
 
 - **Named exports ONLY** — NEVER `export default`.
-- **Extensionless imports** in source (`.js` added at build time by `scripts/fix-esm-imports.mjs`).
+- **Extensionless imports** in source (`.js` added at build time by a post-build step).
 - Prefer namespace imports for services: `import * as SessionService from './session.service'`.
 
 ## Type Separation
