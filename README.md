@@ -4,9 +4,9 @@ A complete, opinionated **[Claude Code](https://code.claude.com/docs)** configur
 strict-convention TypeScript monorepo — rules, skills, slash commands, subagents, and
 deterministic hooks, wired together and documented end to end.
 
-It is extracted from real day-to-day use on a production monorepo and fully genericized onto a
-fictional demo project (**"Acme"**, a real-time messaging platform), so you can read every
-piece in context, then lift what you want into your own repo.
+It is refined through heavy daily use and fully genericized onto a fictional demo project
+(**"Acme"**, a real-time messaging platform), so you can read every piece in context, then lift
+what you want into your own repo.
 
 ![The bundled statusline: working directory, git branch, model, a context-usage bar, token counts, and live session cost](assets/statusline.png)
 
@@ -84,6 +84,8 @@ fictional messaging platform. The shape maps cleanly onto most TypeScript monore
 | `packages/acme-db` | Drizzle ORM schema + migrations |
 | `packages/acme-providers` | Pluggable delivery providers (email, SMS, push, webhook) |
 | `packages/acme-rpc` | Protobuf definitions + generated gRPC stubs |
+| `packages/acme-domain` | Shared domain types (branded IDs, enums) |
+| `packages/acme-logger` | Structured logger (no PII in logs) |
 
 The conventions for each area live in [`docs/conventions/`](docs/conventions/) and are the
 single source of truth the thin `rules/` files import. The [glossary](docs/README.md) anchors

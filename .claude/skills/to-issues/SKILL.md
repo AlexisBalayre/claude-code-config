@@ -72,7 +72,7 @@ Create issues via `mcp__linear-server__save_issue` in dependency order, so real 
 
 ## Parent
 
-PROJ-XXXX (or omit if standalone).
+${TRACKER_ISSUE_PREFIX}-XXXX (or omit if standalone).
 
 ## What to build
 
@@ -88,7 +88,7 @@ Avoid specific file paths or code snippets; they rot. Exception: if a prototype 
 
 ## Blocked by
 
-PROJ-YYYY, or "None, can start immediately".
+${TRACKER_ISSUE_PREFIX}-YYYY, or "None, can start immediately".
 
 ## Notes
 

@@ -9,7 +9,6 @@ this Claude Code configuration. The docs are organised with [Diátaxis](https://
 | `reference/`        | *What is the shape?*    | You need the structure of a service or schema. |
 | `explanation/`      | *Why is it like this?*  | You're questioning a design decision.       |
 | `adr/`              | *What did we decide?*   | You need the record of a past decision.     |
-| `runbooks/`         | *How do I operate it?*  | You're doing an operational task.           |
 
 `conventions/` is the **single source of truth** for code style. Everything else explains
 or records.

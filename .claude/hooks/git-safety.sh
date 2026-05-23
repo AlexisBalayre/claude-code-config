@@ -12,8 +12,7 @@ if [ -z "$COMMAND" ]; then
   exit 0
 fi
 
-# Trunk branch is configurable via .env (defaults to main), keeping this guard
-# in agreement with scripts/worktree-*.sh.
+# Trunk branch is configurable via .env (defaults to main).
 if [ -f "${CLAUDE_PROJECT_DIR:-.}/.env" ]; then set -a; . "${CLAUDE_PROJECT_DIR:-.}/.env"; set +a; fi
 TRUNK="${GIT_TRUNK:-main}"
 

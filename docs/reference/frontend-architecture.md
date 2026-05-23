@@ -47,7 +47,7 @@ export const Route = createFileRoute("/_protected/sessions")({
   component: SessionsPage,
 });
 
-// hooks/use-sessions.ts
+// hooks/use-sessions.hook.ts
 export function useSessions() {
   return useQuery(sessionsQuery()); // same query key the loader primed
 }

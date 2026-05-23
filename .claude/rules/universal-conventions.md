@@ -13,7 +13,7 @@ paths:
 | DO | DON'T |
 |----|-------|
 | `my-service.service.ts` | `MyService.service.ts` (PascalCase) |
-| `audio-frame.types.ts` | `audioFrame.types.ts` (camelCase) |
+| `message-frame.types.ts` | `messageFrame.types.ts` (camelCase) |
 | `session.adapter.ts` | `session-adapter.ts` (missing role) |
 | `index.ts`, `env.ts`, `main.ts` | Exception files — no role needed |
 

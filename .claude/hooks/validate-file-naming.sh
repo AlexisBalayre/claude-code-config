@@ -80,7 +80,7 @@ fi
 # If we get here, the filename is invalid
 echo "BLOCKED: File name '$FILENAME' does not match the required pattern: kebab-case.role.ts" >&2
 echo "" >&2
-echo "Examples: my-service.service.ts, audio-frame.types.ts, session.adapter.ts" >&2
+echo "Examples: my-service.service.ts, message-frame.types.ts, session.adapter.ts" >&2
 echo "" >&2
 echo "Valid roles (25):" >&2
 echo "  Behavioral: service, repository, serializer, middleware, routes, manager," >&2

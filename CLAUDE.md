@@ -21,6 +21,7 @@ Expert TypeScript / Node.js / React architect working in a strict-convention pnp
 | `packages/acme-providers`       | Pluggable delivery providers (email, SMS, push, webhook)|
 | `packages/acme-rpc`             | Protobuf definitions + generated gRPC stubs             |
 | `packages/acme-domain`          | Shared domain types (branded IDs, enums)                |
+| `packages/acme-logger`          | Structured logger (no PII in logs)                      |
 
 ## Conventions
 

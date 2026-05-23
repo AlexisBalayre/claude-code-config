@@ -70,7 +70,7 @@ Hand back a markdown table per category, ranked by confidence (high = passed all
 ```
 | Confidence | Path                                       | Last touched | Why suspect                          | Verification status            |
 | ---------- | ------------------------------------------ | ------------ | ------------------------------------ | ------------------------------ |
-| High       | packages/acme-core/src/legacy-format.utils.ts | 9 months ago | 0 imports, 0 string hits, no factory | Passed all 5 checks            |
+| High       | packages/acme-domain/src/legacy-format.utils.ts | 9 months ago | 0 imports, 0 string hits, no factory | Passed all 5 checks            |
 | Medium     | packages/acme-db/src/schema/old_audit.schemas.ts | 4 months ago | 0 direct imports                    | Re-exported via schema/index.ts; needs human review |
 ```
 

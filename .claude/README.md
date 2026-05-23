@@ -164,7 +164,7 @@ Shell scripts that run outside the LLM loop on lifecycle events. Zero context co
 | Hook | Event | What it does |
 |------|-------|-------------|
 | `quality-checks.sh` | Stop | Lint, typecheck, test affected packages (blocks on failure) |
-| `convention-spot-check.sh` | Stop | Advisory scan for `export default`, inline types, missing JSDoc |
+| `convention-spot-check.sh` | Stop | Advisory scan for `export default`, inline types, missing JSDoc (`packages/` only) |
 | `git-safety.sh` | PreToolUse(Bash) | Block `rm -rf`, `git reset --hard`, force push, `checkout -b` on main, push to main |
 | `protect-generated.sh` | PreToolUse(Edit\|Write) | Block edits to `*.gen.ts` and gRPC stubs |
 | `validate-file-naming.sh` | PreToolUse(Write) | Enforce `kebab-case.role.ts` on new files |
