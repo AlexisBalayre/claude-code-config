@@ -1,7 +1,5 @@
 # claude-code-power-config
 
-**[github.com/AlexisBalayre/claude-code-power-config](https://github.com/AlexisBalayre/claude-code-power-config)**
-
 A complete, opinionated **[Claude Code](https://code.claude.com/docs)** configuration for a
 strict-convention TypeScript monorepo — rules, skills, slash commands, subagents, and
 deterministic hooks, wired together and documented end to end.

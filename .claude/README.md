@@ -102,6 +102,8 @@ paths:
 
 **When to add a rule:** When conventions are specific to a file path pattern and should auto-load when editing those files.
 
+**Catalog:** [`rules/README.md`](rules/README.md) — every rule, its path scope, and what it enforces.
+
 ### 3. `skills/` — Auto-Discoverable Workflows
 
 Skills are directories with a `SKILL.md` that Claude discovers automatically. Claude sees the description at session start (tiny context cost) and loads the full content when the skill is relevant.
@@ -135,6 +137,8 @@ Slash commands the user explicitly invokes. These have side effects (posting PR 
 
 **When to add a command:** For repeatable workflows the user controls. If it has side effects or the user should decide when to run it, it's a command.
 
+**Catalog:** [`commands/README.md`](commands/README.md) — every command, when to use it, and how to invoke it.
+
 ### 5. `agents/` — Custom Subagents
 
 Specialized AI workers that run in their own context window. Claude delegates to them and gets summarized results back — zero bloat in the main conversation.
@@ -157,6 +161,8 @@ Specialized AI workers that run in their own context window. Claude delegates to
 
 **When to add an agent:** For tasks that need deep analysis without polluting the main context, or for work that benefits from model-specific strengths (Haiku for speed, Opus for reasoning).
 
+**Catalog:** [`agents/README.md`](agents/README.md) — every agent, when it fires, and its model/tools.
+
 ### 6. `hooks/` — Deterministic Automation
 
 Shell scripts that run outside the LLM loop on lifecycle events. Zero context cost, zero hallucination risk — purely deterministic.
@@ -176,6 +182,8 @@ Shell scripts that run outside the LLM loop on lifecycle events. Zero context co
 - `2` — **block the operation** (PreToolUse: prevents tool; Stop: feedback to Claude)
 
 **When to add a hook:** For deterministic checks that should always run. If it doesn't need LLM reasoning, it's a hook.
+
+**Catalog:** [`hooks/README.md`](hooks/README.md) — every hook, the event it fires on, and what it does.
 
 ### 7. `settings.json` — Permissions & Hook Wiring
 
