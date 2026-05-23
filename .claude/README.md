@@ -106,7 +106,7 @@ paths:
 
 Skills are directories with a `SKILL.md` that Claude discovers automatically. Claude sees the description at session start (tiny context cost) and loads the full content when the skill is relevant.
 
-Current skills are **scaffolding workflows** — they activate when Claude hears "add an endpoint", "create a route", or "add a provider" and guide it through the exact file creation sequence following project conventions.
+This repo ships **17 skills** across scaffolding, engineering, thinking/design, meta, and personal integrations. The **[skill catalog](skills/README.md)** lists when each one fires and how to invoke it (auto-trigger, `/slash-command`, or Claude-only).
 
 **Frontmatter options:**
 - `name` — identifier and `/slash-command` name

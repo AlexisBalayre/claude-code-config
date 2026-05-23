@@ -33,7 +33,8 @@ what you want into your own repo.
 | **`hooks/`** | 6 | Zero-LLM shell scripts on lifecycle events: quality gate, convention spot-check, git safety, generated-file protection, file-naming validation, compaction preservation. |
 
 The full architecture — what loads when, the context budget, and how to extend each layer — is
-documented in **[`.claude/README.md`](.claude/README.md)**.
+documented in **[`.claude/README.md`](.claude/README.md)**. For when and how to use each skill,
+see the **[skill catalog](.claude/skills/README.md)**.
 
 ```
 ┌──────────────────────────────────────────────┐
