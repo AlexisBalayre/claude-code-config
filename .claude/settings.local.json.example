@@ -1,0 +1,19 @@
+{
+  "_comment": "Personal, machine-local overrides. Copy to settings.local.json (gitignored). These extend settings.json — they never replace it. Put anything personal here: extra permissions, machine-specific tools, and which project .mcp.json servers you opt into.",
+  "permissions": {
+    "allow": [
+      "Bash(docker build:*)",
+      "Bash(docker compose:*)",
+      "Bash(python3:*)",
+      "Bash(node -e:*)",
+      "WebSearch",
+      "WebFetch(domain:docs.example.com)",
+      "Skill(superpowers:writing-plans)",
+      "Skill(superpowers:subagent-driven-development)"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "your-issue-tracker",
+    "your-static-analysis"
+  ]
+}

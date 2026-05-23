@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Claude Code local overrides (copy settings.local.json.example to start)
+.claude/settings.local.json
+
+# Git worktrees created by `pnpm worktree:create`
+.worktrees/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+secrets.env
+
+# OS / editor noise
+.DS_Store
+*.log
