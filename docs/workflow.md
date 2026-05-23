@@ -40,7 +40,8 @@ pnpm worktree:clean                   # remove worktrees whose remote branch is 
 | Mechanism | File | What it guarantees |
 | :-------- | :--- | :----------------- |
 | Branch protection | `.claude/hooks/git-safety.sh` | Blocks `git checkout -b` on `main`, blocks pushes to `main`, blocks `git reset --hard` and `rm -rf`. |
-| Worktree creation | `scripts/worktrees.sh` + `package.json` | `pnpm worktree:create <name>` always makes `.worktrees/<name>` on `feature/<name>`. |
+| Worktree creation | `scripts/worktree-create.sh` + `package.json` | `pnpm worktree:create <name>` always makes `.worktrees/<name>` on `feature/<name>` and installs deps. |
+| Worktree cleanup | `scripts/worktree-clean.sh` | `pnpm worktree:clean` removes worktrees whose remote branch is gone (e.g. after merge). |
 | Quality gate | `.claude/hooks/quality-checks.sh` | On every `Stop`, runs lint + typecheck + tests for affected packages; blocks on failure. |
 | Context survival | `.claude/hooks/pre-compact-preserve.sh` | Preserves the current branch + worktree path + test results across compaction. |
 | Visibility | `.claude/statusline.sh` | Shows the active worktree branch, context usage, and cost in the statusline. |
@@ -62,5 +63,6 @@ category; do not bundle unrelated removals into one PR.*
 ## Adapting it
 
 The scripts assume `feature/<name>` branches and an `origin` remote. If your team uses a
-different branch prefix or trunk name, edit `scripts/worktrees.sh` and the patterns in
-`.claude/hooks/git-safety.sh` together so the helper and the guard stay in agreement.
+different branch prefix or trunk name, edit `scripts/worktree-create.sh` /
+`scripts/worktree-clean.sh` and the patterns in `.claude/hooks/git-safety.sh` together so the
+helper and the guard stay in agreement.

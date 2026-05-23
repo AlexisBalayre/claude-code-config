@@ -8,6 +8,10 @@ It is extracted from real day-to-day use on a production monorepo and fully gene
 fictional demo project (**"Acme"**, a real-time messaging platform), so you can read every
 piece in context, then lift what you want into your own repo.
 
+![The bundled statusline: working directory, git branch, model, a context-usage bar, token counts, and live session cost](assets/statusline.png)
+
+<sub>The bundled <a href=".claude/statusline.sh"><code>statusline.sh</code></a>: directory, branch, model, a context-usage bar, token counts, and live session cost.</sub>
+
 > **TL;DR** — Copy `.claude/` into your repo, adapt `CLAUDE.md` and `.claude/rules/` to your
 > stack, make the hooks executable, and you have path-scoped conventions, a quality gate on
 > every turn, a multi-agent PR review, and a worktree-first workflow that never lets an agent
@@ -88,7 +92,11 @@ the shared vocabulary.
 .
 ├── CLAUDE.md                  # always-on project memory
 ├── package.json               # worktree scripts + toolchain hooks
-├── scripts/worktrees.sh       # pnpm worktree:create / clean
+├── scripts/
+│   ├── worktree-create.sh     # pnpm worktree:create <name>
+│   ├── worktree-clean.sh      # pnpm worktree:clean
+│   ├── fix-esm-imports.mjs    # post-build: add .js to ESM imports
+│   └── pre-commit             # quality gate for human/CLI commits
 ├── .claude/
 │   ├── README.md              # architecture deep-dive (start here)
 │   ├── settings.json          # permissions + hook wiring

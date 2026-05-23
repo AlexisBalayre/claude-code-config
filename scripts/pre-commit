@@ -1,0 +1,58 @@
+#!/bin/bash
+# Pre-commit hook: enforce code quality and prevent local-only file commits.
+# Install: cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+#
+# Complements the Claude Code Stop hook (.claude/hooks/quality-checks.sh): the Stop
+# hook gates agent sessions, this gates human/CLI commits.
+
+set -e
+
+# --- Block local-only paths (customize for your repo) ---
+
+BLOCKED_PATHS="docs/plans/ docs/scratch/"
+
+for path in $BLOCKED_PATHS; do
+  # Only block additions/modifications, not deletions (allow removing tracked files)
+  STAGED=$(git diff --cached --diff-filter=d --name-only -- "$path")
+  if [ -n "$STAGED" ]; then
+    echo "ERROR: Attempting to commit files under '$path' which is local-only."
+    echo "Blocked files:"
+    echo "$STAGED" | sed 's/^/  /'
+    echo ""
+    echo "These files should not be committed to the repository."
+    echo "Run 'git reset HEAD -- $path' to unstage them."
+    exit 1
+  fi
+done
+
+# --- Ensure dependencies are installed (worktrees may lack node_modules) ---
+
+if [ ! -d "node_modules/.bin" ]; then
+  echo "Installing dependencies..."
+  pnpm install --frozen-lockfile
+fi
+
+# --- Code quality checks ---
+
+echo "Running lint..."
+if ! pnpm lint; then
+  echo ""
+  echo "ERROR: Lint check failed. Run 'pnpm lint:fix' to auto-fix issues."
+  exit 1
+fi
+
+echo "Running typecheck..."
+if ! pnpm typecheck; then
+  echo ""
+  echo "ERROR: Type check failed. Fix type errors before committing."
+  exit 1
+fi
+
+echo "Running tests..."
+if ! pnpm test; then
+  echo ""
+  echo "ERROR: Tests failed. Fix failing tests before committing."
+  exit 1
+fi
+
+echo "All pre-commit checks passed."
