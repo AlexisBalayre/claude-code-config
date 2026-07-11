@@ -59,8 +59,6 @@ This directory contains all Claude Code customizations for the Acme project. Eve
 │   ├── obsidian-vault/   daily-note/   to-issues/   to-epic/     # personal integrations (.env)
 │   └── backfill-issues/   fix-sonar/   wiz/   fix-wiz/
 │
-├── commands/              # User-invoked slash commands (none shipped — see commands/README.md)
-│
 ├── agents/                # Custom subagents for specialized tasks
 │   ├── convention-checker.md      migration-reviewer.md          # proactive
 │   ├── security-reviewer.md       architecture-explainer.md
@@ -127,25 +125,9 @@ This repo ships **30 skills** across scaffolding, engineering, thinking/design, 
 - `context: fork` — run in isolated subagent context
 - `model` — override model when active
 
-**When to add a skill:** When Claude should auto-discover and apply knowledge or follow a workflow without being asked. Skills are for things Claude should know to do on its own.
+**When to add a skill:** When Claude should auto-discover and apply knowledge or follow a workflow without being asked. Skills are for things Claude should know to do on its own. For repeatable workflows only the user should trigger — anything with side effects like posting PR comments or filing issues — set `disable-model-invocation: true`: a manual-only skill is invoked as `/<name>` and replaces the deprecated `commands/` layer.
 
-### 4. `commands/` — User-Triggered Workflows
-
-Slash commands the user explicitly invokes. These have side effects (posting PR comments, writing files) so they should never auto-trigger.
-
-> This repo currently ships no standalone commands: the worked example that lived here
-> (`/code-review`) graduated into the manual-only `pr-ci-review` skill, which dispatches the
-> `review-*` subagents. The layer remains the lightest way to package repeatable,
-> side-effect-bearing workflows tied to your own tools (issue trackers, static analysis,
-> note-taking). Add your own following the shape in `commands/README.md`.
-
-**Frontmatter options:** Same as skills, plus `$ARGUMENTS` for argument substitution.
-
-**When to add a command:** For repeatable workflows the user controls. If it has side effects or the user should decide when to run it, it's a command.
-
-**Catalog:** [`commands/README.md`](commands/README.md) — every command, when to use it, and how to invoke it.
-
-### 5. `agents/` — Custom Subagents
+### 4. `agents/` — Custom Subagents
 
 Specialized AI workers that run in their own context window. Claude delegates to them and gets summarized results back — zero bloat in the main conversation.
 
@@ -171,7 +153,7 @@ Specialized AI workers that run in their own context window. Claude delegates to
 
 **Catalog:** [`agents/README.md`](agents/README.md) — every agent, when it fires, and its model/tools.
 
-### 6. `hooks/` — Deterministic Automation
+### 5. `hooks/` — Deterministic Automation
 
 Shell scripts that run outside the LLM loop on lifecycle events. Zero context cost, zero hallucination risk — purely deterministic.
 
@@ -194,7 +176,7 @@ Shell scripts that run outside the LLM loop on lifecycle events. Zero context co
 
 **Catalog:** [`hooks/README.md`](hooks/README.md) — every hook, the event it fires on, and what it does.
 
-### 7. `settings.json` — Permissions & Hook Wiring
+### 6. `settings.json` — Permissions & Hook Wiring
 
 Shared project configuration. Contains:
 - **`permissions.allow`** — pre-approved tool patterns (pnpm, git read-only, MCP tools)
@@ -212,7 +194,7 @@ Shared project configuration. Contains:
 | Claude to always know this | `CLAUDE.md` |
 | Claude to know this when editing specific files | `rules/` with `paths:` |
 | Claude to auto-discover and use this knowledge | `skills/` |
-| A workflow I trigger explicitly | `commands/` |
+| A workflow I trigger explicitly | `skills/` with `disable-model-invocation: true` |
 | Isolated analysis that won't bloat context | `agents/` |
 | A check that runs every time, deterministically | `hooks/` |
 | External service access | MCP (`.mcp.json`) |
@@ -230,11 +212,6 @@ Shared project configuration. Contains:
 1. Create `.claude/skills/<name>/SKILL.md` with `name` and `description` frontmatter
 2. Write the full workflow/knowledge content
 3. Set `user-invocable: false` if Claude-only, `disable-model-invocation: true` if user-only
-
-### New command
-1. Create `.claude/commands/<name>.md` with `description` and optional `allowed-tools`
-2. Use `$ARGUMENTS` for user input
-3. Keep side-effect-bearing workflows as commands (not skills)
 
 ### New agent
 1. Create `.claude/agents/<name>.md` with `name`, `description`, and `tools`

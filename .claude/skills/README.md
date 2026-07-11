@@ -44,7 +44,7 @@ to invoke it.
 | Skill | When to use | Invoke |
 | :---- | :---------- | :----- |
 | `pr-description` | Draft or rewrite a PR title/body in the repo's house style, then create or update the PR via `gh`. Other skills call it when they open PRs. | Auto or `/pr-description` |
-| `pr-ci-review` | Cost-optimal multi-agent code review of local changes or a PR: relevance-gated `review-*` subagents, a validation pass, and inline posting. Successor to the old `/code-review` command. | Manual only (`/pr-ci-review`) |
+| `pr-ci-review` | Cost-optimal multi-agent code review of local changes or a PR: relevance-gated `review-*` subagents, a validation pass, and inline posting. | Manual only (`/pr-ci-review`) |
 | `address-review-comments` | Triage, decide, challenge, and implement a PR's open review threads end to end, replying as you go — human in the loop. | Auto or `/address-review-comments` |
 | `review-retro` | Mine past automated-review runs for recurring process/judgment failures and propose evidence-cited fixes to the review setup as one PR. Needs CI-produced run history (see the skill's setup note). | Manual only (`/review-retro`) |
 
