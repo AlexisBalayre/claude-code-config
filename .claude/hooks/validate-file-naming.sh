@@ -60,11 +60,6 @@ if [[ "$FILE_PATH" =~ apps/acme-web/src/routes/ ]]; then
   exit 0
 fi
 
-# Skip test setup files
-if [[ "$FILENAME" == "setup.ts" ]]; then
-  exit 0
-fi
-
 # Valid roles (25). Authoritative taxonomy in docs/conventions/naming.md.
 # Each role marks a distinct calling convention or content kind; no plurality
 # duplicates, no compound test roles, no domain words.

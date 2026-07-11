@@ -1,5 +1,4 @@
 {
-  "skipDangerousModePermissionPrompt": true,
   "statusLine": {
     "type": "command",
     "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/statusline.sh",
@@ -51,6 +50,7 @@
       "Bash(rm -rf *)",
       "Read(.env*)",
       "Read(secrets.env*)",
+      "Read(secrets.*.env)",
       "Read(**/credentials*)"
     ],
     "ask": [
@@ -75,6 +75,15 @@
           {
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/convention-spot-check.sh",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/comment-pruner.sh",
             "timeout": 30
           }
         ]

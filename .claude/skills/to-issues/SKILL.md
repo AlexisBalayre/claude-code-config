@@ -1,6 +1,7 @@
 ---
 name: to-issues
-description: Break a plan, spec, or Epic into independently-grabbable issues as tracer-bullet vertical slices (end-to-end through every layer), each filed as a child of the parent Epic. Auto-activates when the user wants to convert an Epic into implementation tickets, break work into issues, or slice a plan.
+description: Break a plan, spec, or Epic into independently-grabbable issues as tracer-bullet vertical slices (end-to-end through every layer), each filed as a child of the parent Epic.
+disable-model-invocation: true
 ---
 
 # To Issues
@@ -38,7 +39,7 @@ For *why*/*how* questions across services, delegate to the `architecture-explain
 
 ### 3. Slice
 
-Break the plan into vertical slices. For each:
+Break the plan into vertical slices. A **wide refactor** is the exception to the vertical-slice rule — slice it by **expand–contract** instead (see **Wide refactors** below). For each slice:
 
 - **Title:** imperative, action-oriented, in repo vocabulary.
 - **Type:** HITL (needs human input: architectural decision, design review, manual verification) or AFK (can be implemented and merged unattended). Prefer AFK; treat HITL as a flag that the slice still has an unresolved question.
@@ -64,7 +65,11 @@ Iterate until the user approves.
 
 ### 5. File
 
-Create issues via `mcp__linear-server__save_issue` in dependency order, so real issue IDs can populate the "Blocked by" field of later slices. Each child issue gets `parentId` set to the Epic issue (if any).
+Create issues via `mcp__linear-server__save_issue` in dependency order, so real issue IDs can populate the blocking edges of later slices. Each child issue gets `parentId` set to the Epic issue (if any), and each blocker is wired as a native relation via `save_issue`'s `blockedBy` field — the tracker renders the frontier visually, so the human sees what's takeable without opening every issue. The body's "Blocked by" section stays as the human-readable summary.
+
+## Wide refactors
+
+A **wide refactor** is one mechanical change — rename a column, retype a shared symbol — whose **blast radius** fans across the whole monorepo, so a single edit breaks thousands of call sites at once and no vertical slice can land green. Don't force it into a tracer bullet; sequence it as **expand–contract**. First expand: add the new form beside the old so nothing breaks. Then migrate the call sites over in batches sized by blast radius (per workspace, per directory), each batch its own issue blocked by the expand, keeping CI green batch to batch because the old form still exists. Finally contract: delete the old form once no caller remains, in an issue blocked by every migrate batch. When even the batches can't stay green alone, keep the sequence but let them share an integration branch that all block a final integrate-and-verify issue — green is promised only there.
 
 ## Issue body template
 
@@ -100,7 +105,7 @@ Relevant ADRs (`docs/adr/NNNN-*.md`), conventions (`docs/conventions/*.md`), pri
 
 - Do NOT modify or close the parent issue; just set `parentId` on children.
 - Do NOT file without explicit user approval of the breakdown.
-- Slice by behavior, never by file type or module boundary. One issue = one thin end-to-end capability.
+- Slice by behavior, never by file type or module boundary. One issue = one thin end-to-end capability. (Exception: a wide refactor slices by expand–contract, per the section above.)
 - Maximize parallelism: mark slices "None, can start immediately" whenever they are genuinely independent.
 - If a slice surfaces a hard-to-reverse decision with non-obvious rejected alternatives, open the companion ADR before filing the slice. See [docs/adr/README.md](../../../docs/adr/README.md).
 - Use repo vocabulary throughout titles and bodies. If a conversation term conflicts with the Glossary or `naming.md`, resolve it during step 2 (not in the issue body).

@@ -21,15 +21,15 @@ Try them in roughly this order:
 
 Build the right feedback loop, and the bug is 90% fixed.
 
-## Iterate on the loop itself
+## Tighten the loop
 
-Treat the loop as a product. Once you have _a_ loop, ask:
+Treat the loop as a product. Once you have _a_ loop, **tighten** it:
 
 - Can I make it faster? (Cache setup, skip unrelated init, narrow the test scope.)
 - Can I make the signal sharper? (Assert on the specific symptom, not "didn't crash".)
 - Can I make it more deterministic? (Pin time, seed RNG, isolate filesystem, freeze network.)
 
-A 30-second flaky loop is barely better than no loop. A 2-second deterministic loop is a debugging superpower.
+A 30-second flaky loop is barely better than no loop. A 2-second deterministic loop is tight — a debugging superpower.
 
 ## Non-deterministic bugs
 

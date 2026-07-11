@@ -1,6 +1,7 @@
 ---
 name: to-epic
-description: Synthesize the current conversation and codebase understanding into an Epic, then file it as an issue. No interview; works from what has already been discussed. Auto-activates when the user asks to write an epic, turn context into requirements, or create a spec issue.
+description: Synthesize the current conversation and codebase understanding into an Epic, then file it as an issue. No interview; works from what has already been discussed.
+disable-model-invocation: true
 ---
 
 # To Epic
@@ -37,7 +38,7 @@ For *why*/*how* questions across services, delegate to the `architecture-explain
 
 ### 2. Module sketch
 
-Sketch the major modules to build or modify. Actively look for **deep modules**: a simple, testable interface that hides complex implementation and rarely changes. Shallow modules with thin interfaces over large surface area are a smell; surface them and consolidate.
+Sketch the major modules to build or modify. Run the `/codebase-design` skill for the vocabulary, and actively look for **deep modules**: a simple, testable interface that hides complex implementation and rarely changes. Shallow modules with thin interfaces over large surface area are a smell; surface them and consolidate.
 
 Confirm with the user before drafting:
 
@@ -99,6 +100,6 @@ Links to ADRs, prior epics, related issues, open questions.
 - Write in the repo's vocabulary. If the conversation used a term that conflicts with the Glossary or `naming.md`, resolve it (or flag it) before filing.
 - No file paths or line numbers in the body; they rot.
 - No code snippets except the prototype-derived exception above (state machine / reducer / schema / type shape).
-- One Epic per issue. For multi-feature work, file the Epic, then run `to-issues` to break it into independently grabbable tickets as children of this Epic.
+- One Epic per issue. For multi-feature work, file the Epic, then have the user run `/to-issues` to break it into independently grabbable tickets as children of this Epic.
 - Never file without explicit user approval of the draft.
 - If the Epic touches a hard-to-reverse decision with non-obvious rejected alternatives, open the companion ADR before or alongside filing. See [docs/adr/README.md](../../../docs/adr/README.md) for the bar.

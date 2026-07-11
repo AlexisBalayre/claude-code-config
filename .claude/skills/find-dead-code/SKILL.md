@@ -1,6 +1,7 @@
 ---
 name: find-dead-code
-description: Detect legacy/dead-code candidates in the monorepo and hand back a ranked list with a per-category verification checklist. Covers unreferenced files, unused exports, dead feature flags, and orphan role-suffix modules across workspaces. Auto-activates when the user asks to "find dead code", "detect legacy code", "remove unused code", "prune the codebase", or "find orphaned files".
+description: Detect dead-code candidates in the monorepo and hand back a ranked list with per-category verification checklists.
+disable-model-invocation: true
 ---
 
 # Find Dead Code
@@ -26,7 +27,7 @@ Detection: for each candidate file `path/to/foo.service.ts`, grep the repo for `
 
 ### B. Unused exports
 
-Named exports that nothing imports. If `knip` is installed (`pnpm list -r knip`), run it from the workspace root: `pnpm dlx knip --include exports`. Otherwise grep per export: for `export const fooBar`, search `import.*\bfooBar\b` across the repo.
+Named exports that nothing imports. If knip is configured (`knip.json` at the repo root), run `pnpm knip`, adding `--include-entry-exports` to also surface unused exports of entry files; otherwise grep per export. Cross-check survivors by grep: for `export const fooBar`, search `import.*\bfooBar\b` across the repo.
 
 ### C. Dead feature flags
 

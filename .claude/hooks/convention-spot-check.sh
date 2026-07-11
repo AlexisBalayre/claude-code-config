@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Stop hook — lightweight convention spot-check on changed files.
-# Advisory only (always exits 0). Warnings on stderr.
+# Stop hook: lightweight structural convention spot-check on changed files.
+# Advisory only (exit 0). Comment-quality findings are owned by comment-pruner.sh.
 set -uo pipefail
 
 # Get changed .ts/.tsx files (staged + unstaged)
@@ -81,36 +81,6 @@ while IFS= read -r file; do
   if [[ "$file" == services/acme-gateway/* ]]; then
     if grep -qE 'new\s+[A-Z][A-Za-z0-9_]*Service\s*\(' "$file" 2>/dev/null; then
       WARNINGS+="  ⚠ $file: instantiates a Service class directly — use the create*Service factory (docs/conventions/gateway.md)\n"
-    fi
-  fi
-
-  # Verbose comments in just-added lines — JSDoc and inline. Inspects the diff
-  # rather than the whole file so pre-existing prose is never flagged. See
-  # docs/conventions/general.md ("Compress to summary + tags. Inline // explain
-  # WHY, never WHAT.").
-  ADDED=$(git diff HEAD -- "$file" 2>/dev/null | sed -n 's/^+[^+]/&/p' | sed 's/^+//')
-  if [ -n "$ADDED" ]; then
-    LONG_JSDOC=$(echo "$ADDED" | awk '
-      /\/\*\*/ { in_doc = 1; body_lines = 0; next }
-      /\*\// {
-        if (in_doc && body_lines > 6) print body_lines
-        in_doc = 0
-        next
-      }
-      in_doc { body_lines++ }
-    ')
-    if [ -n "$LONG_JSDOC" ]; then
-      MAX=$(echo "$LONG_JSDOC" | sort -nr | head -1)
-      WARNINGS+="  ⚠ $file: added JSDoc block has $MAX body lines — compress to summary + tags (docs/conventions/general.md)\n"
-    fi
-
-    LONG_INLINE=$(echo "$ADDED" | awk '
-      /^[[:space:]]*\/\// { run++; if (run > max) max = run; next }
-      { run = 0 }
-      END { if (max >= 5) print max }
-    ')
-    if [ -n "$LONG_INLINE" ]; then
-      WARNINGS+="  ⚠ $file: added $LONG_INLINE consecutive // comment lines — WHY only, single line preferred (docs/conventions/general.md)\n"
     fi
   fi
 

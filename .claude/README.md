@@ -49,23 +49,31 @@ This directory contains all Claude Code customizations for the Acme project. Eve
 │
 ├── skills/                # Auto-discoverable knowledge + workflows (each is <name>/SKILL.md)
 │   ├── new-api-endpoint/   new-frontend-route/   new-provider/   # scaffolding
-│   ├── grill-me/   grill-with-docs/   zoom-out/   prototype/     # thinking / design
-│   ├── tdd/   diagnose/   improve-codebase-architecture/   find-dead-code/  # engineering
+│   ├── tdd/   diagnose/   resolve-merge-conflicts/               # engineering
+│   ├── find-dead-code/   improve-codebase-architecture/          # engineering (manual)
+│   ├── grilling/   grill-me/   grill-with-docs/                  # thinking / design
+│   ├── codebase-design/   domain-modeling/   zoom-out/   prototype/
+│   ├── pr-description/   pr-ci-review/                           # PR & review
+│   ├── address-review-comments/   review-retro/
 │   ├── write-a-skill/   handoff/   caveman/                      # meta / workflow
-│   └── obsidian-vault/   to-issues/   to-epic/                   # personal integrations (.env)
+│   ├── obsidian-vault/   daily-note/   to-issues/   to-epic/     # personal integrations (.env)
+│   └── backfill-issues/   fix-sonar/   wiz/   fix-wiz/
 │
-├── commands/              # User-invoked slash commands
-│   └── code-review.md     # /code-review — multi-agent PR review
+├── commands/              # User-invoked slash commands (none shipped — see commands/README.md)
 │
 ├── agents/                # Custom subagents for specialized tasks
-│   ├── convention-checker.md
-│   ├── migration-reviewer.md
-│   ├── security-reviewer.md
-│   └── architecture-explainer.md
+│   ├── convention-checker.md      migration-reviewer.md          # proactive
+│   ├── security-reviewer.md       architecture-explainer.md
+│   ├── review-context.md          review-conventions.md          # dispatched by pr-ci-review
+│   ├── review-correctness.md      review-docs.md
+│   ├── review-maintainability.md  review-security.md
+│   ├── review-validator.md
+│   └── comment-pruner.md          # dispatched by the comment-pruner Stop hook
 │
 └── hooks/                    # Deterministic shell scripts (zero LLM cost)
-    ├── quality-checks.sh          # Stop: lint, typecheck, tests on affected pkgs
+    ├── quality-checks.sh          # Stop: lint/format dirty files + repo typecheck
     ├── convention-spot-check.sh   # Stop: advisory file-level convention scan
+    ├── comment-pruner.sh          # Stop: dispatch the comment-pruner subagent on new comments
     ├── git-safety.sh              # PreToolUse(Bash): block dangerous git/shell ops
     ├── protect-generated.sh       # PreToolUse(Edit|Write): block generated files
     ├── validate-file-naming.sh    # PreToolUse(Write): enforce kebab-case.role.ts
@@ -108,7 +116,7 @@ paths:
 
 Skills are directories with a `SKILL.md` that Claude discovers automatically. Claude sees the description at session start (tiny context cost) and loads the full content when the skill is relevant.
 
-This repo ships **17 skills** across scaffolding, engineering, thinking/design, meta, and personal integrations. The **[skill catalog](skills/README.md)** lists when each one fires and how to invoke it (auto-trigger, `/slash-command`, or Claude-only).
+This repo ships **30 skills** across scaffolding, engineering, thinking/design, PR & review, meta, and personal integrations. The **[skill catalog](skills/README.md)** lists when each one fires and how to invoke it (auto-trigger, `/slash-command`, Claude-only, or manual-only).
 
 **Frontmatter options:**
 - `name` — identifier and `/slash-command` name
@@ -125,13 +133,11 @@ This repo ships **17 skills** across scaffolding, engineering, thinking/design, 
 
 Slash commands the user explicitly invokes. These have side effects (posting PR comments, writing files) so they should never auto-trigger.
 
-| Command | Purpose | Key features |
-|---------|---------|-------------|
-| `/code-review` | Multi-agent PR review | 6 parallel agents, validation step, inline comments |
-
-> This repo ships one command as a worked example. Commands shine for repeatable,
-> side-effect-bearing workflows tied to your own tools (issue trackers, static
-> analysis, note-taking). Add your own following the same shape.
+> This repo currently ships no standalone commands: the worked example that lived here
+> (`/code-review`) graduated into the manual-only `pr-ci-review` skill, which dispatches the
+> `review-*` subagents. The layer remains the lightest way to package repeatable,
+> side-effect-bearing workflows tied to your own tools (issue trackers, static analysis,
+> note-taking). Add your own following the shape in `commands/README.md`.
 
 **Frontmatter options:** Same as skills, plus `$ARGUMENTS` for argument substitution.
 
@@ -149,6 +155,8 @@ Specialized AI workers that run in their own context window. Claude delegates to
 | `migration-reviewer` | Sonnet | Read, Glob, Grep | Schema change safety review |
 | `security-reviewer` | Opus | Read, Glob, Grep, Bash | Deep security analysis |
 | `architecture-explainer` | Sonnet | Read, Glob, Grep | Answer why/how architecture questions, grounded in `docs/` |
+| `review-*` (7 agents) | Sonnet/Opus | Read, Glob, Grep, Bash | Area reviewers + adversarial validator, dispatched by the `pr-ci-review` skill |
+| `comment-pruner` | Sonnet | Read, Edit, Grep, Glob, Bash | Prune low-value comments; dispatched by the `comment-pruner.sh` Stop hook |
 
 **Frontmatter options:**
 - `tools` — allowlist of tools (restricts to only what's needed)
@@ -169,8 +177,9 @@ Shell scripts that run outside the LLM loop on lifecycle events. Zero context co
 
 | Hook | Event | What it does |
 |------|-------|-------------|
-| `quality-checks.sh` | Stop | Lint, typecheck, test affected packages (blocks on failure) |
+| `quality-checks.sh` | Stop | Lint/format dirty files, typecheck the repo (blocks on failure; tests live in pre-commit) |
 | `convention-spot-check.sh` | Stop | Advisory scan for `export default`, inline types, missing JSDoc (`packages/` only) |
+| `comment-pruner.sh` | Stop | Dispatch the `comment-pruner` subagent when the session added net-new comments |
 | `git-safety.sh` | PreToolUse(Bash) | Block `rm -rf`, `git reset --hard`, force push, `checkout -b` on main, push to main |
 | `protect-generated.sh` | PreToolUse(Edit\|Write) | Block edits to `*.gen.ts` and gRPC stubs |
 | `validate-file-naming.sh` | PreToolUse(Write) | Enforce `kebab-case.role.ts` on new files |

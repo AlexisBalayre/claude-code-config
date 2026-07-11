@@ -45,9 +45,22 @@ if echo "$COMMAND" | grep -qE 'git[[:space:]]+checkout[[:space:]]+-b\b'; then
   fi
 fi
 
-if echo "$COMMAND" | grep -qE "git[[:space:]]+push[[:space:]]+.*\b${TRUNK}\b"; then
+# Anchor on the refspec, not the substring: branch names like feature/fix-main-red
+# and tag pushes must pass; only an actual trunk destination (`$TRUNK`, `src:$TRUNK`,
+# `refs/heads/$TRUNK`, `:$TRUNK` deletion) is blocked. Argument tokens exclude
+# command separators so a chained `&& gh pr create --base $TRUNK` can't match.
+if echo "$COMMAND" | grep -qE "git[[:space:]]+push([[:space:]]+[^|&;[:space:]]+)*[[:space:]]+([^|&;[:space:]]*:)?(refs/heads/)?${TRUNK}([[:space:]]|\$|[|&;])"; then
   echo "BLOCKED: never push directly to $TRUNK. Create a PR from a feature branch." >&2
   exit 2
+fi
+
+# A bare `git push` lands on the current branch — block it while on trunk.
+if echo "$COMMAND" | grep -qE 'git[[:space:]]+push[[:space:]]*$'; then
+  CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "")
+  if [ "$CURRENT_BRANCH" = "$TRUNK" ]; then
+    echo "BLOCKED: bare 'git push' while on $TRUNK. Create a PR from a feature branch." >&2
+    exit 2
+  fi
 fi
 
 exit 0
