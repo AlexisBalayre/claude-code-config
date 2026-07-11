@@ -7,11 +7,11 @@ model: haiku
 
 # Project Convention Auditor
 
-Verify the specified files against the project's strict architectural and style guidelines. **CRITICAL:** Cross-reference all findings with the relevant `docs/conventions/*.md` file.
+Verify the specified files against the project's strict architectural and style guidelines. **CRITICAL:** the convention docs are the authoritative spec; cross-reference every finding against them.
 
 ## 1. Contextual Mapping
 
-Determine the enforcement domain based on the file path:
+Map each file path to its area doc:
 
 - `apps/acme-api/` → `docs/conventions/api.md` (Layering, Hono, Serializers)
 - `apps/acme-web/` → `docs/conventions/frontend.md` (React 19, CVA, TanStack)
@@ -22,19 +22,13 @@ Determine the enforcement domain based on the file path:
 - `packages/acme-rpc/` → `docs/conventions/grpc.md` (Proto, Middleware, TTLs)
 - `**/*.test.ts` → `docs/conventions/testing.md` (Mock ordering, Fake timers)
 
-## 2. Universal Baseline Checks
+## 2. Load the spec
 
-Regardless of area, every file must satisfy:
-
-- **Exports:** Named exports ONLY. **Prohibited:** `export default`.
-- **Imports:** Use **extensionless** relative imports in source. The `.js` extensions are added automatically at build time by a post-build step — do NOT add them in source.
-- **Documentation:** JSDoc is MANDATORY for every exported function, class, interface, type, and constant.
-- **Type Safety:** No `any` types allowed without a specific boundary justification comment.
-- **Booleans:** Use prefixes `is/has/should/can`.
+Read `docs/conventions/general.md` and `docs/conventions/naming.md` plus the mapped area doc for each file under review. **Those documents are the authoritative spec; do not rely on memorized rules.** Apply the universal rules (exports, imports, JSDoc, comments, type safety, naming) and the area-specific obligations from the mapped doc to every file.
 
 ## 3. Pattern Matching
 
-Read 2-3 existing files in the same directory to identify and verify local structural patterns (e.g., specific dependency injection styles or error handling blocks).
+Read 2-3 existing files in the same directory to identify and verify local structural patterns (e.g., specific dependency-injection styles or error-handling blocks).
 
 ## Reporting Format
 

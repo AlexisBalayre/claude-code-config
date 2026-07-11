@@ -27,10 +27,10 @@ replace the TypeScript conventions with yours.
 | :---- | :---- | :----------- |
 | **`CLAUDE.md`** | 1 | Always-on project memory: role, workspaces, git workflow, key commands. Kept tiny on purpose. |
 | **`rules/`** | 9 | Path-scoped convention rules that auto-load `docs/conventions/*.md` only when you touch matching files (the "split pattern"). |
-| **`skills/`** | 17 | Auto-discoverable workflows: scaffolding (`new-api-endpoint`, `new-provider`…), engineering (`tdd`, `diagnose`, `find-dead-code`…), thinking (`grill-me`, `grill-with-docs`, `zoom-out`, `prototype`), meta (`write-a-skill`, `handoff`, `caveman`), and personal integrations (`obsidian-vault`, `to-issues`, `to-epic` — configured via `.env`). |
-| **`commands/`** | 1 | `/code-review` — a 6-agent PR review with a validation pass and inline comments. |
-| **`agents/`** | 4 | Isolated subagents: `convention-checker` (Haiku), `migration-reviewer` (Sonnet), `security-reviewer` (Opus), `architecture-explainer` (Sonnet). |
-| **`hooks/`** | 6 | Zero-LLM shell scripts on lifecycle events: quality gate, convention spot-check, git safety, generated-file protection, file-naming validation, compaction preservation. |
+| **`skills/`** | 30 | Auto-discoverable workflows: scaffolding (`new-api-endpoint`, `new-provider`…), engineering (`tdd`, `diagnose`, `resolve-merge-conflicts`, `find-dead-code`…), thinking & design (`grilling`, `grill-me`, `codebase-design`, `domain-modeling`, `prototype`…), PR & review (`pr-description`, `pr-ci-review`, `address-review-comments`, `review-retro`), meta (`write-a-skill`, `handoff`, `caveman`), and personal integrations (`obsidian-vault`, `daily-note`, `to-issues`, `fix-sonar`, `wiz`… — configured via `.env`). |
+| **`commands/`** | 0 | The user-invoked layer, documented and ready for your own commands; the worked example (`/code-review`) graduated into the `pr-ci-review` skill. |
+| **`agents/`** | 12 | Isolated subagents: 4 proactive (`convention-checker`, `migration-reviewer`, `security-reviewer`, `architecture-explainer`), 7 `review-*` reviewers + validator dispatched by `pr-ci-review`, and `comment-pruner` dispatched by its Stop hook. |
+| **`hooks/`** | 7 | Zero-LLM shell scripts on lifecycle events: quality gate, convention spot-check, comment-pruner dispatch, git safety, generated-file protection, file-naming validation, compaction preservation. |
 
 The full architecture — what loads when, the context budget, and how to extend each layer — is
 documented in **[`.claude/README.md`](.claude/README.md)**. For when and how to use each skill,

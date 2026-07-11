@@ -28,10 +28,10 @@ pnpm worktree:create my-feature      # .worktrees/my-feature on branch feature/m
   └─ cd .worktrees/my-feature
        ├─ explore + plan (read 2-3 neighbours; match patterns)
        ├─ TDD: red → green → refactor       (tdd skill)
-       ├─ Stop hook gates every response     (lint · typecheck · test affected pkgs)
+       ├─ Stop hook gates every response     (lint/format dirty files · typecheck)
        ├─ convention-checker before commit   (≥3 files across apps/services/packages)
-       ├─ commit (lands on feature/ branch, never main)
-       └─ open PR  →  /code-review
+       ├─ commit (pre-commit runs the test suite; lands on feature/ branch, never main)
+       └─ open PR  →  /pr-description  →  /pr-ci-review
 pnpm worktree:clean                   # remove worktrees whose remote branch is gone
 ```
 
@@ -42,7 +42,7 @@ pnpm worktree:clean                   # remove worktrees whose remote branch is 
 | Branch protection | `.claude/hooks/git-safety.sh` | Blocks `git checkout -b` on `main`, blocks pushes to `main`, blocks `git reset --hard` and `rm -rf`. |
 | Worktree creation | `scripts/worktree-create.sh` + `package.json` | `pnpm worktree:create <name>` always makes `.worktrees/<name>` on `feature/<name>` and installs deps. |
 | Worktree cleanup | `scripts/worktree-clean.sh` | `pnpm worktree:clean` removes worktrees whose remote branch is gone (e.g. after merge). |
-| Quality gate | `.claude/hooks/quality-checks.sh` | On every `Stop`, runs lint + typecheck + tests for affected packages; blocks on failure. |
+| Quality gate | `.claude/hooks/quality-checks.sh` | On every `Stop`, lint/format-fixes the dirty files and typechecks the repo; blocks on failure. Tests run in the pre-commit hook. |
 | Context survival | `.claude/hooks/pre-compact-preserve.sh` | Preserves the current branch + worktree path + test results across compaction. |
 | Visibility | `.claude/statusline.sh` | Shows the active worktree branch, context usage, and cost in the statusline. |
 | `CLAUDE.md` | repo root | States the rule in always-on context: PRs only, worktrees only, never `main`. |

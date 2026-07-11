@@ -32,4 +32,4 @@ What becomes easier, what becomes harder, what we are now committed to.
 The genuine options we rejected, and why.
 ```
 
-The `grill-with-docs` skill offers to open an ADR when a decision clears the three-part bar above.
+The `domain-modeling` skill (which `grill-with-docs` runs) offers to open an ADR when a decision clears the three-part bar above.

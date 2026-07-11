@@ -3,12 +3,16 @@
 Slash commands you invoke explicitly. They carry side effects (posting PR comments, writing
 files), so they never auto-trigger.
 
-| Command | When to use | How to invoke |
-| :------ | :---------- | :------------ |
-| `/code-review` | You want a high-signal review of a pull request before merging — real bugs, `CLAUDE.md` violations, and spec/config correctness, with style nits and linter-catchable issues filtered out. | `/code-review <PR number or URL>`. Runs a context pass + 6 parallel review agents + a validation pass, then posts inline comments (or a clean-bill summary). |
+This repo currently ships no standalone commands: the worked example that lived here
+(`/code-review`, a multi-agent PR review) graduated into the
+[`pr-ci-review` skill](../skills/pr-ci-review/SKILL.md) — same explicit `/pr-ci-review`
+invocation (it sets `disable-model-invocation: true`), but with the reviewers factored out
+into reusable [`review-*` subagents](../agents/README.md) and a CI-friendly structured output.
 
-**Requires:** `gh` authenticated; for inline comments, the GitHub inline-comment MCP tool
-(`mcp__github_inline_comment__create_inline_comment`) — both declared in the command's
-`allowed-tools`.
+The layer itself is still useful: a command is a plain markdown prompt with frontmatter
+(`description`, optional `allowed-tools`, `$ARGUMENTS` substitution) — the lightest way to
+package a repeatable, side-effect-bearing workflow tied to your own tools (issue trackers,
+static analysis, note-taking). Note that a manual-only skill covers the same ground with
+better structure; reach for a command when a single self-contained prompt file is all you need.
 
 To add a command, see [`.claude/README.md`](../README.md) ("New command").

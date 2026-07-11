@@ -1,30 +1,20 @@
 ---
 name: new-api-endpoint
-description: Scaffold a new API endpoint with route, schema, service, serializer, and test following strict layering conventions. Auto-activates when asked to "add an endpoint", "create a route", or "add an API for".
+description: Scaffold a new API endpoint with route, schema, service, serializer, and test following strict layering conventions. Auto-activates when asked to "add an endpoint", "create an API route", or "add an API for".
 user-invocable: false
 ---
 
-Scaffold a new API endpoint. **CRITICAL:** Follow `docs/conventions/api.md` exactly.
+Scaffold a new API endpoint. The per-layer obligations (schema error shapes, service signatures, serializer and handler rules) live in `docs/conventions/api.md` - read it first and follow it exactly. This skill fixes only the file set and order of operations.
 
 ## Execution Steps
 
-1. **Determine Domain & Context:** Identify the domain (e.g., `users`, `messages`). Read 2-3 existing examples in `routes/`, `schemas/`, `services/`, and `serializers/` before writing code.
-2. **Create Schema (`src/schemas/<domain>.schemas.ts`):**
-   - Use `@hono/zod-openapi` (`createRoute`, `z`).
-   - Define entity, request body, and param schemas.
-   - Include `401` + `500` errors (and `404` for lookups). Import `ErrorSchema`.
-3. **Create Service (`src/services/<domain>.service.ts`):**
-   - Use stateless exported named functions (NEVER classes). Use standard CRUD names (`create`, `list`, `getById`, `update`, `remove`).
-   - First parameter MUST be `db: Database`. Throw `AppError` subclasses for business errors.
-4. **Create Serializer (`src/serializers/<domain>.serializer.ts`):**
-   - Transform DB entities to API response shapes. NEVER expose raw DB entities.
-5. **Create Route (`src/routes/<domain>.routes.ts`):**
-   - Export factory: `create<Domain>V1Routes(deps: <Domain>V1Deps)`. Define deps interface (`db`, `env`, `auth`, etc.).
-   - **Handlers:** Keep thin (Validate -> Service -> Serialize -> Respond). Return named objects (e.g., `{ entity: ... }`).
-   - Add `// @ts-expect-error` above EVERY `router.openapi()` call to bypass Hono strict return types.
+1. **Determine Domain & Context:** Identify the domain (e.g., `sessions`, `messages`). Read 2-3 existing examples in `routes/`, `schemas/`, `services/`, and `serializers/` before writing code.
+2. **Schema** - `src/schemas/<domain>.schemas.ts` with `@hono/zod-openapi` (`createRoute`, `z`): entity, request body, and param schemas, per api.md §Schemas.
+3. **Service** - `src/services/<domain>.service.ts`, per api.md §Services.
+4. **Serializer** - `src/serializers/<domain>.serializer.ts`, per api.md §Serializers.
+5. **Route** - `src/routes/<domain>.routes.ts`: export factory `create<Domain>V1Routes(deps: <Domain>V1Deps)` with a deps interface (`db`, `env`, `auth`, etc.); handlers stay thin (Validate -> Service -> Serialize -> Respond), per api.md §Routes.
 6. **Register:** Add the route factory to `registerRoutes` in `src/routes/index.ts`.
-7. **Add Tests (`test/unit/routes/<domain>-routes.test.ts`):**
-   - Follow `docs/conventions/testing.md`. (Note: Logger is globally suppressed in API tests; mock only to assert).
+7. **Tests** - `test/unit/routes/<domain>-routes.test.ts`, per `docs/conventions/testing.md`. (Logger is globally suppressed in API tests; mock only to assert.)
 8. **Verify:**
    - `pnpm typecheck`
    - `pnpm --filter @acme/acme-api test`

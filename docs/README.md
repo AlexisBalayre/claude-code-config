@@ -34,8 +34,8 @@ When a term is fuzzy, sharpen it here first.
 | **Event**        | An internal domain event emitted by the Session Engine (`ParticipantJoined`, `MessageDispatched`).|
 
 > This glossary is intentionally small. In a real project it grows as cross-cutting nouns
-> appear. The `grill-with-docs` skill and `improve-codebase-architecture` skill both read it
-> to keep naming consistent.
+> appear. The `domain-modeling` skill (which `grill-with-docs` delegates to) and the
+> `improve-codebase-architecture` skill both read it to keep naming consistent.
 
 ---
 

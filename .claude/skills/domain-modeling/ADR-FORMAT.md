@@ -24,7 +24,7 @@ Only include these when they add genuine value. Most ADRs won't need them.
 
 ## Numbering
 
-Scan `docs/adr/` for the highest existing number and increment by one.
+Scan `docs/adr/` on `origin/main` (`git ls-tree origin/main docs/adr/` after a fetch) for the highest existing number and increment by one. The local listing goes stale and concurrent merges claim numbers.
 
 ## When to offer an ADR
 

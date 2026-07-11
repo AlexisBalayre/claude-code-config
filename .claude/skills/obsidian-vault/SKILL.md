@@ -20,7 +20,7 @@ OBSIDIAN_VAULT="$HOME/Documents/notes"   # adjust to your vault
 
 Typical subfolders (rename to match yours):
 
-- `Daily Logbook/`: daily notes
+- `Daily Logbook/`: daily notes (managed by `/daily-note`)
 - `Templates/`: note templates (e.g., `Daily Log.md`)
 
 ## Naming conventions
@@ -69,3 +69,7 @@ grep -rl "\\[\\[Note Title\\]\\]" "$OBSIDIAN_VAULT"
 ```bash
 find "$OBSIDIAN_VAULT" -name "*Index*"
 ```
+
+## Related
+
+- The `/daily-note` skill manages the `Daily Logbook/` subfolder; defer to it for daily notes.
