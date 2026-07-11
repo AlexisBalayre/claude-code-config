@@ -1,7 +1,7 @@
 # claude-code-power-config
 
 A complete, opinionated **[Claude Code](https://code.claude.com/docs)** configuration — rules,
-skills, slash commands, subagents, and deterministic hooks, wired together and documented end to
+skills, subagents, and deterministic hooks, wired together and documented end to
 end. The framework and the worktree-first workflow are **language-agnostic**; only the included
 conventions and scaffolding are stack-specific, and you swap those for your own.
 
@@ -28,7 +28,6 @@ replace the TypeScript conventions with yours.
 | **`CLAUDE.md`** | 1 | Always-on project memory: role, workspaces, git workflow, key commands. Kept tiny on purpose. |
 | **`rules/`** | 9 | Path-scoped convention rules that auto-load `docs/conventions/*.md` only when you touch matching files (the "split pattern"). |
 | **`skills/`** | 30 | Auto-discoverable workflows: scaffolding (`new-api-endpoint`, `new-provider`…), engineering (`tdd`, `diagnose`, `resolve-merge-conflicts`, `find-dead-code`…), thinking & design (`grilling`, `grill-me`, `codebase-design`, `domain-modeling`, `prototype`…), PR & review (`pr-description`, `pr-ci-review`, `address-review-comments`, `review-retro`), meta (`write-a-skill`, `handoff`, `caveman`), and personal integrations (`obsidian-vault`, `daily-note`, `to-issues`, `fix-sonar`, `wiz`… — configured via `.env`). |
-| **`commands/`** | 0 | The user-invoked layer, documented and ready for your own commands; the worked example (`/code-review`) graduated into the `pr-ci-review` skill. |
 | **`agents/`** | 12 | Isolated subagents: 4 proactive (`convention-checker`, `migration-reviewer`, `security-reviewer`, `architecture-explainer`), 7 `review-*` reviewers + validator dispatched by `pr-ci-review`, and `comment-pruner` dispatched by its Stop hook. |
 | **`hooks/`** | 7 | Zero-LLM shell scripts on lifecycle events: quality gate, convention spot-check, comment-pruner dispatch, git safety, generated-file protection, file-naming validation, compaction preservation. |
 
@@ -111,7 +110,7 @@ the shared vocabulary.
 │   ├── settings.json          # permissions + hook wiring
 │   ├── settings.local.json.example
 │   ├── statusline.sh
-│   ├── rules/  skills/  commands/  agents/  hooks/
+│   ├── rules/  skills/  agents/  hooks/
 └── docs/
     ├── README.md              # glossary + Diátaxis index
     ├── workflow.md            # the worktree-first loop
