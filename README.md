@@ -45,6 +45,21 @@ see the **[skill catalog](.claude/skills/README.md)**.
 └──────────────────────────────────────────────┘
 ```
 
+## The CI review pipeline
+
+The multi-agent PR review runs end to end in GitHub Actions:
+**[`claude-code-review.yml`](.github/workflows/claude-code-review.yml)** wires a deterministic
+preflight (PR-head checkout, full-vs-incremental mode), the `/pr-ci-review` orchestrator (which
+spawns the `review-*` agents and emits a structured record), and a poster script that renders
+the record to the PR — inline comments for blocking findings, collapsed sections for the rest,
+and a commit status so an unreviewed diff is never mistaken for a clean one. The model itself
+has **no write channel** to the PR: its tool allowlist is read-only, which is both the
+prompt-injection defense and the delivery guarantee (a dead run still posts "not reviewed").
+The deterministic half lives in **[`tools/review/`](tools/review/)** (preflight, schema,
+poster, metrics — with the design and threat model in its README); each run's record is
+appended to a `ci/review-metrics` orphan branch that the `/review-retro` skill mines to
+improve the pipeline itself.
+
 ## The worktree-first workflow
 
 The spine of this setup: **never work on `main`, one git worktree per task.** The `git-safety`
@@ -103,6 +118,9 @@ vocabulary.
 ├── AGENTS.md                  # tool-agnostic always-on memory (any coding agent)
 ├── CLAUDE.md                  # thin Claude Code layer: @AGENTS.md + Claude-only notes
 ├── .env.example               # personalization hub (vault path, tracker IDs, git trunk)
+├── .github/workflows/
+│   └── claude-code-review.yml # the CI review pipeline (preflight → model → poster)
+├── tools/review/              # deterministic review tooling (schema, poster, metrics)
 ├── package.json               # worktree scripts + toolchain hooks
 ├── scripts/
 │   ├── worktree-create.sh     # pnpm worktree:create <name>

@@ -1,0 +1,23 @@
+{
+  "name": "claude-review-tooling",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "review:preflight": "tsx src/review-preflight.script.ts",
+    "review:print-schema": "tsx src/print-schema.script.ts",
+    "review:metrics": "tsx src/review-metrics.script.ts",
+    "review:post": "tsx src/post-review.script.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^3.0.0"
+  }
+}
