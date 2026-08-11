@@ -1,79 +1,64 @@
-# Testing Conventions
+# Testing
 
-Rules for test files across the monorepo. Auto-loaded via
-`.claude/rules/testing-conventions.md` when you touch a test. The runner is **Vitest**.
+**Genre contract:** obligations only.
 
-## Test kinds
+Vitest (`globals: true`, `env: node`), V8 coverage (85% lines / 80% branches). Timeouts: 5s unit / 10s integration (`packages/acme-db` may extend). One exception: `apps/acme-web` runs `jsdom` with a coverage **ratchet** instead of the 85/80 target (thresholds pinned in its `vitest.config.ts`; raise as untested areas gain tests, never lower).
 
-| Kind        | File                       | Runs against                                       |
-| :---------- | :------------------------- | :------------------------------------------------- |
-| Unit        | `*.test.ts`                | Pure logic in isolation; colocated or under `test/`.|
-| Integration | `*.integration.test.ts`    | A real server + database (`pnpm … test:integration`).|
+## Layout
 
-Unit tests must not touch the network or a real DB — mock those boundaries. Integration tests
-are where you exercise the wired-up stack end to end.
+Tests live in `test/`, never beside source. Per package: `test/unit/` (mirrors `src/`, one file per module), `test/integration/` (cross-module scenarios; may use real services), `test/helpers/` (shared mocks and fixture builders), optional `test/setup.ts` (global hooks). `apps/acme-web` adds a third category: `test/e2e/` (smoke specs making real network calls against a live deployment), run via `test:e2e` with its own `vitest.e2e.config.ts` (30s timeout, single fork), deliberately outside the shared factories below.
 
-## Mocking
+- Unit mirror is mechanical: `src/foo/bar.service.ts` → `test/unit/foo/bar-service.test.ts` (replace the dot between kebab and role with a dash, append `.test.ts`). No compound test roles. The naming hook validates only the test file's own suffix, not the src↔test correspondence, so keep the mapping honest yourself.
+- Integration tests are named by **scenario**, not module: `two-providers-failover.test.ts`, not `session.manager.test.ts`.
+- Coverage thresholds apply to unit tests only.
+- The legacy `.integration.test.ts` suffix is **banned** (the naming hook rejects it) — folder placement is the source of truth.
 
-- **Mock external SDKs** (provider clients, gRPC stubs, BetterAuth) — never hit a third party
-  in a test.
-- **Mock ordering matters.** `vi.mock` is hoisted, but factory references and spies are not:
-  declare and configure mocks **before** importing the unit under test, or the unit captures
-  the real implementation at import time.
+## Imports
 
-  ```ts
-  import { vi, describe, it, expect } from 'vitest';
+Tests use `@src/*` and `@test/*` aliases — never `../../src/...`. Each package wires them in its own `tsconfig.json` `compilerOptions.paths`; the shared Vitest factory wires the same aliases — keep both in sync.
 
-  vi.mock('../providers/email.client', () => ({
-    sendViaEmail: vi.fn().mockResolvedValue({ delivered: true }),
-  }));
+## Vitest configuration
 
-  // import AFTER the mock is declared
-  import { dispatchMessage } from './message-dispatch.service';
-  ```
-
-- **Use fake timers** for anything time-dependent (retry backoff, debounce, TTL expiry):
-  ```ts
-  vi.useFakeTimers();
-  // …
-  vi.advanceTimersByTime(5_000);
-  vi.useRealTimers();
-  ```
-
-## The logger
-
-The logger is **globally suppressed in API tests** — you don't need to silence it per file.
-Mock it **only** when a test needs to assert that something was logged (e.g. a warning on a
-dropped Event).
-
-## Structure
-
-- **Arrange / Act / Assert.** Keep the three phases visually distinct.
-- **Test behaviour and public contracts, not implementation details.** Assert on what a
-  caller observes (return value, thrown `AppError`, emitted Event), not on private internals.
-  Tests coupled to internals break on every refactor.
-- **One logical assertion focus per test.** A test verifies a single behaviour; multiple
-  `expect`s are fine when they describe one outcome.
+Use the shared factories at `tools/vitest/`:
 
 ```ts
-describe('dispatchMessage', () => {
-  it('marks the Message delivered when the Provider accepts it', async () => {
-    // arrange
-    const db = makeTestDb();
-    const message = await seedMessage(db, { body: 'hello' });
+// vitest.config.ts
+import { defineUnitConfig } from "../../tools/vitest/unit.factory";
+export default defineUnitConfig(import.meta.dirname);
 
-    // act
-    const result = await dispatchMessage(db, message.id);
-
-    // assert
-    expect(result.status).toBe('delivered');
-  });
-});
+// vitest.integration.config.ts (when integration tests exist)
+import { defineIntegrationConfig } from "../../tools/vitest/integration.factory";
+export default defineIntegrationConfig(import.meta.dirname);
 ```
 
-## Cross-links
+Pass overrides as a 2nd arg — deep-merged via `mergeConfig` (array fields like `coverage.exclude` extend, not replace). Scripts: `test` / `test:watch` / `test:integration`.
 
-- The **`tdd`** skill drives the red-green-refactor loop — write the failing test first, make
-  it pass, then refactor.
-- The `testing-conventions` rule auto-loads this doc whenever you open a test file, so the
-  conventions are in context while you write.
+## File order (strict)
+
+`vi.mock(...)` → imports of mocked modules → import of module under test → shared fixtures → `describe` blocks.
+
+## Setup & mocks
+
+- Always `vi.clearAllMocks()` in `beforeEach`. Use `vi.mocked(fn).mockResolvedValue(...)` for type safety.
+- **Logger:** mock `@acme/acme-logger`'s `MultiTargetLogger` (instance methods `info/error/warn/debug`); prefer `@test/helpers/logger`'s `createMockLogger()` where available.
+- **DB:** API uses `const mockDb = {} as any` + repo module mocks. Repo tests use a local chainable `createMockDb()` (`from`, `where`, `select`, `insert`).
+
+## API route tests
+
+- Mock `middleware/auth` and `middleware/session-auth` as pass-throughs that set context. Mock services at module level.
+- Wrap the sub-router in a mini `OpenAPIHono` with an `onError` mapping `AppError`. Drive via `app.request()`.
+
+## Integration tests
+
+- Real implementations; mock external services (email, SMS, push providers) via factory helpers + spread overrides.
+- `vi.useFakeTimers()` in `beforeEach`, `vi.advanceTimersByTimeAsync()` for async pipelines, `vi.useRealTimers()` in `afterEach`.
+
+## Focus
+
+- Never skip repository tests.
+- Services: happy path, ownership (`NotFoundError` on mismatch), errors, fallbacks.
+- Routes: status, shape, service args, roles, error mapping.
+- Repositories: query construction, parameter mapping, return values.
+- Gateway pools: acquire/release, lifecycle, capacity limits, queue behavior, concurrency, shutdown draining.
+- Gateway resilience: CB closed → open → half-open; health score windows.
+- Gateway routing: selection, fallback, degraded skipping. Sessions: admission thresholds, duplicate rejection.

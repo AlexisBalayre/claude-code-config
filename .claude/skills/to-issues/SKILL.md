@@ -31,7 +31,7 @@ If the user passes an issue ID or URL, fetch it via `mcp__linear-server__get_iss
 
 Issue titles and bodies MUST use this repo's vocabulary. Before slicing:
 
-- Skim `docs/README.md` Glossary and `docs/conventions/naming.md` for canonical terms (`Organization`, `Session`, `Participant`, `Message`, etc.).
+- Skim `docs/glossary.md` and `docs/conventions/core.md` for canonical terms (`Organization`, `Session`, `Participant`, `Message`, etc.).
 - Check `docs/adr/` for hard-to-reverse decisions in the area. If any proposed slice would silently re-litigate an ADR, flag it to the user before drafting; do not bury the contradiction inside an issue body.
 - Skim the relevant `docs/explanation/<topic>.md` for current rationale.
 
@@ -108,4 +108,4 @@ Relevant ADRs (`docs/adr/NNNN-*.md`), conventions (`docs/conventions/*.md`), pri
 - Slice by behavior, never by file type or module boundary. One issue = one thin end-to-end capability. (Exception: a wide refactor slices by expand–contract, per the section above.)
 - Maximize parallelism: mark slices "None, can start immediately" whenever they are genuinely independent.
 - If a slice surfaces a hard-to-reverse decision with non-obvious rejected alternatives, open the companion ADR before filing the slice. See [docs/adr/README.md](../../../docs/adr/README.md).
-- Use repo vocabulary throughout titles and bodies. If a conversation term conflicts with the Glossary or `naming.md`, resolve it during step 2 (not in the issue body).
+- Use repo vocabulary throughout titles and bodies. If a conversation term conflicts with the Glossary or `core.md`, resolve it during step 2 (not in the issue body).

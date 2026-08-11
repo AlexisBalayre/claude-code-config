@@ -1,9 +1,9 @@
 ---
 name: pr-ci-review
 disable-model-invocation: true
-allowed-tools: Bash(git *), Bash(gh *), Bash(pnpm *), Bash(turbo *), Read, Edit, Write, Grep, Glob, Agent, mcp__github_inline_comment__create_inline_comment
-description: Cost-optimal multi-agent code review of local changes or a PR, across six relevance-gated, model-tiered areas, with a deterministic pre-flight, record-all reporting, and high-signal posting.
-argument-hint: "[pr [<number>]] [--fix | --comment]"
+allowed-tools: Bash(git *), Bash(gh *), Bash(pnpm *), Bash(turbo *), Read, Edit, Write, Grep, Glob, Agent
+description: Cost-optimal multi-agent code review of local changes or a PR, across six relevance-gated, model-tiered areas, with a deterministic pre-flight and a record-all structured verdict CI renders to the PR in full.
+argument-hint: "[pr [<number>]] [--fix]"
 ---
 
 # Code Review Protocol
@@ -12,33 +12,38 @@ Provide a context-aware code review of local changes or a pull request, across s
 
 The governing rule is **spend only where it buys recall**. Deterministic tooling and the human in the loop are free, so lean on them first and spawn an agent only when judgment is the thing missing. Recall comes from the deterministic suite plus the correctness and security reviewers; almost everything else is a cut.
 
-> **Setup:** the CI paths (`--json-schema`, the `review-metrics` record) assume your own CI
-> wiring — a workflow that invokes `/pr-ci-review` on PRs and appends each run's record to a
-> `ci/review-metrics` orphan branch. This template ships no workflow; without one, the local
-> `report` / `--fix` and manual `pr --comment` paths work unchanged.
+> **Setup:** the CI paths (`--json-schema`, the `review-metrics` record, the poster) assume your
+> own CI wiring — a workflow whose preflight checks out the PR head and resolves the mode, that
+> invokes `/pr-ci-review` with the PR named in prose plus a schema, appends each run's record to
+> a `ci/review-metrics` orphan branch, and renders/posts the record with a poster script. This
+> template ships no workflow; without one, the local `report` / `--fix` paths work unchanged.
 
 ## Review Constraints
 
 - **Grounded, not speculative:** every finding is grounded in the actual changed code. No speculation; a false positive erodes trust.
 - **Tag by severity, not by whether to post:** tag each finding `important` (fix before merge), `nit` (real but minor), or `pre-existing` (predates this diff).
-- **Record-all, post-high-signal:** the structured record captures every confirmed finding (`important`, `nit`, and `pre-existing`) plus the refuted ones; a PR receives inline comments for `important` findings only. `nit` and `pre-existing` are recorded, never posted.
+- **Record-all, rank by display:** the structured record captures every confirmed finding plus the refuted ones, and CI renders all of it: `important` findings as inline comments on the diff, `nit`, `pre-existing`, and refuted findings in collapsed sections of the review body. You do not do the posting: the record is not a companion to the comments, it is what they are made from. A sub-important finding's `description` is therefore read by the author, not only the retro; write it as a self-contained one-liner.
 - **Leave linters alone:** do not raise anything Biome or tsc already catches; that is noise, not a finding.
 
-## 1. Parse arguments -> source + action
+## 1. Parse arguments -> source + action + mode
 
-- **source = pr** when the invocation carries a `pr` token, a prose `Pull request: #N` reference, or a `--json-schema`. The CI harness invokes `/pr-ci-review` with the PR named in prose and a schema, so that path resolves here. `pr 123` or `#123` targets that PR; a bare `pr` targets the current branch's PR (`gh pr view`). A `--json-schema` or `--comment` makes **action = comment**; otherwise **action = report**.
+- **source = pr** when the invocation carries a `pr` token, a prose `Pull request: #N` reference, or a `--json-schema`. The CI harness invokes `/pr-ci-review` with the PR named in prose and a schema, so that path resolves here. `pr 123` or `#123` targets that PR; a bare `pr` targets the current branch's PR (`gh pr view`). A `--json-schema` makes **action = record**; otherwise **action = report**.
 - **source = local** only when none of the above is present: the working tree is the subject. Default **action = report**; `--fix` -> **action = fix**.
-- Reject invalid combinations: `--fix` with `pr`, or `--comment` with local. State the error and stop.
+- **mode**: a CI invocation carries a `Mode:` line and a `Merge base:` line, both resolved by the deterministic preflight step before you started; consume them, never re-derive them. `Mode: incremental from <sha> (prior record: records/<id>.json on origin/ci/review-metrics)` makes **mode = incremental** with that SHA as the delta base and that record as the prior review; `Mode: full` (or no Mode line) is a full review. Local runs are always **full**: a working tree has no prior record to diff against.
+- Reject `--fix` with `pr`: state the error and stop. There is no local action that writes to a PR; a local `pr <n>` invocation without a schema reports in the session and posts nothing.
 
 Define **the change** once and reuse it everywhere below:
 
 - **local**: the working-tree diff against the merge-base with `main` (committed + staged + unstaged).
-- **pr `<n>`**: the diff of PR #`<n>`.
+- **pr `<n>`**: the diff of PR #`<n>`; under **mode = incremental**, the delta `git diff <from_sha>..HEAD` instead, and every later stage (steering, area gating, instance scaling, briefs, validation) keys off that delta unchanged.
 
 ## 2. Gate the run before spending anything
 
-- **PR freshness** (pr source): before spawning, assert the working tree *is* the PR's current head: `git rev-parse HEAD` must equal `gh pr view <n> --json headRefOid -q .headRefOid`. If they differ, the tree is stale (CI checks out the head, but GitHub can serve a lagging `refs/pull/N/merge`): re-checkout the head with `gh pr checkout <n>`, or stop and say so. A stale tree produces findings that are false on the real head and silently skips the surface the head added. Also assert the tree is **clean** (`git status --porcelain` empty): the SHA match alone passes even when uncommitted edits sit on top of the right HEAD, and those edits make `Read` serve content that disagrees with `gh pr diff`, so reviewers cite code that is not in the PR. If it is dirty, restore it (`git checkout -- .` / `git reset --hard HEAD`) or stop.
-- **Pre-flight** (local source): run `turbo run lint typecheck test` **scoped to the affected packages** (a `--filter` per touched workspace; the full suite is slow and cascade-cancels). If it fails, **stop**: report the failures and ask the user to return once the tree is green. Reviewers assume the deterministic layer is clean; spawning them on a red tree pays opus to rediscover what tooling already flagged. Integration tests are infra-gated and stay CI's job. For a pr source running under CI, skip the pre-flight: the build workflow already gates the tree.
+- **Under CI (a schema was requested):** the preflight step already asserted the working tree is the PR's clean current head, resolved the merge base, and decided the mode; had any of that failed, you would not be running. Two gates remain yours:
+  - **The config-restore set.** After the preflight and before you started, the CI action replaced `.claude/`, `.mcp.json`, `.claude.json`, `.gitmodules`, `.ripgreprc`, `CLAUDE.md`, `CLAUDE.local.md`, `AGENTS.md` and `.husky` with the base branch's copies, because the head's versions are config the CLI executes at startup. A PR touching any of them therefore shows dirty exactly there; never `git checkout --` those paths (that re-arms the injection the restore disarms). Read the PR's own copies from `.claude-pr/<path>`, which the action preserves unexecuted; commit-to-commit diffs (`gh pr diff`, `git diff <merge_base>..HEAD`) show those files' real changes either way.
+  - **The second freshness assertion.** Once the reviewers return, before you consolidate, compare `git rev-parse HEAD` to `gh pr view <n> --json headRefOid -q .headRefOid`: a push landing mid-review leaves the checkout behind the head, and a finding raised against text the true head already fixed is a false positive you shipped. If it moved, re-check each finding against `gh pr diff` rather than discarding the run.
+- **Local pr source:** assert the working tree is the PR's current head (`git rev-parse HEAD` equals the PR's `headRefOid`) and clean (`git status --porcelain` empty); re-checkout with `gh pr checkout <n>`, or stop and say so. A stale or dirty tree makes `Read` serve content that disagrees with `gh pr diff`, so reviewers cite code that is not in the PR.
+- **Pre-flight (local source):** run `turbo run lint typecheck test` **scoped to the affected packages** (a `--filter` per touched workspace; the full suite is slow and cascade-cancels). If it fails, **stop**: report the failures and ask the user to return once the tree is green. Reviewers assume the deterministic layer is clean; spawning them on a red tree pays opus to rediscover what tooling already flagged. Integration tests are infra-gated and stay CI's job.
 
 ## 3. Steer (yourself, no agent)
 
@@ -47,8 +52,9 @@ Gate and brief on the change's *shape* and *intent*, both free to read. Do not s
 - **Shape**: the changed files, their line counts, and the workspaces they span (`apps` / `services` / `packages`), from `git diff --stat` against the merge-base (local) or `gh pr diff <n>` plus `gh pr view <n> --json files` (pr).
 - **Intent**: read it from the commit messages and, for a PR, the title and body. The author already wrote the intent; do not pay an agent to re-derive it from the diff. Only if the messages are junk (`wip`, `fix`) do you skim the diff yourself.
 - **Steering brief** (pr): the unresolved comment threads (each with its concern) and what the author declared intentional or out-of-scope.
+- **Prior importants** (mode = incremental): read the prior record the Mode line names (`git show origin/ci/review-metrics:records/<id>.json`). Its `important` findings were posted and their threads belong to the respond stage. For each, check its flagged location in the current head and mark it `resolved` or `unresolved` for the record's `prior_importants`; never re-post or re-raise one, and brief reviewers not to either: they are steering context, like unresolved threads.
 
-Do not discover `CLAUDE.md` files: there is one (root), always in context, and per-area `docs/conventions/*` rules auto-load via `.claude/rules` when a reviewer reads a file in that area.
+Do not discover `CLAUDE.md` files: there is one (root, importing `AGENTS.md`), always in context, and per-area `docs/conventions/*` rules auto-load via `.claude/rules` when a reviewer reads a file in that area.
 
 ## 4. Gate which reviewers to spawn
 
@@ -76,10 +82,12 @@ Each subagent's manifest defines its expertise; your brief supplies everything e
 - The change and the author's intent, plus the definition of **the change** so it can fetch its own scoped slice.
 - Its assignment: the part of the change it owns, and, where you split an area, the specific direction.
 - The steering context that concerns it: unresolved threads (do not re-raise their concerns; look harder where they point) and what the author declared intentional or out-of-scope.
-- The contract every finding meets: `{file, line (or range), area, confidence (high/medium), tag, description}` with the quote or citation its focus requires.
+- The contract every finding meets: `{file, line (or range), area, confidence (high/medium), tag, description}` with the quote or citation its focus requires. An `important` finding also carries `body`, the markdown the PR author reads (the concern, the rule or code it cites, a permalink), and optionally `suggestion`, replacement code for the flagged lines. A `suggestion` is only for a small self-contained fix that resolves the finding entirely; `null` otherwise. Below `important`, the `description` alone is what the author reads in the review body's collapsed sections, so it must stand on its own.
 - An instruction to surface, separately, any impediment that degraded its review. No impediments is the normal case.
-- **Under CI (a schema was requested), the review is static**: the checkout has no `node_modules`, and test/build spikes, dependency installs, `git fetch`, and shell redirection to temp files are all off-limits even where the Bash tool itself would accept more than `gh`. Tell the reviewer to confirm from `gh pr diff` and the checked-out tree by static reasoning; a claim about a dependency's internals rests on pinned-version knowledge and caps at `medium` confidence. None of this is an impediment worth logging: it is the CI path's normal shape.
+- **Under CI, the review is static**: test/build spikes, dependency installs, `git fetch`, and shell redirection to temp files are all off-limits; the Bash tool accepts `gh` and the read-only `git` verbs, nothing else. Hand the reviewer the two diff reads that work, so it does not spend calls discovering the ones that do not: `gh pr diff <n>` for the whole diff (authoritative, but it rejects a `-- <path>` filter and can exceed one read on a large PR), and `git diff <merge_base>..HEAD -- <path>` for a scoped slice, quoting the SHA from the invocation's `Merge base:` line. **Never `git diff origin/main...HEAD`**: the action shallow-fetches the base branch at depth 1 before the model starts, which grafts `origin/main` parentless, so the three-dot form dies with `fatal: no merge base` as soon as `main` moves past the PR. **Never `git diff HEAD~1 HEAD`** either: on a multi-commit PR it silently reviews only the last commit. `node_modules` holds only the root tooling (the CI install is scoped to the review tooling), so app dependency sources are **not** readable in-tree; a claim about a dependency's internals rests on pinned-version knowledge and caps at `medium` confidence. When the change touches the config paths the action restores (§2), tell the reviewer to `Read .claude-pr/<path>` for the PR's version: in-tree those files are the base branch's copies, so reading them serves content the PR does not contain. None of this is an impediment worth logging: it is the CI path's normal shape.
 - A reminder that its final message *is* the deliverable for the next stage, not a human-facing report.
+
+**Spawn together, then block.** Sending every instance at once is where the parallelism comes from, but the spawn is not the deliverable, the return is: wait on each one before you consolidate, and never end a turn with an agent still in flight. A turn that ends on an outstanding spawn lets the harness demand the structured output first, and what it gets is an empty record that reads as a clean review of a PR nobody reviewed. Blocking is about the turn, not about idling: when a reviewer returns while others are still out, apply §6's free checks to its `important` findings (tag-vs-body, provenance) and spawn their per-finding validators (§7) right away, so validation overlaps the slowest reviewer instead of queueing behind it. Cross-area dedup still waits for every return.
 
 ## 6. Consolidate (yourself, inline)
 
@@ -90,14 +98,16 @@ You hold every finding and have the only cross-area view, so dedup inline; do no
 - **Respect declared scope.** Drop anything the author marked intentional or out-of-scope.
 - **Doubt resolves to keep.** A verified mechanism with no currently-reachable trigger stays as a `nit`; only drop a finding whose mechanism is unproven.
 - **The tag must match the body.** A finding whose own description concedes there is no reachable break ("no contract violation", "no practical consequence", a provably-equivalent behavior) consolidates as a `nit` regardless of the tag the reviewer chose. Do not forward a self-contradicting `important` to validation; the downgrade is yours to make.
+- **Provenance-check "introduced by this PR" importants.** An `important` premised on the PR introducing the flagged code must survive a diff check: if the flagged line is not among the diff's added lines (a byte-identical move, an arrangement that predates the PR), retag it `pre-existing` before validation. The diff is free to read; do not pay a validator to discover provenance.
+- **Carry descriptions verbatim.** A finding's `description` is written once, by its reviewer. Paste it byte-identical into validator briefs and the final record; when a merge keeps the clearest of several descriptions, the surviving text is the one carried, not a fresh synthesis. Rewriting the same prose three times is output tokens (the run's wall clock and cost) spent on nothing, and restating findings from memory under context pressure is how line anchors get lost.
 
-## 7. Validate only where the machine acts on the finding
+## 7. Validate importants only
 
-Validation buys precision, never recall, so it is a cost tax justified only where a false positive does damage you cannot catch yourself. Spawn `review-validator` instances in parallel, tiered (opus for `correctness`/`security` findings, sonnet for the rest). A confirmed finding (with any location correction) survives; a refuted one is dropped from the action and kept aside with its refutation reason.
+Validation buys precision, never recall, and precision is only worth paying for where the machine is about to act loudly on the finding: an `important` becomes an inline comment on the author's diff, where a false positive is public and expensive. Sub-important findings render in collapsed sections and are never auto-fixed, so they enter the record exactly as their reviewer returned them, unvalidated; their reviewers self-validated, and the collapsed rendering is priced for that.
 
-- **action = report**: spawn **no** validator. The reviewers self-validated, and you are about to show every finding to a human who is the final judge.
+- **action = report**: spawn **no** validator. Every finding goes to a human who is the final judge.
 - **action = fix**: validate the **`important`** findings only, before editing. `nit` findings are never auto-fixed.
-- **action = comment, or a `--json-schema` was requested (CI)**: validate **all** consolidated findings. This is what populates `refuted_findings` in the record (the reviewers' false-positive signal for the retro), so it is not optional on the CI path.
+- **action = record (CI)**: one `review-validator` per consolidated `important`, tiered (opus for `correctness`/`security` findings, sonnet for the rest), spawned as soon as that finding's reviewer returns (§5) so validation overlaps the slower reviewers. A confirmed finding (with any location correction) survives; a refuted one is dropped from the posting set and carried in `refuted_findings` with its refutation reason, which CI renders in a collapsed section so a wrongly-killed finding is still catchable by the author.
 
 ## 8. Act on the result
 
@@ -109,41 +119,38 @@ Validation buys precision, never recall, so it is a cost tax justified only wher
 - **Post-verify**: after editing, re-run `turbo run typecheck test` on the affected packages to prove no regression was introduced. Report the result.
 - Summarize what changed (file, line, fix). List anything you noticed but did not touch under "Tangential (not applied)" and ask before editing those.
 
-**comment** (pr, `--comment`): post the confirmed `important` findings as inline comments.
+**record** (pr, CI): **you post nothing.** You have no tool that can write to the PR, by design. The record you emit in §9 *is* the round's output: the poster script renders it, anchors each `important` to the diff, posts one review, and pins a review commit status to the head SHA. So a finding you leave out of the record never reaches the author, and there is no second channel through which you could rescue it.
 
-- **If nothing is posted** (also when the review recorded only sub-`important` findings), comment via `gh pr comment`. Keep the marker line and the `No issues found.` sentence verbatim: review-metrics excludes this comment from its posted count by matching them, and a reworded summary such as "No blocking issues found" reads as a phantom posted comment. Only the area list may adapt to what was reviewed:
-  > ## Claude code review
-  >
-  > <!-- pr-ci-review:nothing-posted -->
-  >
-  > No issues found. Checked correctness, security, conventions, context, maintainability, and docs.
-- **If important findings exist:**
-  1. Build a private list of unique comments to prevent duplicates.
-  2. Post inline comments via `mcp__github_inline_comment__create_inline_comment`.
-  3. **Anchor outside the diff:** an inline comment attaches only to a line inside the PR's diff hunks. When an `important` finding's true line is outside them (a context line, or an unchanged file), anchor to the nearest changed line in the same file and name the true location in the body. When the finding's file has **no** changed line at all (a stale reference or dead link in a file the PR never touches), no inline anchor exists: it **must** go into a single consolidated `gh pr comment` (naming each finding's file, line, and concern), never be dropped. A finding silently lost this way is a false negative on an `important` finding, the worst outcome the review can produce.
-  4. **Format:** brief description + cite/link to the specific rule or the underlying concern.
-  5. **Suggestions:** committable blocks only for small, self-contained fixes that resolve the issue entirely.
-  6. **Links:** `<https://github.com/OWNER/REPO/blob/FULL_SHA/path/to/file#L[start]-L[end]>` with the full git SHA.
+What that means for the record you write:
 
-Impediments surfaced by subagents never appear in the report, the fixes, or the PR comments.
+- **`body` is the comment.** For every `important`, write the markdown the author reads: the concern, the rule or code it cites, and a permalink of the form `<https://github.com/OWNER/REPO/blob/FULL_SHA/path/to/file#L[start]-L[end]>` with the full git SHA. Leave it `null` on `nit` and `pre-existing`, whose collapsed rendering uses `description`. A `null` `body` on an `important` degrades to the one-line `description`, which is a worse comment than the one you owed the author.
+- **Give `line` the finding's true location, not a reachable one.** Do not hunt for a nearby changed line to anchor to. The poster parses the diff hunks itself, pulls the comment to the nearest commentable line, and prefixes it with the true location; a file with no changed line at all goes into the review body rather than being dropped.
+- **`suggestion` is committable code, so it must be exactly right.** Only for a small self-contained fix that resolves the finding entirely. The poster renders it as an inert fence rather than a committable block whenever it had to relocate the anchor, since applying it there would rewrite a line the finding never mentioned.
+- **A round always ends with a review and a status on the PR**, including a round that reviewed nothing and a round that died: CI guarantees both from the record, or says the diff was never reviewed. What CI cannot say is anything you alone know, so a gate that stopped you, a denied command, or a dead reviewer belongs in `process_issues` (§9), which is the only route that information has out of the run.
+
+Impediments surfaced by subagents never appear in the report, the fixes, or the record's findings.
 
 ## 9. Structured summary (when a schema is requested)
 
-If the harness runs this skill with a `--json-schema`, your **final message** must be the object that schema validates, in addition to the actions above. Report what the review actually did, not a target:
+If the harness runs this skill with a `--json-schema`, your **final message** must be the object that schema validates, in addition to the actions above. Emit it only once every spawned agent has returned (§5): a record built mid-flight reports zero findings and is indistinguishable from a clean review. Report what the review actually did, not a target:
 
 - `reviewers_spawned`: one entry per reviewer instance that ran, by area (an area repeats when several instances ran).
-- `findings`: the confirmed findings, each `{file, line, area, confidence, tag, description}` (the `important` ones you posted and the `nit` ones you recorded but did not post).
-- `refuted_findings`: the Step-7 refutations, each finding plus its `refutation`.
-- `comments_posted`: how many inline comments you actually posted (ground-truthed against GitHub, not self-reported).
+- `review_mode` and `incremental_from_sha`: echo what the invocation's `Mode:` line gave you (`full` with `null`, or `incremental` with the delta-base SHA).
+- `prior_importants`: on an incremental run, the prior record's `important` findings, each `{file, line, status}` with `status` `resolved` or `unresolved` against the current head (§3); empty on a full run.
+- `findings`: the confirmed findings, each `{file, line, area, confidence, tag, description, body, suggestion}`. `body` and `suggestion` are `null` on anything below `important`; see §8 for what they must contain above it.
+- `refuted_findings`: the §7 refutations, `important` findings only, each with its `refutation`. These carry no `body` or `suggestion`: the poster renders them from `description` plus `refutation`.
 - `process_issues`: anything that degraded the review itself, each `{component, description}`, where `component` is the stage (`orchestrator`, `validator`, an area, or `platform`). Empty when the run was clean. These never appear in the PR comments.
+
+There is no `comments_posted` field to report: you do not post, so the count is the poster's to state.
 
 ## Todo List
 
-- [ ] Parse arguments into source + action; reject invalid combinations.
-- [ ] Gate the run: PR freshness (pr) or pre-flight `turbo` suite (local).
-- [ ] Steer: read the change shape and intent yourself.
+- [ ] Parse arguments into source + action, and read the mode from the invocation's `Mode:` line; reject invalid combinations.
+- [ ] Gate the run: config-restore awareness under CI, freshness for a local pr, pre-flight `turbo` suite for local source.
+- [ ] Steer: read the change shape and intent yourself; on incremental, read the prior record's importants.
 - [ ] Gate and spawn only the touched areas, tiered and instance-capped.
 - [ ] Consolidate inline: dedup and assign one area citation-first.
-- [ ] Validate per action (none for report; important for fix; all for comment/CI).
-- [ ] Act: report, fix (with post-verify), or comment.
+- [ ] Validate importants only (none for report; before editing for fix; per-finding for record/CI).
+- [ ] Re-assert the head SHA before consolidating.
+- [ ] Act: report, fix (with post-verify), or record (write `body` and `suggestion` for every important; post nothing).
 - [ ] Emit the structured summary when a schema is requested.

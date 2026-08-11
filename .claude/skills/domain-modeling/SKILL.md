@@ -11,8 +11,8 @@ Actively sharpen the project's documented language as you design: challenge term
 
 | Source                        | What it covers                                                            |
 | :---------------------------- | :------------------------------------------------------------------------ |
-| `docs/README.md` (Glossary)   | Cross-cutting nouns: Organization, Member, Session, Participant, Provider, Channel, etc. |
-| `docs/conventions/naming.md`  | Role taxonomy and naming stems for modules / classes                      |
+| `docs/glossary.md`            | Cross-cutting nouns: Organization, Member, Session, Participant, Provider, Channel, etc. |
+| `docs/conventions/core.md`    | Role taxonomy and naming stems for modules / classes                      |
 | `docs/explanation/<topic>.md` | Current narrative for a subsystem (system architecture, security model)   |
 | `docs/adr/`                   | Dated log of why a hard-to-reverse choice was made                        |
 
@@ -22,7 +22,7 @@ Before a session, skim the Glossary, the relevant `docs/explanation/` doc, and a
 
 ### Challenge against the existing language
 
-When the user uses a term that conflicts with the Glossary or `naming.md`, call it out. Example: "Glossary defines `Session` as the live client connection context; you're using it for the engine process that runs it. Which do you mean?"
+When the user uses a term that conflicts with the Glossary or `core.md`, call it out. Example: "Glossary defines `Session` as the live client connection context; you're using it for the engine process that runs it. Which do you mean?"
 
 ### Sharpen fuzzy language
 
@@ -49,8 +49,8 @@ When the user states how something works, verify against the code in the relevan
 
 When something resolves, update it in place. Capture as it happens; don't batch.
 
-- **New cross-cutting noun?** Add to the Glossary table in `docs/README.md`.
-- **Naming stem or role suffix decision?** Update `docs/conventions/naming.md`.
+- **New cross-cutting noun?** Add to the Glossary table in `docs/glossary.md`.
+- **Naming stem or role suffix decision?** Update `docs/conventions/core.md`.
 - **Subsystem narrative has drifted from reality?** Update the relevant `docs/explanation/<topic>.md`.
 - **Hard-to-reverse choice with non-obvious rejected alternatives?** Open an ADR.
 

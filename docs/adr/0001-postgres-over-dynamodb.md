@@ -17,7 +17,7 @@ explicitly; partition the high-volume `messages` table by time.
 ## Consequences
 
 - Easier: ad-hoc relational queries, transactions, and schema evolution through
-  reviewed migrations (`docs/conventions/database.md`).
+  reviewed migrations (`docs/conventions/backend.md`).
 - Harder: horizontal write scaling later may require partitioning or sharding
   work that a wide-column store would have given for free.
 - Committed to: one relational schema as the source of truth; the Session Engine

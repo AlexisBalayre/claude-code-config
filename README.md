@@ -14,7 +14,7 @@ replace the TypeScript conventions with yours.
 
 <sub>The bundled <a href=".claude/statusline.sh"><code>statusline.sh</code></a>: directory, branch, model, a context-usage bar, token counts, and live session cost.</sub>
 
-> **TL;DR** — Copy `.claude/` into your repo, adapt `CLAUDE.md` and `.claude/rules/` to your
+> **TL;DR** — Copy `.claude/` into your repo, adapt `AGENTS.md` and `.claude/rules/` to your
 > stack, make the hooks executable, and you have path-scoped conventions, a quality gate on
 > every turn, a multi-agent PR review, and a worktree-first workflow that never lets an agent
 > commit to `main`.
@@ -25,8 +25,8 @@ replace the TypeScript conventions with yours.
 
 | Layer | Count | What it does |
 | :---- | :---- | :----------- |
-| **`CLAUDE.md`** | 1 | Always-on project memory: role, workspaces, git workflow, key commands. Kept tiny on purpose. |
-| **`rules/`** | 9 | Path-scoped convention rules that auto-load `docs/conventions/*.md` only when you touch matching files (the "split pattern"). |
+| **`AGENTS.md`** + **`CLAUDE.md`** | 2 | Always-on project memory, layered: `AGENTS.md` is the tool-agnostic base (role, conventions map, comments/altitude discipline, git workflow) any coding agent can read; `CLAUDE.md` just imports it and adds Claude Code-only notes. Kept tiny on purpose. |
+| **`rules/`** | 5 | Path-scoped **pure loaders** (one area each: core, backend, frontend, services, testing) that auto-load `docs/conventions/*.md` only when you touch matching files. |
 | **`skills/`** | 30 | Auto-discoverable workflows: scaffolding (`new-api-endpoint`, `new-provider`…), engineering (`tdd`, `diagnose`, `resolve-merge-conflicts`, `find-dead-code`…), thinking & design (`grilling`, `grill-me`, `codebase-design`, `domain-modeling`, `prototype`…), PR & review (`pr-description`, `pr-ci-review`, `address-review-comments`, `review-retro`), meta (`write-a-skill`, `handoff`, `caveman`), and personal integrations (`obsidian-vault`, `daily-note`, `to-issues`, `fix-sonar`, `wiz`… — configured via `.env`). |
 | **`agents/`** | 12 | Isolated subagents: 4 proactive (`convention-checker`, `migration-reviewer`, `security-reviewer`, `architecture-explainer`), 7 `review-*` reviewers + validator dispatched by `pr-ci-review`, and `comment-pruner` dispatched by its Stop hook. |
 | **`hooks/`** | 7 | Zero-LLM shell scripts on lifecycle events: quality gate, convention spot-check, comment-pruner dispatch, git safety, generated-file protection, file-naming validation, compaction preservation. |
@@ -37,7 +37,7 @@ see the **[skill catalog](.claude/skills/README.md)**.
 
 ```
 ┌──────────────────────────────────────────────┐
-│  Always-On     CLAUDE.md · unconditional rules │
+│  Always-On     AGENTS.md (via CLAUDE.md)       │
 │                · skill descriptions            │
 │  On-Demand     path-scoped rules · skill bodies│
 │  Isolated      subagents (own context window)  │
@@ -58,10 +58,11 @@ their own worktree. Read the full loop in **[`docs/workflow.md`](docs/workflow.m
    ```bash
    git clone https://github.com/AlexisBalayre/claude-code-power-config.git
    cp -R claude-code-power-config/.claude your-repo/.claude
+   cp claude-code-power-config/AGENTS.md your-repo/AGENTS.md
    cp claude-code-power-config/CLAUDE.md your-repo/CLAUDE.md
    chmod +x your-repo/.claude/hooks/*.sh your-repo/.claude/statusline.sh
    ```
-2. **Adapt it to your stack.** Edit `CLAUDE.md` (workspaces, commands), point the `paths:` in
+2. **Adapt it to your stack.** Edit `AGENTS.md` (role, conventions map, commands), point the `paths:` in
    `.claude/rules/*.md` at your directories, and replace the placeholder `lint`/`typecheck`/
    `test` scripts in `package.json` with your real toolchain.
 3. **Opt into your tools.** Copy `.claude/settings.local.json.example` to
@@ -81,7 +82,7 @@ fictional messaging platform. The shape maps cleanly onto most TypeScript monore
 | Path | Role |
 | :--- | :--- |
 | `apps/acme-api` | Public HTTP API (Hono + Zod OpenAPI) |
-| `apps/acme-web` | React SPA (React 19, Vite, Tailwind, TanStack Router) |
+| `apps/acme-web` | React SPA (React 19, Vite, Tailwind v4, react-router-dom v7, TanStack Query) |
 | `services/acme-gateway` | Realtime edge: connections, auth, routing (gRPC) |
 | `services/acme-session-engine` | Stateful session lifecycle + state machines |
 | `packages/acme-db` | Drizzle ORM schema + migrations |
@@ -90,15 +91,17 @@ fictional messaging platform. The shape maps cleanly onto most TypeScript monore
 | `packages/acme-domain` | Shared domain types (branded IDs, enums) |
 | `packages/acme-logger` | Structured logger (no PII in logs) |
 
-The conventions for each area live in [`docs/conventions/`](docs/conventions/) and are the
-single source of truth the thin `rules/` files import. The [glossary](docs/README.md) anchors
-the shared vocabulary.
+The conventions for each area live in [`docs/conventions/`](docs/conventions/) — five
+consolidated docs (core, backend, frontend, services, testing) that are the single source of
+truth the thin `rules/` loaders import. The [glossary](docs/glossary.md) anchors the shared
+vocabulary.
 
 ## Repository structure
 
 ```
 .
-├── CLAUDE.md                  # always-on project memory
+├── AGENTS.md                  # tool-agnostic always-on memory (any coding agent)
+├── CLAUDE.md                  # thin Claude Code layer: @AGENTS.md + Claude-only notes
 ├── .env.example               # personalization hub (vault path, tracker IDs, git trunk)
 ├── package.json               # worktree scripts + toolchain hooks
 ├── scripts/
@@ -112,9 +115,10 @@ the shared vocabulary.
 │   ├── statusline.sh
 │   ├── rules/  skills/  agents/  hooks/
 └── docs/
-    ├── README.md              # glossary + Diátaxis index
+    ├── README.md              # Diátaxis index
+    ├── glossary.md            # shared vocabulary
     ├── workflow.md            # the worktree-first loop
-    ├── conventions/           # source of truth imported by rules/
+    ├── conventions/           # source of truth imported by rules/ (5 area docs)
     ├── reference/  explanation/  adr/
 ```
 

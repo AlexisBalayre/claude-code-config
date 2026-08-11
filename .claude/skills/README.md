@@ -13,8 +13,8 @@ to invoke it.
 
 | Skill | When to use | Invoke |
 | :---- | :---------- | :----- |
-| `new-api-endpoint` | You ask to "add an endpoint" / "add an API for X". Scaffolds route + schema + service + serializer + test per `docs/conventions/api.md`. | Auto (Claude-only) |
-| `new-frontend-route` | "add a page" / "create a route" / "add a frontend view". Scaffolds a TanStack Router route + query hooks + feature components. | Auto (Claude-only) |
+| `new-api-endpoint` | You ask to "add an endpoint" / "add an API for X". Scaffolds route + schema + service + serializer + test per `docs/conventions/backend.md`. | Auto (Claude-only) |
+| `new-frontend-route` | "add a page" / "create a route" / "add a frontend view". Scaffolds a react-router-dom route (single route table) + query hooks + feature components. | Auto (Claude-only) |
 | `new-provider` | "add a provider" / "integrate a new email/SMS/push provider". Scaffolds a delivery Provider via the factory + YAML registry. | Auto (Claude-only) |
 
 ## Engineering — build, fix, and clean up

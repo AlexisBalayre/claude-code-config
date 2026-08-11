@@ -7,7 +7,7 @@ This directory contains all Claude Code customizations for the Acme project. Eve
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                    Always-On Context                     │
-│  CLAUDE.md (project rules, build commands)               │
+│  AGENTS.md via CLAUDE.md (project rules, commands)       │
 │  Rules without paths (unconditional)                     │
 │  Skill descriptions (names + one-liners)                 │
 │  MCP tool schemas                                        │
@@ -36,16 +36,12 @@ This directory contains all Claude Code customizations for the Acme project. Eve
 ├── settings.json              # Shared project config (permissions, hooks)
 ├── settings.local.json.example # Template for personal overrides (real file gitignored)
 │
-├── rules/                 # Path-scoped convention rules (auto-load)
-│   ├── universal-conventions.md
-│   ├── api-conventions.md
+├── rules/                 # Path-scoped convention loaders (auto-load)
+│   ├── core-conventions.md
+│   ├── backend-conventions.md
 │   ├── frontend-conventions.md
-│   ├── testing-conventions.md
-│   ├── database-conventions.md
-│   ├── session-engine-conventions.md
-│   ├── gateway-conventions.md
-│   ├── grpc-conventions.md
-│   └── providers-conventions.md
+│   ├── services-conventions.md
+│   └── testing-conventions.md
 │
 ├── skills/                # Auto-discoverable knowledge + workflows (each is <name>/SKILL.md)
 │   ├── new-api-endpoint/   new-frontend-route/   new-provider/   # scaffolding
@@ -82,29 +78,26 @@ This directory contains all Claude Code customizations for the Acme project. Eve
 
 ## Extension Points Explained
 
-### 1. `CLAUDE.md` — Project Memory
+### 1. `AGENTS.md` + `CLAUDE.md` — Project Memory
 
-The root `CLAUDE.md` contains universal rules Claude sees every session: coding standards, git workflow, key commands. Kept under ~60 lines to minimize context cost.
+The root `AGENTS.md` contains the universal rules every AI coding agent sees: role, conventions map, comment/altitude discipline, git workflow, key commands. It is tool-agnostic — Cursor, Claude Code, and anything else reads the same base. `CLAUDE.md` is a thin Claude Code layer: it imports `AGENTS.md` (`@AGENTS.md`) and adds only Claude-specific notes (e.g. that path-scoped rules auto-load). Both kept tiny to minimize context cost.
 
-**When to edit:** Add universal rules that apply to every file. For area-specific rules, use `rules/` instead.
+**When to edit:** Add universal rules to `AGENTS.md`; Claude-only lines go in `CLAUDE.md`. For area-specific rules, use `rules/` instead.
 
-### 2. `rules/` — Path-Scoped Convention Rules
+### 2. `rules/` — Path-Scoped Convention Loaders
 
-Markdown files with `paths:` frontmatter that auto-load when Claude works with matching files. Each rule contains a quick-reference (~15 lines) plus an `@docs/conventions/X.md` import for the full doc.
+Markdown files with `paths:` frontmatter that auto-load when Claude works with matching files. Each rule is a **pure loader** — `paths:` frontmatter plus a single `@docs/conventions/<area>.md` import, no content of its own:
 
 ```yaml
 ---
 paths:
   - "apps/acme-api/**"
+  - "packages/acme-db/**"
 ---
-# API Conventions — Quick Reference
-- STRICT layering: Routes → Services → Repositories → Database
-...
-## Full conventions
-@docs/conventions/api.md
+@docs/conventions/backend.md
 ```
 
-**Key insight:** Rules follow the "split pattern" — lightweight recognition triggers (quick facts) pointing to detailed knowledge (full convention docs). This keeps always-on context small while ensuring full detail loads when needed.
+**Key insight:** the rule is a trigger; `docs/conventions/` is the single source of truth (readable by humans and non-Claude tools too). This keeps always-on context small while ensuring full detail loads exactly when a matching file is touched.
 
 **When to add a rule:** When conventions are specific to a file path pattern and should auto-load when editing those files.
 
@@ -191,7 +184,7 @@ Shared project configuration. Contains:
 
 | I want... | Use... |
 |-----------|--------|
-| Claude to always know this | `CLAUDE.md` |
+| Every AI agent to always know this | `AGENTS.md` (Claude-only lines go in `CLAUDE.md`) |
 | Claude to know this when editing specific files | `rules/` with `paths:` |
 | Claude to auto-discover and use this knowledge | `skills/` |
 | A workflow I trigger explicitly | `skills/` with `disable-model-invocation: true` |
@@ -204,9 +197,8 @@ Shared project configuration. Contains:
 ## Adding New Extensions
 
 ### New rule
-1. Create `.claude/rules/<name>.md` with `paths:` frontmatter
-2. Add ~15 lines of quick-reference facts
-3. Point to full docs with `@docs/conventions/<area>.md`
+1. Write the full convention doc at `docs/conventions/<area>.md` (obligations only)
+2. Create `.claude/rules/<name>.md` with `paths:` frontmatter and a single `@docs/conventions/<area>.md` import — no other content
 
 ### New skill
 1. Create `.claude/skills/<name>/SKILL.md` with `name` and `description` frontmatter

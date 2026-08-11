@@ -11,13 +11,18 @@ Surface architectural friction and propose **deepening opportunities** — refac
 This command is _informed_ by the project's domain model and built on a shared design vocabulary:
 
 - Run the `/codebase-design` skill for the architecture vocabulary (**module**, **interface**, **depth**, **seam**, **adapter**, **leverage**, **locality**) and its principles (the deletion test, "the interface is the test surface", "one adapter = hypothetical seam, two = real"). Use these terms exactly in every suggestion — don't drift into "component," "service," "API," or "boundary."
-- The domain language (Glossary in `docs/README.md`, naming taxonomy in `docs/conventions/naming.md`) gives names to good seams; ADRs in `docs/adr/` record decisions this command should not re-litigate.
+- The domain language (Glossary in `docs/glossary.md`, naming taxonomy in `docs/conventions/core.md`) gives names to good seams; ADRs in `docs/adr/` record decisions this command should not re-litigate.
 
 ## Process
 
 ### 1. Explore
 
-Read the Glossary in `docs/README.md`, the naming taxonomy in `docs/conventions/naming.md`, and any ADRs in `docs/adr/` for the area you're touching first.
+**Scope before you scan (YAGNI).** Deepening a module pays off by making future changes to it easier, so put extra weight on the parts of the codebase that have recently changed. Decide *where* to look before you look:
+
+- If the user named a direction (a module, a subsystem, a pain point), take it and skip the inference below.
+- Otherwise, walk back a good stretch of the commit history (`git log --oneline`) to find the codebase's hot spots: the files and areas that keep coming up. Let those paths pull your attention first. If the changes are scattered with no clear hot spot, widen the net.
+
+Read the Glossary in `docs/glossary.md`, the naming taxonomy in `docs/conventions/core.md`, and any ADRs in `docs/adr/` for the area you're touching first.
 
 Then use the Agent tool with `subagent_type=Explore` to walk the codebase. Don't follow rigid heuristics — explore organically and note where you experience friction:
 
@@ -46,7 +51,7 @@ For each candidate, the same template as before, but rendered as a card:
 
 End the report with a **Top recommendation** section: which candidate you'd tackle first and why.
 
-**Use the Glossary (`docs/README.md`) and naming taxonomy (`docs/conventions/naming.md`) for the domain, and the `/codebase-design` vocabulary for the architecture.** If the Glossary defines "Pipeline," talk about "the Pipeline coordinator," not "the FooBarHandler," and not "the Pipeline service."
+**Use the Glossary (`docs/glossary.md`) and naming taxonomy (`docs/conventions/core.md`) for the domain, and the `/codebase-design` vocabulary for the architecture.** If the Glossary defines "Pipeline," talk about "the Pipeline coordinator," not "the FooBarHandler," and not "the Pipeline service."
 
 **ADR conflicts**: if a candidate contradicts an existing ADR, only surface it when the friction is real enough to warrant revisiting the ADR. Mark it clearly in the card (e.g. a warning callout: _"contradicts ADR-0007 — but worth reopening because…"_). Don't list every theoretical refactor an ADR forbids.
 
@@ -60,8 +65,8 @@ Once the user picks a candidate, run the `/grilling` skill to walk the design tr
 
 Side effects happen inline as decisions crystallize — run the `/domain-modeling` skill to keep the documented language current as you go:
 
-- **Naming a deepened module after a concept not in the Glossary or `docs/conventions/naming.md`?** Add it there. The repo deliberately does not maintain a parallel `CONTEXT.md`.
-- **Sharpening a fuzzy term during the conversation?** Update the Glossary or `naming.md` right there.
+- **Naming a deepened module after a concept not in the Glossary or `docs/conventions/core.md`?** Add it there. The repo deliberately does not maintain a parallel `CONTEXT.md`.
+- **Sharpening a fuzzy term during the conversation?** Update the Glossary or `core.md` right there.
 - **User rejects the candidate with a load-bearing reason?** Offer an ADR, framed as: _"Want me to record this as an ADR so future architecture reviews don't re-suggest it?"_ Only offer when the reason would actually be needed by a future explorer to avoid re-suggesting the same thing — skip ephemeral reasons ("not worth it right now") and self-evident ones.
 - **Classifying the candidate's dependencies, or deciding how the deepened module is tested across its seam?** See [DEEPENING.md](../codebase-design/DEEPENING.md) for the dependency categories.
 - **Want to explore alternative interfaces for the deepened module?** See [INTERFACE-DESIGN.md](../codebase-design/INTERFACE-DESIGN.md) for the design-it-twice parallel sub-agent pattern.

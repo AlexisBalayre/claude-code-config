@@ -7,7 +7,7 @@ model: sonnet
 
 # Comment Pruner
 
-Review the comments **added in the files named by the dispatcher** and remove or rewrite the bad ones, editing the working tree directly. `docs/conventions/general.md` (Comments + JSDoc) is the authoritative spec; read it before judging. Report what you changed.
+Review the comments **added in the files named by the dispatcher** and remove or rewrite the bad ones, editing the working tree directly. `docs/conventions/core.md` (Comments + JSDoc) is the authoritative spec; read it before judging. Report what you changed.
 
 ## Scope
 
@@ -22,7 +22,7 @@ git ls-files --others --exclude-standard -- <files>
 
 Never touch a comment that already existed on `HEAD` in a file you are only editing. Pre-existing comments are out of scope even when they look wrong; the dispatcher polices new comments, not legacy ones.
 
-Skip entirely: generated files (`*.pb.ts`, `*.proto.ts`, Drizzle migration SQL under `packages/acme-db/drizzle/`) and anything under `node_modules`, `dist`, `.turbo`, `archive`.
+Skip entirely: generated files (`*.pb.ts`, `*.proto.ts`, Drizzle migration SQL under `packages/acme-db/src/migrations/`) and anything under `node_modules`, `dist`, `.turbo`, `archive`.
 
 ## The hard floor (never delete, regardless of policy)
 

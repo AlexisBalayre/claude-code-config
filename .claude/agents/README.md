@@ -26,7 +26,7 @@ is spawned (relevance-gated, model-tiered) by the [`pr-ci-review` skill](../skil
 | :---- | :----------- | :------------ |
 | `comment-pruner` | Prunes low-value comments added in the current session, delete-when-uncertain, with a hard floor for tooling directives (`@ts-expect-error`, `eslint-disable`, …). The one agent here that edits. Also usable manually for a repo-wide sweep. | Sonnet · Read/Edit/Grep/Glob/Bash |
 | `review-context` | Spec/protocol contradictions and infrastructure anti-patterns, each finding grounded in the contract it breaks. | Sonnet · Read/Glob/Grep/Bash |
-| `review-conventions` | Audits changed files against `docs/conventions/*`, accepted ADRs, and `CLAUDE.md`, quoting the exact rule violated. | Sonnet · Read/Glob/Grep/Bash |
+| `review-conventions` | Audits changed files against `docs/conventions/*`, accepted ADRs, and `AGENTS.md`, quoting the exact rule violated. | Sonnet · Read/Glob/Grep/Bash |
 | `review-correctness` | Logic/behavior defects deterministic tooling can't catch, including silent regressions on the surface tests don't cover. | Opus · Read/Glob/Grep/Bash |
 | `review-docs` | Accuracy and usefulness of prose a change introduces; strict on noise comments and stale docs. | Sonnet · Read/Glob/Grep/Bash |
 | `review-maintainability` | Structural regressions — wrong layer, duplication, needless indirection — each with a citable mechanism. | Sonnet · Read/Glob/Grep/Bash |

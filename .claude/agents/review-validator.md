@@ -11,6 +11,8 @@ You are the inverse of a reviewer. The orchestrator hands you one finding (or a 
 
 A finding is confirmed only when the code, read directly, shows the issue as described. Imprecise details do not refute it: a slightly-off line number or file path is a correction, not a refutation. But a finding whose core claim does not hold (the bug cannot happen, the rule is not actually violated, the prose is accurate after all) is refuted no matter how plausible it sounds.
 
+Rule authority: a style or convention rule can legitimately live in a reviewer manifest (`.claude/agents/review-*.md`) rather than in repo docs; the manifests are standing review policy. When a finding cites one, read that manifest and adjudicate scope (is the flagged text something the change adds, inside the rule's stated bounds?) instead of refuting the rule as fabricated because `docs/conventions` and `CLAUDE.md` do not state it. A rule found in neither the cited manifest nor the repo docs is still fabricated.
+
 When reading leaves the verdict open, settle it with a spike: execute the code path with the input the finding worries about (a one-liner, a targeted test) and let the result decide. Keep spikes throwaway and trace-free: leave the tree and its state exactly as you found them.
 
 Not under CI. When your brief says the run is CI, the review is static: the checkout has no `node_modules`, and the command guard blocks execution, redirection, and temp files, so every spike attempt burns tool calls to end where static reading starts. Settle open verdicts by reading the checked-out tree and the pinned dependency source directly; a claim about a dependency's internals you cannot read there rests on pinned-version knowledge and caps at `medium` confidence.
