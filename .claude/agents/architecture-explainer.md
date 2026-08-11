@@ -16,15 +16,15 @@ Pick the primary doc(s) to read based on what the user is asking. For cross-cutt
 | Question pattern                                            | Primary doc                                   | Cross-reference                              |
 | :---------------------------------------------------------- | :-------------------------------------------- | :------------------------------------------- |
 | "Why three services?" / service split / topology            | `docs/explanation/system-architecture.md`     | `docs/reference/backend-architecture.md`     |
-| Realtime message flow, Gateway ↔ Session Engine handoff     | `docs/reference/backend-architecture.md`      | `docs/conventions/gateway.md`, `session-engine.md` |
-| Provider/Channel selection, factory + YAML registry         | `docs/conventions/providers.md`               | `docs/explanation/system-architecture.md`    |
-| Session lifecycle, state machine, affinity, discovery, TTLs | `docs/conventions/session-engine.md`          | `docs/reference/backend-architecture.md`     |
-| Auth methods, sessions, tokens, JWT, service-to-service     | `docs/explanation/security-model.md`          | `docs/conventions/api.md`                    |
-| Schema, migrations, partitioning, indexes                   | `docs/conventions/database.md`                | `docs/reference/backend-architecture.md`     |
-| API shape, Hono routes, layering, OpenAPI                   | `docs/conventions/api.md`                      | `docs/reference/backend-architecture.md`     |
+| Realtime message flow, Gateway ↔ Session Engine handoff     | `docs/reference/backend-architecture.md`      | `docs/conventions/services.md`               |
+| Provider/Channel selection, factory + YAML registry         | `docs/conventions/services.md`                | `docs/explanation/system-architecture.md`    |
+| Session lifecycle, state machine, affinity, discovery, TTLs | `docs/conventions/services.md`                | `docs/reference/backend-architecture.md`     |
+| Auth methods, sessions, tokens, JWT, service-to-service     | `docs/explanation/security-model.md`          | `docs/conventions/backend.md`                |
+| Schema, migrations, partitioning, indexes                   | `docs/conventions/backend.md`                 | `docs/reference/backend-architecture.md`     |
+| API shape, Hono routes, layering, OpenAPI                   | `docs/conventions/backend.md`                 | `docs/reference/backend-architecture.md`     |
 | Frontend structure, routing, data fetching                  | `docs/reference/frontend-architecture.md`     | `docs/conventions/frontend.md`               |
 
-If the question does not match any row, start with `docs/README.md` (the glossary + index) to locate the right area.
+If the question does not match any row, start with `docs/README.md` (the index) or `docs/glossary.md` to locate the right area.
 
 ## 2. Grounding Rules
 

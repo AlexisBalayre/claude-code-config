@@ -20,7 +20,7 @@ if echo "$FILE_PATH" | grep -qE '\.gen\.ts$'; then
 fi
 
 # Block: gRPC generated stubs
-if echo "$FILE_PATH" | grep -qE 'packages/acme-rpc/src/generated/'; then
+if echo "$FILE_PATH" | grep -qE 'packages/acme-rpc/src/protos/generated/'; then
   echo "BLOCKED: gRPC stubs are auto-generated. Edit the .proto files in packages/acme-rpc/proto/ and run 'pnpm --filter @acme/acme-rpc proto:gen' instead." >&2
   exit 2
 fi

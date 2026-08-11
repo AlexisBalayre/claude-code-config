@@ -10,39 +10,15 @@ this Claude Code configuration. The docs are organised with [Diátaxis](https://
 | `explanation/`      | *Why is it like this?*  | You're questioning a design decision.       |
 | `adr/`              | *What did we decide?*   | You need the record of a past decision.     |
 
-`conventions/` is the **single source of truth** for code style. Everything else explains
-or records.
-
----
-
-## Glossary
-
-The shared vocabulary. Names in code, docs, and conversation should match these exactly.
-When a term is fuzzy, sharpen it here first.
-
-| Term             | Meaning                                                                                          |
-| :--------------- | :----------------------------------------------------------------------------------------------- |
-| **Organization** | Top-level tenant. Owns Members, Sessions, and provider configuration.                            |
-| **Member**       | A user belonging to an Organization, with a role (`owner`, `admin`, `member`).                   |
-| **Session**      | A live real-time context a client connects to (think: a room or channel).                        |
-| **Participant**  | A Member or guest currently connected to a Session.                                              |
-| **Gateway**      | Edge service terminating client connections (WebSocket + gRPC): auth handshake, frame routing.   |
-| **Session Engine** | Stateful service owning the Session lifecycle and per-Session state machine; emits Events.     |
-| **Provider**     | Pluggable adapter to an external delivery system, selected at runtime via factory + YAML registry.|
-| **Channel**      | The delivery medium a Provider implements: `email`, `sms`, `push`, `webhook`.                    |
-| **Message**      | A unit of content routed through a Session; may fan out to Channels via Providers.               |
-| **Event**        | An internal domain event emitted by the Session Engine (`ParticipantJoined`, `MessageDispatched`).|
-
-> This glossary is intentionally small. In a real project it grows as cross-cutting nouns
-> appear. The `domain-modeling` skill (which `grill-with-docs` delegates to) and the
-> `improve-codebase-architecture` skill both read it to keep naming consistent.
-
----
+`conventions/` is the **single source of truth** for code style; conventions files contain
+obligations only, while system description lives in `reference/`. Unfamiliar term? See the
+[Glossary](glossary.md).
 
 ## Conventions index
 
-- [General / universal](conventions/general.md) — applies to every TypeScript file
-- [Naming taxonomy](conventions/naming.md) — the `kebab-case.role.ts` role system
-- [API](conventions/api.md) · [Frontend](conventions/frontend.md) · [Database](conventions/database.md)
-- [Testing](conventions/testing.md) · [Gateway](conventions/gateway.md) · [gRPC](conventions/grpc.md)
-- [Session Engine](conventions/session-engine.md) · [Providers](conventions/providers.md)
+Per-area rules. Read the one for the area you are changing.
+
+- [core](conventions/core.md) — universal TypeScript, type system, JSDoc/comments, logging, the `kebab-case.role.ts` naming taxonomy
+- [backend](conventions/backend.md) — API (`acme-api`) + database (`acme-db`)
+- [services](conventions/services.md) — gateway, session engine, gRPC (`acme-rpc`), delivery providers
+- [frontend](conventions/frontend.md) · [testing](conventions/testing.md)

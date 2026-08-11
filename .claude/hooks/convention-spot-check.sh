@@ -65,22 +65,22 @@ while IFS= read -r file; do
   if [[ "$file" == apps/acme-web/* ]] && [[ "$file" =~ \.tsx$ ]]; then
     NON_READONLY_PROPS=$(grep -nE ':\s*\w+Props[[:space:]]*[,)=]' "$file" 2>/dev/null | grep -vE ':\s*Readonly<' || true)
     if [ -n "$NON_READONLY_PROPS" ]; then
-      WARNINGS+="  ⚠ $file: component props not wrapped in Readonly<…> (see docs/conventions/frontend.md)\n"
+      WARNINGS+="  ⚠ $file: component props not wrapped in Readonly<…> (see docs/conventions/core.md)\n"
     fi
   fi
 
-  # Session engine: EventEmitter is forbidden (see docs/conventions/session-engine.md — "NEVER EventEmitter").
+  # Session engine: EventEmitter is forbidden (see docs/conventions/services.md — "NEVER EventEmitter").
   if [[ "$file" == services/acme-session-engine/* ]]; then
     if grep -qE "from\s+['\"](node:events|events)['\"]" "$file" 2>/dev/null; then
-      WARNINGS+="  ⚠ $file: imports EventEmitter — use typed callbacks instead (docs/conventions/session-engine.md)\n"
+      WARNINGS+="  ⚠ $file: imports EventEmitter — use typed callbacks instead (docs/conventions/services.md)\n"
     fi
   fi
 
   # Gateway: services must be created via factories, never via `new XService()`
-  # (see docs/conventions/gateway.md — "factories ONLY, NEVER classes").
+  # (see docs/conventions/services.md — "factories ONLY, NEVER classes").
   if [[ "$file" == services/acme-gateway/* ]]; then
     if grep -qE 'new\s+[A-Z][A-Za-z0-9_]*Service\s*\(' "$file" 2>/dev/null; then
-      WARNINGS+="  ⚠ $file: instantiates a Service class directly — use the create*Service factory (docs/conventions/gateway.md)\n"
+      WARNINGS+="  ⚠ $file: instantiates a Service class directly — use the create*Service factory (docs/conventions/services.md)\n"
     fi
   fi
 

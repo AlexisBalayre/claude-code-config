@@ -13,18 +13,18 @@ Verify the specified files against the project's strict architectural and style 
 
 Map each file path to its area doc:
 
-- `apps/acme-api/` → `docs/conventions/api.md` (Layering, Hono, Serializers)
-- `apps/acme-web/` → `docs/conventions/frontend.md` (React 19, CVA, TanStack)
-- `services/acme-session-engine/` → `docs/conventions/session-engine.md` (State machines, Adapters)
-- `services/acme-gateway/` → `docs/conventions/gateway.md` (gRPC, Resiliency, Pools)
-- `packages/acme-providers/` → `docs/conventions/providers.md` (Factories, Registry, Channels)
-- `packages/acme-db/` → `docs/conventions/database.md` (UUIDs, Drizzle, Snake_case)
-- `packages/acme-rpc/` → `docs/conventions/grpc.md` (Proto, Middleware, TTLs)
-- `**/*.test.ts` → `docs/conventions/testing.md` (Mock ordering, Fake timers)
+- `apps/acme-api/` → `docs/conventions/backend.md`
+- `apps/acme-web/` → `docs/conventions/frontend.md`
+- `services/acme-session-engine/` → `docs/conventions/services.md`
+- `services/acme-gateway/` → `docs/conventions/services.md`
+- `packages/acme-providers/` → `docs/conventions/services.md`
+- `packages/acme-db/` → `docs/conventions/backend.md`
+- `packages/acme-rpc/` → `docs/conventions/services.md`
+- `**/*.test.ts` → `docs/conventions/testing.md`
 
 ## 2. Load the spec
 
-Read `docs/conventions/general.md` and `docs/conventions/naming.md` plus the mapped area doc for each file under review. **Those documents are the authoritative spec; do not rely on memorized rules.** Apply the universal rules (exports, imports, JSDoc, comments, type safety, naming) and the area-specific obligations from the mapped doc to every file.
+Read `docs/conventions/core.md` plus the mapped area doc for each file under review. **Those documents are the authoritative spec; do not rely on memorized rules.** Apply the universal rules from `core.md` (exports, imports, JSDoc, comments, type safety, naming) and the area-specific obligations from the mapped doc to every file.
 
 ## 3. Pattern Matching
 

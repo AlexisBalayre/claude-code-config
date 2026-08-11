@@ -58,7 +58,6 @@ Run all five. A single hit moves the candidate from "dead" to "live" (or "uncert
 Surface these alongside the candidate list so the user can sanity-check fast.
 
 - **String-keyed registries:** `packages/acme-providers` resolves providers by string key; provider files look unreferenced via `import` grep.
-- **Route file conventions:** TanStack Router files under `apps/acme-web/src/routes/` are picked up by the generator, not imported by name. Skip this directory unless the user opts in.
 - **Drizzle schema files:** referenced via `packages/acme-db/src/schema/index.ts` re-exports; unique-export grep needs the re-export traversed.
 - **Test setup, seed scripts, eval-runner harness:** entry points run by tooling, not imported.
 - **Build-time inlined files:** anything referenced from a Vite config, `turbo.json`, or shell scripts under `scripts/`.

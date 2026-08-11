@@ -28,7 +28,7 @@ Read these from `.env` (never hardcode real account IDs in the repo):
 
 If the relevant area has not been explored yet, do so now. Anchor the Epic in:
 
-- `docs/README.md` Glossary and `docs/conventions/naming.md` for vocabulary. The Epic body MUST use these terms (e.g., `Organization`, `Session`, `Message`); flag and resolve any drift before drafting.
+- `docs/glossary.md` and `docs/conventions/core.md` for vocabulary. The Epic body MUST use these terms (e.g., `Organization`, `Session`, `Message`); flag and resolve any drift before drafting.
 - `docs/reference/` for current service boundaries and wiring.
 - `docs/explanation/` for the rationale of the surrounding subsystem.
 - `docs/adr/` for hard-to-reverse decisions already locked in. The Epic must not silently re-litigate an existing ADR; if it does, call it out explicitly and decide whether to open a new ADR that supersedes it.
@@ -97,7 +97,7 @@ Links to ADRs, prior epics, related issues, open questions.
 
 ## Rules
 
-- Write in the repo's vocabulary. If the conversation used a term that conflicts with the Glossary or `naming.md`, resolve it (or flag it) before filing.
+- Write in the repo's vocabulary. If the conversation used a term that conflicts with the Glossary or `core.md`, resolve it (or flag it) before filing.
 - No file paths or line numbers in the body; they rot.
 - No code snippets except the prototype-derived exception above (state machine / reducer / schema / type shape).
 - One Epic per issue. For multi-feature work, file the Epic, then have the user run `/to-issues` to break it into independently grabbable tickets as children of this Epic.

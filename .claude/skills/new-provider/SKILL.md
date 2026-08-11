@@ -4,7 +4,7 @@ description: Scaffold a new delivery Provider (email, SMS, push, or webhook Chan
 user-invocable: false
 ---
 
-Scaffold a new delivery Provider. The adapter/factory/registry obligations are in `docs/conventions/providers.md` - read it first; this skill is the execution checklist.
+Scaffold a new delivery Provider. The adapter/factory/registry obligations are in `docs/conventions/services.md` §Delivery Providers - read it first; this skill is the execution checklist.
 
 ## Execution Steps
 

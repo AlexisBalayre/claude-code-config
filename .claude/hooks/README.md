@@ -10,8 +10,8 @@ fire automatically. Exit code `2` blocks the operation, `0` allows it.
 | `convention-spot-check.sh` | `Stop` | Advisory scan of changed TS: `export default`, inline types in service/route files, missing JSDoc (`packages/` only), non-`Readonly` React props, `EventEmitter` in the session engine, direct `new XService()` in the gateway. Always advisory (exit 0). Comment quality is owned by `comment-pruner.sh`. |
 | `comment-pruner.sh` | `Stop` | When the session added net-new comments (hashed against a memo of already-adjudicated ones): exits 2 so the main loop dispatches the `comment-pruner` subagent over the touched files, then seals the memo. A cheap pre-filter — a response that adds no comment pays nothing. |
 | `git-safety.sh` | `PreToolUse(Bash)` | Blocks `rm -rf`, `DROP TABLE`, `git push --force`, `git reset --hard`, `checkout -b` on the trunk, and pushes to the trunk. Trunk name from `.env` `GIT_TRUNK` (default `main`). |
-| `protect-generated.sh` | `PreToolUse(Edit\|Write)` | Blocks edits to `*.gen.ts`, `routeTree.gen.ts`, and `packages/acme-rpc/src/generated/**` (regenerate from `.proto` instead). |
-| `validate-file-naming.sh` | `PreToolUse(Write)` | Blocks new `.ts/.tsx` files that do not match `kebab-case.role.ts` (25 valid roles), with documented exceptions. |
+| `protect-generated.sh` | `PreToolUse(Edit\|Write)` | Blocks edits to `*.gen.ts` and `packages/acme-rpc/src/protos/generated/**` (regenerate from `.proto` instead). |
+| `validate-file-naming.sh` | `PreToolUse(Write)` | Blocks new `.ts/.tsx` files that do not match `kebab-case.role.ts` (24 valid roles, taxonomy in `docs/conventions/core.md`), with documented exceptions. |
 | `pre-compact-preserve.sh` | `PreCompact` | Injects must-preserve context (current branch + worktree path, modified files, test results) so it survives compaction. |
 
 **Configure / disable:** edit the entry under `hooks` in `settings.json`. Scripts must stay

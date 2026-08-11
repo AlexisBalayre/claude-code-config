@@ -60,7 +60,7 @@ credential stuffing and abuse.
 ## Concurrency safety
 
 Session slot reservations use **atomic Lua scripts** (`RESERVE_SLOT_SCRIPT`) in Redis, never
-`GET`+`SET` — see [session-engine conventions](../conventions/session-engine.md). The race
+`GET`+`SET` — see [services conventions](../conventions/services.md). The race
 between read and write is a real over-allocation bug, not a theoretical one.
 
 ## OWASP Top 10 mapping

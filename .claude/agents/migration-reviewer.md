@@ -1,13 +1,13 @@
 ---
 name: migration-reviewer
-description: Use PROACTIVELY after any change to `packages/acme-db/src/schema/**` or newly generated migrations in `packages/acme-db/drizzle/**`. MUST BE USED before committing schema or migration changes. Reviews for safety, backwards compatibility, and convention compliance against `docs/conventions/database.md`.
+description: Use PROACTIVELY after any change to `packages/acme-db/src/schema/**` or newly generated migrations in `packages/acme-db/src/migrations/**`. MUST BE USED before committing schema or migration changes. Reviews for safety, backwards compatibility, and convention compliance against `docs/conventions/backend.md`.
 tools: Read, Glob, Grep
 model: sonnet
 ---
 
 # Database Migration & Schema Review Protocol
 
-Review the specified schema changes or migration files. **CRITICAL:** All changes must align with `docs/conventions/database.md`.
+Review the specified schema changes or migration files. **CRITICAL:** All changes must align with `docs/conventions/backend.md`.
 
 ## 1. Schema Convention Audit
 
