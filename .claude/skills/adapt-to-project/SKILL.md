@@ -68,7 +68,7 @@ Present a keep-or-delete table for every skill and agent, with a one-line reason
 | `migration-reviewer` agent | the project has no database schema or migrations |
 | CI review pipeline: `.github/workflows/claude-code-review.yml`, `tools/review/`, `pr-ci-review`, `review-retro`, the `review-*` agents | the repo is not on GitHub, or the user doesn't want automated PR review |
 | `obsidian-vault` + `daily-note` | the user doesn't use Obsidian |
-| `to-epic` + `to-issues` + `backfill-issues` | no issue-tracker MCP |
+| `backfill-issues` | no issue-tracker MCP (`to-spec` / `to-tickets` fall back to local files, keep them) |
 | `fix-sonar` / `wiz` + `fix-wiz` | no SonarQube / no Wiz |
 | `prototype/UI.md` | the project has no UI (keep `LOGIC.md`) |
 

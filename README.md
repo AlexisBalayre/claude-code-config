@@ -23,7 +23,7 @@ conventions, architecture docs, and prunes what the project can't use.
 | **`AGENTS.md`** + **`CLAUDE.md`** | 2 | Always-on project memory, layered: `AGENTS.md` is the tool-agnostic base (role, conventions map, comments/altitude discipline, git workflow) any coding agent can read; `CLAUDE.md` just imports it and adds Claude Code-only notes. Kept tiny on purpose. |
 | **`project.env`** | 1 | The project profile: format/lint/typecheck/test/install commands, generated paths, file-naming pattern, trunk. Every hook and script reads it; an empty key turns its check off. |
 | **`rules/`** | 2+ | Path-scoped **pure loaders** (core, testing, plus one per project area once adapted) that auto-load `docs/conventions/*.md` only when you touch matching files. |
-| **`skills/`** | 28 | Auto-discoverable workflows: setup (`adapt-to-project`), engineering (`tdd`, `diagnose`, `resolve-merge-conflicts`, `find-dead-code`…), thinking & design (`grilling`, `grill-me`, `codebase-design`, `domain-modeling`, `prototype`…), PR & review (`pr-description`, `pr-ci-review`, `address-review-comments`, `review-retro`), meta (`write-a-skill`, `handoff`, `caveman`), and personal integrations (`obsidian-vault`, `daily-note`, `to-issues`, `fix-sonar`, `wiz`… — configured via `.env`). |
+| **`skills/`** | 34 | Auto-discoverable workflows: setup (`adapt-to-project`), planning (`to-spec`, `to-tickets`, `wayfinder`, `implement`…), engineering (`tdd`, `diagnosing-bugs`, `resolving-merge-conflicts`, `wizard`, `research`…), thinking & design (`grilling`, `grill-me`, `codebase-design`, `domain-modeling`, `prototype`…), PR & review (`pr-description`, `pr-ci-review`, `address-review-comments`, `review-retro`), meta (`writing-for-agents`, `handoff`, `wait-what`…), and personal integrations (`obsidian-vault`, `daily-note`, `fix-sonar`, `wiz`… — configured via `.env`). Engineering and thinking skills track [mattpocock/skills](https://github.com/mattpocock/skills). |
 | **`agents/`** | 12 | Isolated subagents: 4 proactive (`convention-checker`, `migration-reviewer`, `security-reviewer`, `architecture-explainer`), 7 `review-*` reviewers + validator dispatched by `pr-ci-review`, and `comment-pruner` dispatched by its Stop hook. |
 | **`hooks/`** | 7 | Zero-LLM shell scripts on lifecycle events: quality gate, convention spot-check, comment-pruner dispatch, git safety, generated-file protection, file-naming validation, compaction preservation. All stack-specific values come from `project.env`. |
 
@@ -147,7 +147,7 @@ Everything project-specific lives in a few well-known places, so tuning is editi
   `/adapt-to-project the new mobile app`.
 - **Don't want a rule/skill/agent?** Delete the file. Each piece is independent.
 - **Add your own?** [`.claude/README.md`](.claude/README.md) has an "Adding new extensions"
-  recipe for every layer, and the `write-a-skill` skill scaffolds new skills.
+  recipe for every layer, and the `writing-for-agents` skill covers writing new skills.
 
 ## Acknowledgments & sources
 
