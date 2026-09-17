@@ -56,6 +56,29 @@ poster, metrics — with the design and threat model in its README); each run's 
 appended to a `ci/review-metrics` orphan branch that the `/review-retro` skill mines to
 improve the pipeline itself.
 
+**Turning it on** takes three steps, all in your own repo:
+
+```bash
+# 1. Install the Claude GitHub App (the action trades an OIDC token for its own)
+#    at https://github.com/apps/claude
+# 2. Mint a token and store it as a repo secret
+claude setup-token && gh secret set CLAUDE_CODE_OAUTH_TOKEN
+# 3. Create the metrics sink once
+git push origin "$(git commit-tree "$(git hash-object -t tree /dev/null)" -m 'review-metrics: init')":refs/heads/ci/review-metrics
+```
+
+The review bills whoever's token that secret holds, so the job runs **only when the actor is the
+repository owner**: the person who opened or pushed to the PR, or who commented `@claude review`.
+A PR from anyone else is skipped, spending nothing. Widen or narrow that gate in the job's `if:`;
+on an organization repo `github.repository_owner` is the org name, which matches no user, so
+replace it with the logins (or a team check) you want to allow.
+
+One upstream rule to expect: the App only mints a token when the workflow file on the PR branch
+is byte-identical to the copy on the default branch, so **a PR that edits
+`claude-code-review.yml` cannot be reviewed until it merges** (the run 401s, and the poster
+marks the diff "not reviewed"). That is the guard against a PR rewriting the very workflow that
+reviews it; land workflow changes first, then review the rest normally.
+
 ## The worktree-first workflow
 
 The spine of this setup: **never work on `main`, one git worktree per task.** The `git-safety`
