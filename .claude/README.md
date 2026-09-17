@@ -56,15 +56,18 @@ A rule fires on the first Read, Edit, or Write of a matching path (not on MCP re
 │
 ├── skills/                # Auto-discoverable knowledge + workflows (each is <name>/SKILL.md)
 │   ├── adapt-to-project/                                         # setup (run once per project)
-│   ├── tdd/   diagnose/   resolve-merge-conflicts/               # engineering
+│   ├── to-spec/   to-tickets/   wayfinder/   implement/          # planning & specs
+│   ├── to-questionnaire/
+│   ├── tdd/   diagnosing-bugs/   resolving-merge-conflicts/      # engineering
+│   ├── wizard/   research/
 │   ├── find-dead-code/   improve-codebase-architecture/          # engineering (manual)
 │   ├── grilling/   grill-me/   grill-with-docs/                  # thinking / design
 │   ├── codebase-design/   domain-modeling/   zoom-out/   prototype/
 │   ├── pr-description/   pr-ci-review/                           # PR & review
 │   ├── address-review-comments/   review-retro/
-│   ├── write-a-skill/   handoff/   caveman/                      # meta / workflow
-│   ├── obsidian-vault/   daily-note/   to-issues/   to-epic/     # personal integrations (.env)
-│   └── backfill-issues/   fix-sonar/   wiz/   fix-wiz/
+│   ├── writing-for-agents/   handoff/   caveman/   wait-what/     # meta / workflow
+│   ├── obsidian-vault/   daily-note/   backfill-issues/           # personal integrations (.env)
+│   └── fix-sonar/   wiz/   fix-wiz/
 │
 ├── agents/                # Custom subagents for specialized tasks
 │   ├── convention-checker.md      migration-reviewer.md          # proactive
@@ -117,7 +120,7 @@ paths:
 
 Skills are directories with a `SKILL.md` that Claude discovers automatically. Claude sees the description at session start (tiny context cost) and loads the full content when the skill is relevant.
 
-This repo ships **28 skills** across setup, engineering, thinking/design, PR & review, meta, and personal integrations. The **[skill catalog](skills/README.md)** lists when each one fires and how to invoke it (auto-trigger, `/slash-command`, Claude-only, or manual-only).
+This repo ships **34 skills** across setup, planning, engineering, thinking/design, PR & review, meta, and personal integrations. The **[skill catalog](skills/README.md)** lists when each one fires and how to invoke it (auto-trigger, `/slash-command`, Claude-only, or manual-only).
 
 **Frontmatter options:**
 - `name` — identifier and `/slash-command` name

@@ -8,6 +8,7 @@ Documentation for this project, organised with [Diátaxis](https://diataxis.fr/)
 | `reference/`        | *What is the shape?*    | You need the structure of a component or data flow. |
 | `explanation/`      | *Why is it like this?*  | You're questioning a design decision.       |
 | `adr/`              | *What did we decide?*   | You need the record of a past decision.     |
+| `research/`         | *What do the sources say?* | You need findings the `research` skill captured (created on first use). |
 
 `conventions/` is the **single source of truth** for code style; conventions files contain
 obligations only, while system description lives in `reference/`. Unfamiliar term? See the
