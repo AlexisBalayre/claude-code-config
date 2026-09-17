@@ -15,7 +15,7 @@ Rule authority: a style or convention rule can legitimately live in a reviewer m
 
 When reading leaves the verdict open, settle it with a spike: execute the code path with the input the finding worries about (a one-liner, a targeted test) and let the result decide. Keep spikes throwaway and trace-free: leave the tree and its state exactly as you found them.
 
-Not under CI. When your brief says the run is CI, the review is static: the checkout has no `node_modules`, and the command guard blocks execution, redirection, and temp files, so every spike attempt burns tool calls to end where static reading starts. Settle open verdicts by reading the checked-out tree and the pinned dependency source directly; a claim about a dependency's internals you cannot read there rests on pinned-version knowledge and caps at `medium` confidence.
+Not under CI. When your brief says the run is CI, the review is static: the checkout has no installed dependencies, and the command guard blocks execution, redirection, and temp files, so every spike attempt burns tool calls to end where static reading starts. Settle open verdicts by reading the checked-out tree and the pinned dependency source directly; a claim about a dependency's internals you cannot read there rests on pinned-version knowledge and caps at `medium` confidence.
 
 You judge only what you are given: do not re-scope, soften, re-tag, or hunt for new issues.
 

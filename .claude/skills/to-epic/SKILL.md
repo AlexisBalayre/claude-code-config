@@ -28,13 +28,13 @@ Read these from `.env` (never hardcode real account IDs in the repo):
 
 If the relevant area has not been explored yet, do so now. Anchor the Epic in:
 
-- `docs/glossary.md` and `docs/conventions/core.md` for vocabulary. The Epic body MUST use these terms (e.g., `Organization`, `Session`, `Message`); flag and resolve any drift before drafting.
-- `docs/reference/` for current service boundaries and wiring.
+- `docs/glossary.md` and `docs/conventions/core.md` for vocabulary. The Epic body MUST use the Glossary's terms; flag and resolve any drift before drafting.
+- `docs/reference/architecture.md` for current component boundaries and wiring.
 - `docs/explanation/` for the rationale of the surrounding subsystem.
 - `docs/adr/` for hard-to-reverse decisions already locked in. The Epic must not silently re-litigate an existing ADR; if it does, call it out explicitly and decide whether to open a new ADR that supersedes it.
 - `.claude/rules/*.md` for the area you'll touch.
 
-For *why*/*how* questions across services, delegate to the `architecture-explainer` subagent.
+For *why*/*how* questions across components, delegate to the `architecture-explainer` subagent.
 
 ### 2. Module sketch
 
@@ -69,11 +69,11 @@ The solution, from the user's perspective.
 
 A long numbered list. Each in the form: *As an `<actor>`, I want `<feature>`, so that `<benefit>`.* Cover all aspects.
 
-Example: *As a session host, I want an in-flight Message to be silently superseded when a newer revision arrives, so that Participants only ever see the latest version without a flicker.*
+Example: *As a document editor, I want an in-flight save to be silently superseded when a newer revision arrives, so that collaborators only ever see the latest version without a flicker.*
 
 ## Implementation decisions
 
-Modules to build or modify, interface shapes, architectural decisions, schema changes, API contracts, provider interactions, transport choices (gRPC / WebSocket).
+Modules to build or modify, interface shapes, architectural decisions, schema changes, API contracts, third-party integrations, transport choices (e.g. HTTP vs. WebSocket vs. queue).
 
 Call out any decision that supersedes or refines an existing ADR, and note whether a new ADR is warranted.
 

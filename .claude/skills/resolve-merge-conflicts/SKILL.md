@@ -12,10 +12,10 @@ description: Resolve an in-progress git merge or rebase conflict. Use when a mer
 3. **Resolve each hunk.** Preserve both intents where possible. Where incompatible, pick the one matching the merge's stated goal and note the trade-off. Do **not** invent new behaviour. Always resolve; never `--abort`.
 
 4. **Regenerate, don't hand-merge.** Conflict markers in generated files are never resolved by hand:
-   - `pnpm-lock.yaml`: take either side wholesale, then re-run `pnpm install` to regenerate.
-   - Drizzle migrations and `packages/acme-db/src/migrations/meta/_journal.json`: drop this branch's generated migration, re-run `pnpm db:generate` against the merged schema, then `biome check --write` the `_journal`.
-   - Any other generated artifact (schema diagrams, generated API references, gRPC stubs): re-run its generator against the merged sources; never edit the output.
+   - Lockfiles (`package-lock.json`, `yarn.lock`, `poetry.lock`, `uv.lock`, `Cargo.lock`, `go.sum`, ...): merge the manifest first, take either side of the lockfile wholesale, then regenerate it with the project's package manager (`INSTALL_CMD` in `.claude/project.env` usually does it).
+   - Generated migrations and their metadata (journals, snapshots): drop this branch's generated migration, re-run the migration generator against the merged schema, then format the output with `FORMAT_FIX_CMD`.
+   - Any other generated artifact (paths matching `GENERATED_PATHS_REGEX` in `.claude/project.env`: codegen stubs, generated API references, schema diagrams): re-run its generator against the merged sources; never edit the output.
 
-5. **Run the tests** for the affected packages and fix anything the merge broke (formatting and typechecking run automatically via the Stop hook). The pre-commit hook lints, typechecks, and tests the whole repo; failures that already exist on the base branch are not the merge's fault, and `--no-verify` is acceptable only for those.
+5. **Run the tests** (`TEST_CMD` in `.claude/project.env`, scoped to the affected area when the runner allows) and fix anything the merge broke (formatting, lint, and typechecking run automatically via the Stop hook). The pre-commit hook (`scripts/pre-commit`) runs the project's checks and tests; failures that already exist on the base branch are not the merge's fault, and `--no-verify` is acceptable only for those.
 
 6. **Finish the merge/rebase.** Stage everything and commit. If rebasing, continue (`git rebase --continue`) until all commits are rebased.

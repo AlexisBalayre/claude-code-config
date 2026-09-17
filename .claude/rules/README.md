@@ -7,11 +7,11 @@ single source of truth, so always-on context stays small while full detail loads
 
 | Rule | Auto-loads for | Enforces (full doc) |
 | :--- | :------------- | :------------------ |
-| `core-conventions` | every `**/*.ts`, `**/*.tsx` | Altitude/YAGNI, type system, JSDoc, comments, logging, naming taxonomy → `core.md` |
-| `backend-conventions` | `apps/acme-api/**`, `packages/acme-db/**` | Routes → Services → Repositories → DB layering, Hono + Zod OpenAPI, auth chains, Drizzle + migration safety → `backend.md` |
-| `services-conventions` | `services/acme-gateway/**`, `services/acme-session-engine/**`, `packages/acme-rpc/**`, `packages/acme-providers/**` | Factories only, pools, state machines, no `EventEmitter`, proto contracts, atomic Redis Lua slots, provider factory + YAML registry → `services.md` |
-| `frontend-conventions` | `apps/acme-web/**` | React 19, react-router-dom v7 single route table, `Readonly` props, `cn()`/CVA, TanStack Query → `frontend.md` |
-| `testing-conventions` | `**/*.test.ts(x)`, `**/*.mock.ts`, `**/test/**`, vitest configs, `tools/vitest/**` | Vitest shared factories, `test/` layout, mock ordering, fake timers, behaviour-not-internals → `testing.md` |
+| `core-conventions` | source files of the project's languages | Altitude/YAGNI, comments, language and types, errors, logging, structure, naming → `core.md` |
+| `testing-conventions` | `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*_test.*`, `test_*.*` | Behaviour-over-internals, framework, layout, mocks, integration tests → `testing.md` |
+
+`/adapt-to-project` narrows these globs to the project and adds one rule per area whose conventions
+differ from core (e.g. `api-conventions` → `docs/conventions/api.md`); list each new rule here.
 
 **How to use:** just edit files in a matching path; the rule and its `docs/conventions/*.md`
 import load automatically. To add a rule, see [`.claude/README.md`](../README.md) ("New rule").

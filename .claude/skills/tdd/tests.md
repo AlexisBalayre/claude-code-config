@@ -1,10 +1,12 @@
 # Good and Bad Tests
 
+Examples are illustrative pseudo-code; translate them to the project's language and test framework.
+
 ## Good Tests
 
 **Integration-style**: Test through real interfaces, not mocks of internal parts.
 
-```typescript
+```
 // GOOD: Tests observable behavior
 test("user can checkout with valid cart", async () => {
   const cart = createCart();
@@ -26,10 +28,10 @@ Characteristics:
 
 **Implementation-detail tests**: Coupled to internal structure.
 
-```typescript
+```
 // BAD: Tests implementation details
 test("checkout calls paymentService.process", async () => {
-  const mockPayment = jest.mock(paymentService);
+  const mockPayment = mock(paymentService);
   await checkout(cart, payment);
   expect(mockPayment.process).toHaveBeenCalledWith(cart.total);
 });
@@ -44,7 +46,7 @@ Red flags:
 - Test name describes HOW not WHAT
 - Verifying through external means instead of interface
 
-```typescript
+```
 // BAD: Bypasses interface to verify
 test("createUser saves to database", async () => {
   await createUser({ name: "Alice" });
@@ -62,7 +64,7 @@ test("createUser makes user retrievable", async () => {
 
 **Tautological tests**: Expected value restates the implementation, so the test passes by construction.
 
-```typescript
+```
 // BAD: Expected value is recomputed the way the code computes it
 test("calculateTotal sums line items", () => {
   const items = [{ price: 10 }, { price: 5 }];

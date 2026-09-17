@@ -31,11 +31,11 @@ If the user passes an issue ID or URL, fetch it via `mcp__linear-server__get_iss
 
 Issue titles and bodies MUST use this repo's vocabulary. Before slicing:
 
-- Skim `docs/glossary.md` and `docs/conventions/core.md` for canonical terms (`Organization`, `Session`, `Participant`, `Message`, etc.).
+- Skim `docs/glossary.md` and `docs/conventions/core.md` for canonical terms.
 - Check `docs/adr/` for hard-to-reverse decisions in the area. If any proposed slice would silently re-litigate an ADR, flag it to the user before drafting; do not bury the contradiction inside an issue body.
 - Skim the relevant `docs/explanation/<topic>.md` for current rationale.
 
-For *why*/*how* questions across services, delegate to the `architecture-explainer` subagent.
+For *why*/*how* questions across components, delegate to the `architecture-explainer` subagent.
 
 ### 3. Slice
 
@@ -69,7 +69,7 @@ Create issues via `mcp__linear-server__save_issue` in dependency order, so real 
 
 ## Wide refactors
 
-A **wide refactor** is one mechanical change — rename a column, retype a shared symbol — whose **blast radius** fans across the whole monorepo, so a single edit breaks thousands of call sites at once and no vertical slice can land green. Don't force it into a tracer bullet; sequence it as **expand–contract**. First expand: add the new form beside the old so nothing breaks. Then migrate the call sites over in batches sized by blast radius (per workspace, per directory), each batch its own issue blocked by the expand, keeping CI green batch to batch because the old form still exists. Finally contract: delete the old form once no caller remains, in an issue blocked by every migrate batch. When even the batches can't stay green alone, keep the sequence but let them share an integration branch that all block a final integrate-and-verify issue — green is promised only there.
+A **wide refactor** is one mechanical change — rename a column, retype a shared symbol — whose **blast radius** fans across the whole codebase, so a single edit breaks thousands of call sites at once and no vertical slice can land green. Don't force it into a tracer bullet; sequence it as **expand–contract**. First expand: add the new form beside the old so nothing breaks. Then migrate the call sites over in batches sized by blast radius (per package, per directory), each batch its own issue blocked by the expand, keeping CI green batch to batch because the old form still exists. Finally contract: delete the old form once no caller remains, in an issue blocked by every migrate batch. When even the batches can't stay green alone, keep the sequence but let them share an integration branch that all block a final integrate-and-verify issue — green is promised only there.
 
 ## Issue body template
 

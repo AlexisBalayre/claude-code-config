@@ -25,10 +25,13 @@ MODE="${1:-check}"
 # Generated files and vendored/build dirs carry comments the agent must never
 # touch; the agent re-applies this filter, but excluding here avoids dispatching
 # for them at all.
-EXCLUDE='(/(node_modules|dist|\.turbo|archive)/|\.pb\.ts$|\.proto\.ts$|packages/acme-db/drizzle/)'
+[ -f .claude/project.env ] && . .claude/project.env
+EXT_RE=$(printf '%s' "${SOURCE_EXTENSIONS:-}" | tr -s ' ' '|')
+[ -z "$EXT_RE" ] && exit 0
+EXCLUDE="(^|/)(node_modules|vendor|dist|build|target|\.venv|archive)/${GENERATED_PATHS_REGEX:+|$GENERATED_PATHS_REGEX}"
 
-TRACKED=$(git diff HEAD --name-only -- '*.ts' '*.tsx' 2>/dev/null | grep -vE "$EXCLUDE" || true)
-UNTRACKED=$(git ls-files --others --exclude-standard -- '*.ts' '*.tsx' 2>/dev/null | grep -vE "$EXCLUDE" || true)
+TRACKED=$(git diff HEAD --name-only 2>/dev/null | grep -E "\.($EXT_RE)$" | grep -vE "$EXCLUDE" || true)
+UNTRACKED=$(git ls-files --others --exclude-standard 2>/dev/null | grep -E "\.($EXT_RE)$" | grep -vE "$EXCLUDE" || true)
 
 # Source lines added versus HEAD: diff-added lines for tracked files, whole
 # content for untracked files (a new file's comments are all newly written).
@@ -44,7 +47,8 @@ added_source() {
 
 # Hash the comment text on each line so a new comment dispatches the pruner.
 # Covers: full-line and trailing `// ...`, full-line and trailing/mid-line
-# `/* ... */` block comments, and `*` JSDoc-continuation lines. The earliest of
+# `/* ... */` block comments, `*` doc-continuation lines, and `# ...` comments
+# (hash + space, so `#include`, `#[attr]` and `#private` fields don't count). The earliest of
 # `//` and `/*` on a line wins so a trailing block comment is not missed. URLs
 # are stripped first so `https://` is not read as a `//`. The naive scan also
 # matches `/*` inside a string literal (e.g. a `**/*.ts` glob); accepted on
@@ -56,12 +60,15 @@ extract_hashes() {
   awk '
     {
       c=""
-      if ($0 ~ /^[[:space:]]*(\/\*|\*)/) { c=$0 }
+      if ($0 ~ /^[[:space:]]*(\/\*|\*|#( |$))/) { c=$0 }
       else {
         tmp=$0; gsub(/[a-zA-Z][a-zA-Z0-9+.-]*:\/\//,"",tmp)
-        s=index(tmp,"//"); b=index(tmp,"/*")
-        if (b>0 && (s==0 || b<s)) c=substr(tmp,b)
-        else if (s>0) c=substr(tmp,s)
+        s=index(tmp,"//"); b=index(tmp,"/*"); h=match(tmp,/[[:space:]]#( |$)/); if (h>0) h++
+        m=0
+        if (s>0) m=s
+        if (b>0 && (m==0 || b<m)) m=b
+        if (h>0 && (m==0 || h<m)) m=h
+        if (m>0) c=substr(tmp,m)
       }
       gsub(/^[[:space:]]+/,"",c); gsub(/[[:space:]]+$/,"",c)
       if (c!="") print c

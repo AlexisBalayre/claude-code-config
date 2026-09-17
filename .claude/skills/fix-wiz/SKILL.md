@@ -1,7 +1,8 @@
 ---
 name: fix-wiz
 disable-model-invocation: true
-allowed-tools: mcp__wiz__discover, mcp__wiz__execute, Read, Edit, Grep, Glob, AskUserQuestion, Agent, Bash(pnpm:*), Bash(git:*), Bash(gh:*), Bash(jq:*), Bash(python3:*)
+# TODO(adapt): add Bash(<runner>:*) entries for INSTALL_CMD / TYPECHECK_CMD / TEST_CMD and the build command.
+allowed-tools: mcp__wiz__discover, mcp__wiz__execute, Read, Edit, Grep, Glob, AskUserQuestion, Agent, Bash(scripts/worktree-create.sh:*), Bash(git:*), Bash(gh:*), Bash(jq:*), Bash(python3:*)
 description: Triage each open Wiz finding (container CVEs and SAST), auto-fix the high-confidence ones in a worktree PR, and escalate the rest for review.
 ---
 
@@ -26,7 +27,7 @@ Parse the persisted `tool-results/*.txt` with jq or python; dedupe. Print the wo
 
 ## 2. Branch
 
-`pnpm worktree:create fix-wiz-<yyyy-mm-dd>`, then work in `.worktrees/fix-wiz-<date>` via `git -C` (never main). Confirm `branch --show-current` is not `main` before the first edit.
+`scripts/worktree-create.sh fix-wiz-<yyyy-mm-dd>`, then work in `.worktrees/fix-wiz-<date>` via `git -C` (never the trunk, `GIT_TRUNK` in `.claude/project.env`). Confirm `branch --show-current` is not the trunk before the first edit.
 
 ## 3. Triage each finding through the gate
 
@@ -38,7 +39,7 @@ Assign every finding exactly one verdict. **AUTO-FIX** only when the fix is mech
 
 **SAST** (default ESCALATE, the false-positive base rate is high):
 - AUTO-FIX only if reading `filePath`:`startLine` confirms the weakness is real, untrusted input actually reaches it, and the fix is behaviour-preserving.
-- FP: record with rationale, do not edit. Known FP shapes live in `/wiz`'s "before treating a finding as real" (Redis `EVALSHA` SHA-1, `setTimeout(fn, ...)` as eval, internal config dirs as path traversal, `noEscape` plain-text templates). Escalate anything touching crypto or auth even when it looks mechanical.
+- FP: record with rationale, do not edit. Known FP shapes live in `/wiz`'s "before treating a finding as real" (protocol-mandated weak hashes, timer callbacks as eval, internal config dirs as path traversal, plain-text templates with escaping off). Escalate anything touching crypto or auth even when it looks mechanical.
 
 For a large SAST list, fan the per-finding code verification out to parallel `Agent` (security-reviewer) calls; keep the verdicts, not the transcripts.
 
@@ -51,11 +52,11 @@ Present all ESCALATE findings together via `AskUserQuestion` (batch them, do not
 ## 5. Apply and verify
 
 Apply the AUTO-FIX set, grouped by kind:
-- **Dependency bump**: raise the dep, or add a `pnpm.overrides` entry for a transitive one, to `fixedVersion`, then `pnpm install` (updates the lockfile).
+- **Dependency bump**: raise the dep, or pin a transitive one through the package manager's override / constraint mechanism, to `fixedVersion`, then regenerate the lockfile (`INSTALL_CMD` in `.claude/project.env`, or the package manager's update command).
 - **Base image**: bump the `FROM` tag or digest in the Dockerfile.
 - **SAST**: the confirmed mechanical edit.
 
-Verify: `pnpm typecheck`, the affected `pnpm test`, and `pnpm build`. Image base-bumps cannot build locally, so rely on the release image rescan and say so. A red verify sends the finding back to ESCALATE, never into the PR.
+Verify: `TYPECHECK_CMD`, the affected tests via `TEST_CMD` (both in `.claude/project.env`), and the project's build. Image base-bumps cannot build locally, so rely on the release image rescan and say so. A red verify sends the finding back to ESCALATE, never into the PR.
 
 ## 6. One PR
 

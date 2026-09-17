@@ -1,0 +1,9 @@
+# Convention spot-checks run by .claude/hooks/convention-spot-check.sh on Stop.
+# One check per line, three TAB-separated fields:
+#   <path ERE>	<forbidden content ERE (grep -E)>	<message citing the conventions doc>
+# A file changed this session whose path matches field 1 and whose content matches
+# field 2 is reported once. Keep checks to cheap, low-false-positive structural
+# smells; judgement calls belong in docs/conventions/ and the convention-checker agent.
+# Example (TAB-separated):
+# ^src/domain/	from ['"]\.\./infra	src/domain must not import infra (core.md §Structure)
+# TODO(adapt): add this project's checks, or leave empty.

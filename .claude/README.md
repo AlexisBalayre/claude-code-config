@@ -1,6 +1,6 @@
 # Claude Code Configuration
 
-This directory contains all Claude Code customizations for the Acme project. Everything here extends Claude's agentic loop: the cycle of reasoning, tool use, and iteration that powers every session.
+This directory contains all Claude Code customizations for the project. Run `/adapt-to-project` once after copying the template in; it fills every `TODO(adapt)` slot and prunes what the project can't use. Everything here extends Claude's agentic loop: the cycle of reasoning, tool use, and iteration that powers every session.
 
 ## How It All Fits Together
 
@@ -34,9 +34,8 @@ What a session pays for this config, in approximate tokens (bytes / 4), so addit
 | `CLAUDE.md` + `AGENTS.md` | every session | ~1.0k |
 | Descriptions of the model-invocable skills | every session | ~0.7k |
 | Descriptions of all 12 agents | every session | ~0.7k |
-| `docs/conventions/core.md` | first `.ts` / `.tsx` file touched | ~4.4k |
-| `backend.md` / `services.md` | first file touched in that area | ~2.7k / ~2.7k |
-| `frontend.md` / `testing.md` | first file touched in that area | ~1.0k / ~1.0k |
+| `docs/conventions/core.md` | first source file touched | ~0.8k as shipped, grows when adapted |
+| `testing.md` / each area doc | first file touched in that area | ~0.4k as shipped; aim for ≤3k each |
 
 A rule fires on the first Read, Edit, or Write of a matching path (not on MCP results such as codegraph) and its `@import` pulls the whole file, so each convention doc is paid once per session per area. Keep them obligations-only, never instruct the model to Read one, and prefer `disable-model-invocation: true` for user-only skills since agents have no equivalent switch.
 
@@ -48,16 +47,15 @@ A rule fires on the first Read, Edit, or Write of a matching path (not on MCP re
 .claude/
 ├── settings.json              # Shared project config (permissions, hooks)
 ├── settings.local.json.example # Template for personal overrides (real file gitignored)
+├── project.env                # Project profile: commands, generated paths, naming, trunk
+├── spot-checks.tsv            # Checks run by convention-spot-check.sh
 │
 ├── rules/                 # Path-scoped convention loaders (auto-load)
 │   ├── core-conventions.md
-│   ├── backend-conventions.md
-│   ├── frontend-conventions.md
-│   ├── services-conventions.md
-│   └── testing-conventions.md
+│   └── testing-conventions.md     # + one <area>-conventions.md per area, added when adapting
 │
 ├── skills/                # Auto-discoverable knowledge + workflows (each is <name>/SKILL.md)
-│   ├── new-api-endpoint/   new-frontend-route/   new-provider/   # scaffolding
+│   ├── adapt-to-project/                                         # setup (run once per project)
 │   ├── tdd/   diagnose/   resolve-merge-conflicts/               # engineering
 │   ├── find-dead-code/   improve-codebase-architecture/          # engineering (manual)
 │   ├── grilling/   grill-me/   grill-with-docs/                  # thinking / design
@@ -78,12 +76,12 @@ A rule fires on the first Read, Edit, or Write of a matching path (not on MCP re
 │   └── comment-pruner.md          # dispatched by the comment-pruner Stop hook
 │
 └── hooks/                    # Deterministic shell scripts (zero LLM cost)
-    ├── quality-checks.sh          # Stop: lint/format dirty files + repo typecheck
-    ├── convention-spot-check.sh   # Stop: file-level convention scan (blocks once)
+    ├── quality-checks.sh          # Stop: format/lint dirty files + repo typecheck
+    ├── convention-spot-check.sh   # Stop: spot-checks.tsv scan (blocks once)
     ├── comment-pruner.sh          # Stop: dispatch the comment-pruner subagent on new comments
     ├── git-safety.sh              # PreToolUse(Bash): block dangerous git/shell ops
     ├── protect-generated.sh       # PreToolUse(Edit|Write): block generated files
-    ├── validate-file-naming.sh    # PreToolUse(Write): enforce kebab-case.role.ts
+    ├── validate-file-naming.sh    # PreToolUse(Write): enforce the project's file naming
     └── pre-compact-preserve.sh    # PreCompact: inject must-preserve context
 ```
 
@@ -104,10 +102,9 @@ Markdown files with `paths:` frontmatter that auto-load when Claude works with m
 ```yaml
 ---
 paths:
-  - "apps/acme-api/**"
-  - "packages/acme-db/**"
+  - "src/api/**"
 ---
-@docs/conventions/backend.md
+@docs/conventions/api.md
 ```
 
 **Key insight:** the rule is a trigger; `docs/conventions/` is the single source of truth (readable by humans and non-Claude tools too). This keeps always-on context small while ensuring full detail loads exactly when a matching file is touched.
@@ -120,7 +117,7 @@ paths:
 
 Skills are directories with a `SKILL.md` that Claude discovers automatically. Claude sees the description at session start (tiny context cost) and loads the full content when the skill is relevant.
 
-This repo ships **30 skills** across scaffolding, engineering, thinking/design, PR & review, meta, and personal integrations. The **[skill catalog](skills/README.md)** lists when each one fires and how to invoke it (auto-trigger, `/slash-command`, Claude-only, or manual-only).
+This repo ships **28 skills** across setup, engineering, thinking/design, PR & review, meta, and personal integrations. The **[skill catalog](skills/README.md)** lists when each one fires and how to invoke it (auto-trigger, `/slash-command`, Claude-only, or manual-only).
 
 **Frontmatter options:**
 - `name` — identifier and `/slash-command` name
@@ -165,18 +162,20 @@ Shell scripts that run outside the LLM loop on lifecycle events. Zero context co
 
 | Hook | Event | What it does |
 |------|-------|-------------|
-| `quality-checks.sh` | Stop | Lint/format dirty files, typecheck the repo (blocks on failure; tests live in pre-commit) |
-| `convention-spot-check.sh` | Stop | Scan for inline types, missing JSDoc (`packages/` only), area anti-patterns; blocks once, silent on the re-run |
+| `quality-checks.sh` | Stop | `FORMAT_FIX_CMD`/`LINT_CMD` on dirty files, `TYPECHECK_CMD` on the repo (blocks on failure; tests live in pre-commit) |
+| `convention-spot-check.sh` | Stop | Run `spot-checks.tsv` over changed files; blocks once, silent on the re-run |
 | `comment-pruner.sh` | Stop | Dispatch the `comment-pruner` subagent when the session added net-new comments |
 | `git-safety.sh` | PreToolUse(Bash) | Block `rm -rf`, `git reset --hard`, force push, `checkout -b` on main, push to main |
-| `protect-generated.sh` | PreToolUse(Edit\|Write) | Block edits to `*.gen.ts` and gRPC stubs |
-| `validate-file-naming.sh` | PreToolUse(Write) | Enforce `kebab-case.role.ts` on new files under this checkout |
+| `protect-generated.sh` | PreToolUse(Edit\|Write) | Block edits to paths matching `GENERATED_PATHS_REGEX` |
+| `validate-file-naming.sh` | PreToolUse(Write) | Enforce `FILE_NAMING_REGEX` on new files under this checkout |
 | `pre-compact-preserve.sh` | PreCompact | Preserve branch, modified files, test output across compaction |
 
 **Exit codes:**
 - `0` — success, continue
 - `1` — error (shown to user, continues)
 - `2` — **block the operation** (PreToolUse: prevents tool; Stop: feedback to Claude)
+
+**Project profile:** hooks never hardcode a toolchain. They source `.claude/project.env` (committed), and an empty key turns its check off. `.env` (gitignored) is only for personal-integration skills.
 
 **When to add a hook:** For deterministic checks that should always run. If it doesn't need LLM reasoning, it's a hook.
 
@@ -185,7 +184,7 @@ Shell scripts that run outside the LLM loop on lifecycle events. Zero context co
 ### 6. `settings.json` — Permissions & Hook Wiring
 
 Shared project configuration. Contains:
-- **`permissions.allow`** — pre-approved tool patterns (pnpm, git read-only, MCP tools)
+- **`permissions.allow`** — pre-approved tool patterns (worktree scripts, git, MCP tools; `/adapt-to-project` adds the project's commands)
 - **`permissions.deny`** — explicitly blocked operations (force push, hard reset, rm -rf)
 - **`hooks`** — wires hook scripts to lifecycle events
 

@@ -1,17 +1,16 @@
 #!/bin/bash
 # Create an isolated worktree for a feature, on its own branch, with deps installed.
-#   pnpm worktree:create <name>   ->  .worktrees/<name> on branch <prefix>/<name>
-# Branch prefix is configurable via WORKTREE_BRANCH_PREFIX in .env (default: feature).
+#   scripts/worktree-create.sh <name>   ->  .worktrees/<name> on branch <prefix>/<name>
+# Branch prefix and install command come from .claude/project.env.
 set -euo pipefail
 
 ROOT=$(git rev-parse --show-toplevel)
 cd "$ROOT"
 
-# Load personalization (.env) if present.
-[ -f .env ] && { set -a; . ./.env; set +a; }
+[ -f .claude/project.env ] && . .claude/project.env
 PREFIX="${WORKTREE_BRANCH_PREFIX:-feature}"
 
-NAME="${1:?Usage: pnpm worktree:create <name>}"
+NAME="${1:?Usage: scripts/worktree-create.sh <name>}"
 WORKTREE_DIR=".worktrees/$NAME"
 BRANCH="$PREFIX/$NAME"
 
@@ -23,8 +22,10 @@ fi
 mkdir -p .worktrees
 git worktree add "$WORKTREE_DIR" -b "$BRANCH"
 
-# Install dependencies in the new worktree (fresh worktrees start without node_modules)
-(cd "$WORKTREE_DIR" && pnpm install)
+# Fresh worktrees start without installed dependencies.
+if [ -n "${INSTALL_CMD:-}" ]; then
+  (cd "$WORKTREE_DIR" && bash -c "$INSTALL_CMD")
+fi
 
 # Worktree-local CodeGraph index: without one, codegraph answers from the main
 # tree's index, missing symbols changed on this branch. Only when the main

@@ -87,7 +87,7 @@ Use these to diagnose issues the user may be having with the skill.
 ## House rules for this repo
 
 - **Names are imperative kebab-case**: `diagnose`, `find-dead-code`, `improve-codebase-architecture` (not gerunds like `diagnosing-bugs`).
-- **Hardcode repo specifics; source machine specifics from `.env`.** Skills here bake in doc paths and pnpm commands, but tracker metadata (team/project/assignee IDs) and other per-machine values come from `.env` keys (`TRACKER_TEAM_ID`, `TRACKER_PROJECT_ID`, `TRACKER_ASSIGNEE_ID` — see `.env.example` and the setup note in `to-issues`).
+- **Hardcode repo specifics; source machine specifics from `.env`.** Skills here bake in doc paths, and take the project's commands from `.claude/project.env` (`LINT_CMD`, `TYPECHECK_CMD`, `TEST_CMD`, ...) rather than naming a toolchain; tracker metadata (team/project/assignee IDs) and other per-machine values come from `.env` keys (`TRACKER_TEAM_ID`, `TRACKER_PROJECT_ID`, `TRACKER_ASSIGNEE_ID` — see `.env.example` and the setup note in `to-issues`).
 - **Point at the repo's docs, never a parallel store.** The domain language lives in `docs/glossary.md`, `docs/conventions/`, `docs/explanation/`, and `docs/adr/`; skills reference those (the way `/domain-modeling` does), and never create a `CONTEXT.md`.
 - **Default new skills to user-invoked** (`disable-model-invocation: true`). Keep model-invocation only when natural task phrasing must trigger the skill, or another skill calls it — a user-invoked skill is invisible to the agent, so nothing but the human can reach it.
 - **Scope tools with `allowed-tools`** frontmatter when a skill touches external systems (issue trackers, code-quality platforms).

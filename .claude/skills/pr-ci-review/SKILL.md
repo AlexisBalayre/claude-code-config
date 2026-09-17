@@ -1,7 +1,8 @@
 ---
 name: pr-ci-review
 disable-model-invocation: true
-allowed-tools: Bash(git *), Bash(gh *), Bash(pnpm *), Bash(turbo *), Read, Edit, Write, Grep, Glob, Agent
+# TODO(adapt): add Bash(<runner> *) entries for the LINT_CMD / TYPECHECK_CMD / TEST_CMD executables so the local pre-flight runs unprompted.
+allowed-tools: Bash(git *), Bash(gh *), Read, Edit, Write, Grep, Glob, Agent
 description: Cost-optimal multi-agent code review of local changes or a PR, across six relevance-gated, model-tiered areas, with a deterministic pre-flight and a record-all structured verdict CI renders to the PR in full.
 argument-hint: "[pr [<number>]] [--fix]"
 ---
@@ -25,7 +26,7 @@ The governing rule is **spend only where it buys recall**. Deterministic tooling
 - **Grounded, not speculative:** every finding is grounded in the actual changed code. No speculation; a false positive erodes trust.
 - **Tag by severity, not by whether to post:** tag each finding `important` (fix before merge), `nit` (real but minor), or `pre-existing` (predates this diff).
 - **Record-all, rank by display:** the structured record captures every confirmed finding plus the refuted ones, and CI renders all of it: `important` findings as inline comments on the diff, `nit`, `pre-existing`, and refuted findings in collapsed sections of the review body. You do not do the posting: the record is not a companion to the comments, it is what they are made from. A sub-important finding's `description` is therefore read by the author, not only the retro; write it as a self-contained one-liner.
-- **Leave linters alone:** do not raise anything Biome or tsc already catches; that is noise, not a finding.
+- **Leave linters alone:** do not raise anything the project's formatter, linter, or typechecker (`FORMAT_FIX_CMD` / `LINT_CMD` / `TYPECHECK_CMD` in `.claude/project.env`) already catches; that is noise, not a finding.
 
 ## 1. Parse arguments -> source + action + mode
 
@@ -36,7 +37,7 @@ The governing rule is **spend only where it buys recall**. Deterministic tooling
 
 Define **the change** once and reuse it everywhere below:
 
-- **local**: the working-tree diff against the merge-base with `main` (committed + staged + unstaged).
+- **local**: the working-tree diff against the merge-base with the trunk (`GIT_TRUNK` in `.claude/project.env`, default `main`): committed + staged + unstaged.
 - **pr `<n>`**: the diff of PR #`<n>`; under **mode = incremental**, the delta `git diff <from_sha>..HEAD` instead, and every later stage (steering, area gating, instance scaling, briefs, validation) keys off that delta unchanged.
 
 ## 2. Gate the run before spending anything
@@ -45,13 +46,13 @@ Define **the change** once and reuse it everywhere below:
   - **The config-restore set.** After the preflight and before you started, the CI action replaced `.claude/`, `.mcp.json`, `.claude.json`, `.gitmodules`, `.ripgreprc`, `CLAUDE.md`, `CLAUDE.local.md`, `AGENTS.md` and `.husky` with the base branch's copies, because the head's versions are config the CLI executes at startup. A PR touching any of them therefore shows dirty exactly there; never `git checkout --` those paths (that re-arms the injection the restore disarms). Read the PR's own copies from `.claude-pr/<path>`, which the action preserves unexecuted; commit-to-commit diffs (`gh pr diff`, `git diff <merge_base>..HEAD`) show those files' real changes either way.
   - **The second freshness assertion.** Once the reviewers return, before you consolidate, compare `git rev-parse HEAD` to `gh pr view <n> --json headRefOid -q .headRefOid`: a push landing mid-review leaves the checkout behind the head, and a finding raised against text the true head already fixed is a false positive you shipped. If it moved, re-check each finding against `gh pr diff` rather than discarding the run.
 - **Local pr source:** assert the working tree is the PR's current head (`git rev-parse HEAD` equals the PR's `headRefOid`) and clean (`git status --porcelain` empty); re-checkout with `gh pr checkout <n>`, or stop and say so. A stale or dirty tree makes `Read` serve content that disagrees with `gh pr diff`, so reviewers cite code that is not in the PR.
-- **Pre-flight (local source):** run `turbo run lint typecheck test` **scoped to the affected packages** (a `--filter` per touched workspace; the full suite is slow and cascade-cancels). If it fails, **stop**: report the failures and ask the user to return once the tree is green. Reviewers assume the deterministic layer is clean; spawning them on a red tree pays opus to rediscover what tooling already flagged. Integration tests are infra-gated and stay CI's job.
+- **Pre-flight (local source):** run the project's lint, typecheck, and test commands (`LINT_CMD` / `TYPECHECK_CMD` / `TEST_CMD` in `.claude/project.env`) **scoped to the affected packages or modules** where the runner supports it (the full suite is slow). An empty key means that check is off; skip it. If it fails, **stop**: report the failures and ask the user to return once the tree is green. Reviewers assume the deterministic layer is clean; spawning them on a red tree pays opus to rediscover what tooling already flagged. Integration tests are infra-gated and stay CI's job.
 
 ## 3. Steer (yourself, no agent)
 
 Gate and brief on the change's *shape* and *intent*, both free to read. Do not spawn a helper for this.
 
-- **Shape**: the changed files, their line counts, and the workspaces they span (`apps` / `services` / `packages`), from `git diff --stat` against the merge-base (local) or `gh pr diff <n>` plus `gh pr view <n> --json files` (pr).
+- **Shape**: the changed files, their line counts, and the top-level areas they span (packages, services, or source roots), from `git diff --stat` against the merge-base (local) or `gh pr diff <n>` plus `gh pr view <n> --json files` (pr).
 - **Intent**: read it from the commit messages and, for a PR, the title and body. The author already wrote the intent; do not pay an agent to re-derive it from the diff. Only if the messages are junk (`wip`, `fix`) do you skim the diff yourself.
 - **Steering brief** (pr): the unresolved comment threads (each with its concern) and what the author declared intentional or out-of-scope.
 - **Prior importants** (mode = incremental): read the prior record the Mode line names (`git show origin/ci/review-metrics:records/<id>.json`). Its `important` findings were posted and their threads belong to the respond stage. For each, check its flagged location in the current head and mark it `resolved` or `unresolved` for the record's `prior_importants`; never re-post or re-raise one, and brief reviewers not to either: they are steering context, like unresolved threads.
@@ -75,7 +76,7 @@ There is no `requirements` reviewer: this setup deliberately keeps the issue tra
 
 **Model dials (asymmetric by stakes).** `correctness` and `security` always run on opus, never downgraded: a miss there is expensive. `maintainability` runs on sonnet for a normal diff and on **opus** once the diff is large (override the model at spawn time). `conventions` and `docs` run on sonnet.
 
-**Instance scaling.** Default every area to **one** instance. Scale only `correctness` / `security` / `maintainability`, and only past a size gate: **> ~400 changed lines OR > ~8 files spanning >= 2 of `apps`/`services`/`packages`** -> 2 instances; a markedly larger diff -> 3; **hard cap 3**. Send each instance in a complementary direction (by subsystem, layer, or risk concentration), never overlapping. Other areas stay single-instance. This is parallel breadth, not repeated passes: review the changed surface well once, do not loop.
+**Instance scaling.** Default every area to **one** instance. Scale only `correctness` / `security` / `maintainability`, and only past a size gate: **> ~400 changed lines OR > ~8 files spanning >= 2 top-level areas** -> 2 instances; a markedly larger diff -> 3; **hard cap 3**. Send each instance in a complementary direction (by subsystem, layer, or risk concentration), never overlapping. Other areas stay single-instance. This is parallel breadth, not repeated passes: review the changed surface well once, do not loop.
 
 ## 5. Brief and spawn in parallel
 
@@ -86,7 +87,7 @@ Each subagent's manifest defines its expertise; your brief supplies everything e
 - The steering context that concerns it: unresolved threads (do not re-raise their concerns; look harder where they point) and what the author declared intentional or out-of-scope.
 - The contract every finding meets: `{file, line (or range), area, confidence (high/medium), tag, description}` with the quote or citation its focus requires. An `important` finding also carries `body`, the markdown the PR author reads (the concern, the rule or code it cites, a permalink), and optionally `suggestion`, replacement code for the flagged lines. A `suggestion` is only for a small self-contained fix that resolves the finding entirely; `null` otherwise. Below `important`, the `description` alone is what the author reads in the review body's collapsed sections, so it must stand on its own.
 - An instruction to surface, separately, any impediment that degraded its review. No impediments is the normal case.
-- **Under CI, the review is static**: test/build spikes, dependency installs, `git fetch`, and shell redirection to temp files are all off-limits; the Bash tool accepts `gh` and the read-only `git` verbs, nothing else. Hand the reviewer the two diff reads that work, so it does not spend calls discovering the ones that do not: `gh pr diff <n>` for the whole diff (authoritative, but it rejects a `-- <path>` filter and can exceed one read on a large PR), and `git diff <merge_base>..HEAD -- <path>` for a scoped slice, quoting the SHA from the invocation's `Merge base:` line. **Never `git diff origin/main...HEAD`**: the action shallow-fetches the base branch at depth 1 before the model starts, which grafts `origin/main` parentless, so the three-dot form dies with `fatal: no merge base` as soon as `main` moves past the PR. **Never `git diff HEAD~1 HEAD`** either: on a multi-commit PR it silently reviews only the last commit. `node_modules` holds only the root tooling (the CI install is scoped to the review tooling), so app dependency sources are **not** readable in-tree; a claim about a dependency's internals rests on pinned-version knowledge and caps at `medium` confidence. When the change touches the config paths the action restores (§2), tell the reviewer to `Read .claude-pr/<path>` for the PR's version: in-tree those files are the base branch's copies, so reading them serves content the PR does not contain. None of this is an impediment worth logging: it is the CI path's normal shape.
+- **Under CI, the review is static**: test/build spikes, dependency installs, `git fetch`, and shell redirection to temp files are all off-limits; the Bash tool accepts `gh` and the read-only `git` verbs, nothing else. Hand the reviewer the two diff reads that work, so it does not spend calls discovering the ones that do not: `gh pr diff <n>` for the whole diff (authoritative, but it rejects a `-- <path>` filter and can exceed one read on a large PR), and `git diff <merge_base>..HEAD -- <path>` for a scoped slice, quoting the SHA from the invocation's `Merge base:` line. **Never `git diff origin/<trunk>...HEAD`**: the action shallow-fetches the base branch at depth 1 before the model starts, which grafts it parentless, so the three-dot form dies with `fatal: no merge base` as soon as the trunk moves past the PR. **Never `git diff HEAD~1 HEAD`** either: on a multi-commit PR it silently reviews only the last commit. Installed dependencies are only the review tooling's (the CI install is scoped to `tools/review`), so the project's dependency sources are **not** readable in-tree; a claim about a dependency's internals rests on pinned-version knowledge and caps at `medium` confidence. When the change touches the config paths the action restores (§2), tell the reviewer to `Read .claude-pr/<path>` for the PR's version: in-tree those files are the base branch's copies, so reading them serves content the PR does not contain. None of this is an impediment worth logging: it is the CI path's normal shape.
 - A reminder that its final message *is* the deliverable for the next stage, not a human-facing report.
 
 **Spawn together, then block.** Sending every instance at once is where the parallelism comes from, but the spawn is not the deliverable, the return is: wait on each one before you consolidate, and never end a turn with an agent still in flight. A turn that ends on an outstanding spawn lets the harness demand the structured output first, and what it gets is an empty record that reads as a clean review of a PR nobody reviewed. Blocking is about the turn, not about idling: when a reviewer returns while others are still out, apply §6's free checks to its `important` findings (tag-vs-body, provenance) and spawn their per-finding validators (§7) right away, so validation overlaps the slowest reviewer instead of queueing behind it. Cross-area dedup still waits for every return.
@@ -118,7 +119,7 @@ Validation buys precision, never recall, and precision is only worth paying for 
 **fix** (local, `--fix`): apply each confirmed finding.
 
 - **Scope discipline**: each fix targets only the flagged issue. Do not refactor adjacent code, touch unrelated docstrings, or remove ticket TODOs.
-- **Post-verify**: after editing, re-run `turbo run typecheck test` on the affected packages to prove no regression was introduced. Report the result.
+- **Post-verify**: after editing, re-run `TYPECHECK_CMD` and `TEST_CMD` (scoped to the affected area where the runner allows) to prove no regression was introduced. Report the result.
 - Summarize what changed (file, line, fix). List anything you noticed but did not touch under "Tangential (not applied)" and ask before editing those.
 
 **record** (pr, CI): **you post nothing.** You have no tool that can write to the PR, by design. The record you emit in §9 *is* the round's output: the poster script renders it, anchors each `important` to the diff, posts one review, and pins a review commit status to the head SHA. So a finding you leave out of the record never reaches the author, and there is no second channel through which you could rescue it.
@@ -148,7 +149,7 @@ There is no `comments_posted` field to report: you do not post, so the count is 
 ## Todo List
 
 - [ ] Parse arguments into source + action, and read the mode from the invocation's `Mode:` line; reject invalid combinations.
-- [ ] Gate the run: config-restore awareness under CI, freshness for a local pr, pre-flight `turbo` suite for local source.
+- [ ] Gate the run: config-restore awareness under CI, freshness for a local pr, pre-flight lint/typecheck/test suite for local source.
 - [ ] Steer: read the change shape and intent yourself; on incremental, read the prior record's importants.
 - [ ] Gate and spawn only the touched areas, tiered and instance-capped.
 - [ ] Consolidate inline: dedup and assign one area citation-first.

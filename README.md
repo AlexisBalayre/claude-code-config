@@ -1,23 +1,18 @@
 # claude-code-power-config
 
-A complete, opinionated **[Claude Code](https://code.claude.com/docs)** configuration — rules,
-skills, subagents, and deterministic hooks, wired together and documented end to
-end. The framework and the worktree-first workflow are **language-agnostic**; only the included
-conventions and scaffolding are stack-specific, and you swap those for your own.
-
-It is refined through heavy daily use and demonstrated on a fictional **TypeScript monorepo**
-(**"Acme"**, a real-time messaging platform), so every piece is readable in context. Working in
-Python, Go, Rust, or a single-package repo? Keep the structure, the hooks, and the workflow;
-replace the TypeScript conventions with yours.
+A complete, opinionated **[Claude Code](https://code.claude.com/docs)** configuration template: rules,
+skills, subagents, and deterministic hooks, wired together and documented end to end. It is
+**stack-agnostic**: nothing assumes a language, package manager, or layout. Copy it into any
+project, run **`/adapt-to-project`**, and the template fills in that project's commands,
+conventions, architecture docs, and prunes what the project can't use.
 
 ![The bundled statusline: working directory, git branch, model, effort level, session name, a context-usage bar, 5-hour and 7-day rate limits, token counts, and live session cost](assets/statusline.png)
 
 <sub>The bundled <a href=".claude/statusline.sh"><code>statusline.sh</code></a>: directory, branch (red on <code>main</code>), model, effort, session name, a context-usage bar, 5h/7d rate limits with reset countdowns, token counts, and live session cost.</sub>
 
-> **TL;DR** — Copy `.claude/` into your repo, adapt `AGENTS.md` and `.claude/rules/` to your
-> stack, make the hooks executable, and you have path-scoped conventions, a quality gate on
-> every turn, a multi-agent PR review, and a worktree-first workflow that never lets an agent
-> commit to `main`.
+> **TL;DR** — Copy the template into your repo, run `/adapt-to-project`, and you have path-scoped
+> conventions, a quality gate on every turn, a multi-agent PR review, and a worktree-first
+> workflow that never lets an agent commit to `main`.
 
 ---
 
@@ -26,10 +21,11 @@ replace the TypeScript conventions with yours.
 | Layer | Count | What it does |
 | :---- | :---- | :----------- |
 | **`AGENTS.md`** + **`CLAUDE.md`** | 2 | Always-on project memory, layered: `AGENTS.md` is the tool-agnostic base (role, conventions map, comments/altitude discipline, git workflow) any coding agent can read; `CLAUDE.md` just imports it and adds Claude Code-only notes. Kept tiny on purpose. |
-| **`rules/`** | 5 | Path-scoped **pure loaders** (one area each: core, backend, frontend, services, testing) that auto-load `docs/conventions/*.md` only when you touch matching files. |
-| **`skills/`** | 30 | Auto-discoverable workflows: scaffolding (`new-api-endpoint`, `new-provider`…), engineering (`tdd`, `diagnose`, `resolve-merge-conflicts`, `find-dead-code`…), thinking & design (`grilling`, `grill-me`, `codebase-design`, `domain-modeling`, `prototype`…), PR & review (`pr-description`, `pr-ci-review`, `address-review-comments`, `review-retro`), meta (`write-a-skill`, `handoff`, `caveman`), and personal integrations (`obsidian-vault`, `daily-note`, `to-issues`, `fix-sonar`, `wiz`… — configured via `.env`). |
+| **`project.env`** | 1 | The project profile: format/lint/typecheck/test/install commands, generated paths, file-naming pattern, trunk. Every hook and script reads it; an empty key turns its check off. |
+| **`rules/`** | 2+ | Path-scoped **pure loaders** (core, testing, plus one per project area once adapted) that auto-load `docs/conventions/*.md` only when you touch matching files. |
+| **`skills/`** | 28 | Auto-discoverable workflows: setup (`adapt-to-project`), engineering (`tdd`, `diagnose`, `resolve-merge-conflicts`, `find-dead-code`…), thinking & design (`grilling`, `grill-me`, `codebase-design`, `domain-modeling`, `prototype`…), PR & review (`pr-description`, `pr-ci-review`, `address-review-comments`, `review-retro`), meta (`write-a-skill`, `handoff`, `caveman`), and personal integrations (`obsidian-vault`, `daily-note`, `to-issues`, `fix-sonar`, `wiz`… — configured via `.env`). |
 | **`agents/`** | 12 | Isolated subagents: 4 proactive (`convention-checker`, `migration-reviewer`, `security-reviewer`, `architecture-explainer`), 7 `review-*` reviewers + validator dispatched by `pr-ci-review`, and `comment-pruner` dispatched by its Stop hook. |
-| **`hooks/`** | 7 | Zero-LLM shell scripts on lifecycle events: quality gate, convention spot-check, comment-pruner dispatch, git safety, generated-file protection, file-naming validation, compaction preservation. |
+| **`hooks/`** | 7 | Zero-LLM shell scripts on lifecycle events: quality gate, convention spot-check, comment-pruner dispatch, git safety, generated-file protection, file-naming validation, compaction preservation. All stack-specific values come from `project.env`. |
 
 The full architecture — what loads when, the context budget, and how to extend each layer — is
 documented in **[`.claude/README.md`](.claude/README.md)**. For when and how to use each skill,
@@ -63,56 +59,52 @@ improve the pipeline itself.
 ## The worktree-first workflow
 
 The spine of this setup: **never work on `main`, one git worktree per task.** The `git-safety`
-hook blocks `checkout -b`/pushes on `main`, `pnpm worktree:create <name>` spins up an isolated
+hook blocks `checkout -b`/pushes on `main`, `scripts/worktree-create.sh <name>` spins up an isolated
 checkout under `.worktrees/`, the quality hook gates every response, and subagents can run in
 their own worktree. Read the full loop in **[`docs/workflow.md`](docs/workflow.md)**.
 
 ## Quickstart
 
-1. **Copy the config into your repo.**
+1. **Copy the template into your repo.**
    ```bash
    git clone https://github.com/AlexisBalayre/claude-code-power-config.git
-   cp -R claude-code-power-config/.claude your-repo/.claude
-   cp claude-code-power-config/AGENTS.md your-repo/AGENTS.md
-   cp claude-code-power-config/CLAUDE.md your-repo/CLAUDE.md
-   chmod +x your-repo/.claude/hooks/*.sh your-repo/.claude/statusline.sh
+   cd claude-code-power-config
+   cp -R .claude AGENTS.md CLAUDE.md docs scripts .mcp.json ../your-repo/
+   # optional: the CI review pipeline
+   cp -R .github tools ../your-repo/
+   chmod +x ../your-repo/.claude/hooks/*.sh ../your-repo/.claude/statusline.sh ../your-repo/scripts/*
    ```
-2. **Adapt it to your stack.** Edit `AGENTS.md` (role, conventions map, commands), point the `paths:` in
-   `.claude/rules/*.md` at your directories, and replace the placeholder `lint`/`typecheck`/
-   `test` scripts in `package.json` with your real toolchain.
+   Merge `.gitignore` entries by hand. If the repo already has a `CLAUDE.md` or `AGENTS.md`, keep
+   it aside: the next step merges its content.
+2. **Adapt it.** In a worktree of your repo (`scripts/worktree-create.sh adapt-claude-config`), run
+   `/adapt-to-project`. It surveys the codebase, confirms the detected stack with you, then fills
+   every `TODO(adapt)` slot: `.claude/project.env`, `AGENTS.md`, `docs/conventions/` plus one rule
+   loader per area, the architecture/security/glossary docs, and `CODEOWNERS`. It ends by pruning
+   the skills and agents the project can't use (no database, no GitHub PR review, no Obsidian...).
+   Re-run it whenever the project grows a new area.
 3. **Opt into your tools.** Copy `.claude/settings.local.json.example` to
    `.claude/settings.local.json` (gitignored) and add your personal permissions / MCP servers.
    The shipped [`.mcp.json`](.mcp.json) declares [CodeGraph](https://github.com/colbymchenry/codegraph),
    a local symbol graph the agent queries instead of grepping; build its index once with
    `npx @colbymchenry/codegraph@1.6.0 init` (new worktrees get their own automatically).
 4. **Personalize.** Copy `.env.example` to `.env` (gitignored) and fill in the values used by
-   the personal-workflow skills and the worktree scripts: your Obsidian vault path, issue-tracker
-   IDs, and (optionally) a non-default git trunk or branch prefix.
+   the personal-integration skills: your Obsidian vault path, issue-tracker IDs, SonarQube and Wiz IDs.
 
-The hooks no-op until you touch matching files, so nothing breaks before you've wired your
-toolchain.
+Until `.claude/project.env` names a command, every hook no-ops, so nothing breaks before the
+project is adapted.
 
-## The demo project ("Acme")
+## Fine-tuning per project
 
-So the rules, skills, and agents have something concrete to point at, the repo is modeled on a
-fictional messaging platform. The shape maps cleanly onto most TypeScript monorepos:
+Everything project-specific lives in a few well-known places, so tuning is editing, not rewiring:
 
-| Path | Role |
-| :--- | :--- |
-| `apps/acme-api` | Public HTTP API (Hono + Zod OpenAPI) |
-| `apps/acme-web` | React SPA (React 19, Vite, Tailwind v4, react-router-dom v7, TanStack Query) |
-| `services/acme-gateway` | Realtime edge: connections, auth, routing (gRPC) |
-| `services/acme-session-engine` | Stateful session lifecycle + state machines |
-| `packages/acme-db` | Drizzle ORM schema + migrations |
-| `packages/acme-providers` | Pluggable delivery providers (email, SMS, push, webhook) |
-| `packages/acme-rpc` | Protobuf definitions + generated gRPC stubs |
-| `packages/acme-domain` | Shared domain types (branded IDs, enums) |
-| `packages/acme-logger` | Structured logger (no PII in logs) |
-
-The conventions for each area live in [`docs/conventions/`](docs/conventions/) — five
-consolidated docs (core, backend, frontend, services, testing) that are the single source of
-truth the thin `rules/` loaders import. The [glossary](docs/glossary.md) anchors the shared
-vocabulary.
+| To change... | Edit |
+| :----------- | :--- |
+| Commands the quality gate, pre-commit and worktree scripts run | `.claude/project.env` |
+| Coding rules for an area | `docs/conventions/<area>.md` (loaded by `.claude/rules/<area>-conventions.md`) |
+| Cheap structural checks on every turn | `.claude/spot-checks.tsv` |
+| What every agent knows up front | `AGENTS.md` (Claude-only notes in `CLAUDE.md`) |
+| System shape, security model, vocabulary, decisions | `docs/reference/`, `docs/explanation/`, `docs/glossary.md`, `docs/adr/` |
+| Which skills and agents exist | delete the directory or file, then update its catalog README |
 
 ## Repository structure
 
@@ -120,20 +112,22 @@ vocabulary.
 .
 ├── AGENTS.md                  # tool-agnostic always-on memory (any coding agent)
 ├── CLAUDE.md                  # thin Claude Code layer: @AGENTS.md + Claude-only notes
-├── .env.example               # personalization hub (vault path, tracker IDs, git trunk)
+├── .env.example               # personal-integration settings (vault path, tracker/Sonar/Wiz IDs)
 ├── .mcp.json                  # CodeGraph MCP server (pinned, telemetry off)
-├── biome.json                 # lint/format config the quality hook runs (noDefaultExport, noExplicitAny)
-├── .github/workflows/
-│   └── claude-code-review.yml # the CI review pipeline (preflight → model → poster)
+├── .github/
+│   ├── CODEOWNERS             # default reviewer for every path
+│   └── workflows/
+│       └── claude-code-review.yml # the CI review pipeline (preflight → model → poster)
 ├── tools/review/              # deterministic review tooling (schema, poster, metrics)
-├── package.json               # worktree scripts + toolchain hooks
 ├── scripts/
-│   ├── worktree-create.sh     # pnpm worktree:create <name>
-│   ├── worktree-clean.sh      # pnpm worktree:clean
-│   └── pre-commit             # quality gate for human/CLI commits
+│   ├── worktree-create.sh     # scripts/worktree-create.sh <name>
+│   ├── worktree-clean.sh      # remove worktrees whose remote branch is gone
+│   └── pre-commit             # lint/typecheck/test gate for human/CLI commits
 ├── .claude/
 │   ├── README.md              # architecture deep-dive (start here)
 │   ├── settings.json          # permissions + hook wiring
+│   ├── project.env            # project profile read by hooks and scripts
+│   ├── spot-checks.tsv        # convention spot-checks
 │   ├── settings.local.json.example
 │   ├── statusline.sh
 │   ├── rules/  skills/  agents/  hooks/
@@ -141,14 +135,16 @@ vocabulary.
     ├── README.md              # Diátaxis index
     ├── glossary.md            # shared vocabulary
     ├── workflow.md            # the worktree-first loop
-    ├── conventions/           # source of truth imported by rules/ (5 area docs)
-    ├── reference/  explanation/  adr/
+    ├── conventions/           # source of truth imported by rules/ (core, testing, + areas)
+    ├── reference/             # architecture.md
+    ├── explanation/           # security-model.md
+    └── adr/                   # decision records (none shipped)
 ```
 
 ## Make it yours
 
-- **Different stack?** The *patterns* transfer even if the libraries don't. Keep the layered
-  structure (always-on vs. path-scoped vs. isolated vs. deterministic) and swap the content.
+- **New area or stack change?** Re-run `/adapt-to-project` with a focus, e.g.
+  `/adapt-to-project the new mobile app`.
 - **Don't want a rule/skill/agent?** Delete the file. Each piece is independent.
 - **Add your own?** [`.claude/README.md`](.claude/README.md) has an "Adding new extensions"
   recipe for every layer, and the `write-a-skill` skill scaffolds new skills.

@@ -3,9 +3,14 @@
 # Install: cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
 #
 # Complements the Claude Code Stop hook (.claude/hooks/quality-checks.sh): the Stop
-# hook gates agent sessions, this gates human/CLI commits.
+# hook gates agent sessions, this gates human/CLI commits. Commands come from
+# .claude/project.env; an empty command is skipped.
 
 set -e
+
+ROOT=$(git rev-parse --show-toplevel)
+cd "$ROOT"
+[ -f .claude/project.env ] && . .claude/project.env
 
 # --- Block local-only paths (customize for your repo) ---
 
@@ -25,34 +30,32 @@ for path in $BLOCKED_PATHS; do
   fi
 done
 
-# --- Ensure dependencies are installed (worktrees may lack node_modules) ---
-
-if [ ! -d "node_modules/.bin" ]; then
-  echo "Installing dependencies..."
-  pnpm install --frozen-lockfile
-fi
-
 # --- Code quality checks ---
 
-echo "Running lint..."
-if ! pnpm lint; then
-  echo ""
-  echo "ERROR: Lint check failed. Run 'pnpm lint:fix' to auto-fix issues."
-  exit 1
+EXT_RE=$(printf '%s' "${SOURCE_EXTENSIONS:-}" | tr -s ' ' '|')
+STAGED_SOURCE=""
+if [ -n "$EXT_RE" ]; then
+  STAGED_SOURCE=$(git diff --cached --diff-filter=d --name-only | grep -E "\.($EXT_RE)$" || true)
 fi
 
-echo "Running typecheck..."
-if ! pnpm typecheck; then
-  echo ""
-  echo "ERROR: Type check failed. Fix type errors before committing."
-  exit 1
+if [ -n "${LINT_CMD:-}" ] && [ -n "$STAGED_SOURCE" ]; then
+  echo "Running lint: $LINT_CMD"
+  if ! printf '%s\n' "$STAGED_SOURCE" | tr '\n' '\0' | xargs -0 sh -c "$LINT_CMD \"\$@\"" _; then
+    echo ""
+    echo "ERROR: Lint failed on staged files."
+    exit 1
+  fi
 fi
 
-echo "Running tests..."
-if ! pnpm test; then
-  echo ""
-  echo "ERROR: Tests failed. Fix failing tests before committing."
-  exit 1
-fi
+for step in TYPECHECK_CMD TEST_CMD; do
+  cmd="${!step:-}"
+  [ -z "$cmd" ] && continue
+  echo "Running $step: $cmd"
+  if ! bash -c "$cmd"; then
+    echo ""
+    echo "ERROR: $step failed. Fix it before committing."
+    exit 1
+  fi
+done
 
 echo "All pre-commit checks passed."

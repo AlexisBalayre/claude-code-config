@@ -1,8 +1,6 @@
 # ADR Format
 
-ADRs live in `docs/adr/` and use sequential numbering: `0001-slug.md`, `0002-slug.md`, etc.
-
-Create the `docs/adr/` directory lazily, only when the first ADR is needed.
+ADRs live in `docs/adr/` and use sequential numbering: `0001-slug.md`, `0002-slug.md`, etc. `docs/adr/README.md` holds the repo's how-to and template; it wins over this file where they differ.
 
 ## Template
 
@@ -24,7 +22,7 @@ Only include these when they add genuine value. Most ADRs won't need them.
 
 ## Numbering
 
-Scan `docs/adr/` on `origin/main` (`git ls-tree origin/main docs/adr/` after a fetch) for the highest existing number and increment by one. The local listing goes stale and concurrent merges claim numbers.
+Scan `docs/adr/` on the remote trunk (`git ls-tree origin/<GIT_TRUNK> docs/adr/` after a fetch; `GIT_TRUNK` from `.claude/project.env`, default `main`) for the highest existing number and increment by one. The local listing goes stale and concurrent merges claim numbers.
 
 ## When to offer an ADR
 
