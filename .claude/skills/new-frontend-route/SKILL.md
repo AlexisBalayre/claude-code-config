@@ -4,7 +4,7 @@ description: Scaffold a new frontend route with page component, query hooks, and
 user-invocable: false
 ---
 
-Scaffold a new frontend route. The routing, guard, styling, and API-client obligations live in `docs/conventions/frontend.md` (component rules in `docs/conventions/core.md`) - read them first and follow them exactly. This skill fixes only the file set and order of operations.
+Scaffold a new frontend route. The routing, guard, styling, and API-client obligations live in `docs/conventions/frontend.md` (component rules in `docs/conventions/core.md`), injected by the frontend and core rules as soon as you Read a file under `apps/acme-web/`; follow them exactly without re-reading them. This skill fixes only the file set and order of operations.
 
 ## Execution Steps
 

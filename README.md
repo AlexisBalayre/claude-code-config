@@ -10,9 +10,9 @@ It is refined through heavy daily use and demonstrated on a fictional **TypeScri
 Python, Go, Rust, or a single-package repo? Keep the structure, the hooks, and the workflow;
 replace the TypeScript conventions with yours.
 
-![The bundled statusline: working directory, git branch, model, a context-usage bar, token counts, and live session cost](assets/statusline.png)
+![The bundled statusline: working directory, git branch, model, effort level, session name, a context-usage bar, 5-hour and 7-day rate limits, token counts, and live session cost](assets/statusline.png)
 
-<sub>The bundled <a href=".claude/statusline.sh"><code>statusline.sh</code></a>: directory, branch, model, a context-usage bar, token counts, and live session cost.</sub>
+<sub>The bundled <a href=".claude/statusline.sh"><code>statusline.sh</code></a>: directory, branch (red on <code>main</code>), model, effort, session name, a context-usage bar, 5h/7d rate limits with reset countdowns, token counts, and live session cost.</sub>
 
 > **TL;DR** — Copy `.claude/` into your repo, adapt `AGENTS.md` and `.claude/rules/` to your
 > stack, make the hooks executable, and you have path-scoped conventions, a quality gate on
@@ -82,6 +82,9 @@ their own worktree. Read the full loop in **[`docs/workflow.md`](docs/workflow.m
    `test` scripts in `package.json` with your real toolchain.
 3. **Opt into your tools.** Copy `.claude/settings.local.json.example` to
    `.claude/settings.local.json` (gitignored) and add your personal permissions / MCP servers.
+   The shipped [`.mcp.json`](.mcp.json) declares [CodeGraph](https://github.com/colbymchenry/codegraph),
+   a local symbol graph the agent queries instead of grepping; build its index once with
+   `npx @colbymchenry/codegraph@1.6.0 init` (new worktrees get their own automatically).
 4. **Personalize.** Copy `.env.example` to `.env` (gitignored) and fill in the values used by
    the personal-workflow skills and the worktree scripts: your Obsidian vault path, issue-tracker
    IDs, and (optionally) a non-default git trunk or branch prefix.
@@ -118,6 +121,8 @@ vocabulary.
 ├── AGENTS.md                  # tool-agnostic always-on memory (any coding agent)
 ├── CLAUDE.md                  # thin Claude Code layer: @AGENTS.md + Claude-only notes
 ├── .env.example               # personalization hub (vault path, tracker IDs, git trunk)
+├── .mcp.json                  # CodeGraph MCP server (pinned, telemetry off)
+├── biome.json                 # lint/format config the quality hook runs (noDefaultExport, noExplicitAny)
 ├── .github/workflows/
 │   └── claude-code-review.yml # the CI review pipeline (preflight → model → poster)
 ├── tools/review/              # deterministic review tooling (schema, poster, metrics)

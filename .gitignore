@@ -8,6 +8,9 @@ node_modules/
 # Git worktrees created by `pnpm worktree:create`
 .worktrees/
 
+# CodeGraph index (built by `codegraph init`, per checkout)
+.codegraph/
+
 # Build output
 dist/
 build/

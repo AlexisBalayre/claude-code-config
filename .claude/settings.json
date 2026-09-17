@@ -15,6 +15,7 @@
       "Edit(*)",
       "Write(*)",
       "Agent(*)",
+      "mcp__codegraph",
       "Bash(pnpm typecheck*)",
       "Bash(pnpm test*)",
       "Bash(pnpm lint*)",
