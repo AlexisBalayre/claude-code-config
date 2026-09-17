@@ -73,6 +73,12 @@ A PR from anyone else is skipped, spending nothing. Widen or narrow that gate in
 on an organization repo `github.repository_owner` is the org name, which matches no user, so
 replace it with the logins (or a team check) you want to allow.
 
+One upstream rule to expect: the App only mints a token when the workflow file on the PR branch
+is byte-identical to the copy on the default branch, so **a PR that edits
+`claude-code-review.yml` cannot be reviewed until it merges** (the run 401s, and the poster
+marks the diff "not reviewed"). That is the guard against a PR rewriting the very workflow that
+reviews it; land workflow changes first, then review the rest normally.
+
 ## The worktree-first workflow
 
 The spine of this setup: **never work on `main`, one git worktree per task.** The `git-safety`
