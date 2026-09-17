@@ -38,16 +38,16 @@ Route by finding type. `discover()`'s own text carries "Do NOT use for X → Y" 
 
 ## Resolve to IDs (names lie)
 
-A free-text name filter that returns zero does **not** mean the resource is absent: `asset_name: ["acme"]` can return nothing even though the project's images exist. Filter by the resource's Wiz UUID instead.
+A free-text name filter that returns zero does **not** mean the resource is absent: `asset_name: ["<project name>"]` can return nothing even though the project's images exist. Filter by the resource's Wiz UUID instead.
 
 The fastest UUID source is a **Wiz portal URL**: its hash fragment encodes the exact filter IDs the view uses (`resource`, `containerRepository`, ...). Ask the user to paste the portal link for the view they mean, or read the IDs out of one they already sent. Otherwise resolve the UUID with a listing / inventory tool, then filter by it.
 
 ## The project in Wiz
 
-Acme's code and images live under **GitHub / ghcr.io**, not the cloud account; only the running workloads are on the cloud provider (`cloud_platform: ["AWS"]` or equivalent, plus your prod account, cluster, and namespace). So a cloud-platform filter **hides** the image and SAST findings: scope those by the IDs below, not by cloud platform.
+Typically the project's code and images live under the source host and container registry (e.g. **GitHub / ghcr.io**), not the cloud account; only the running workloads are on the cloud provider (`cloud_platform: ["AWS"]` or equivalent, plus your prod account, cluster, and namespace). So a cloud-platform filter **hides** the image and SAST findings: scope those by the IDs below, not by cloud platform.
 
 - **Source repo (SAST → `codesec` / `list_sast_findings`)**: `resource_id: ["${WIZ_REPO_BRANCH_ID}"]` (the default-branch REPOSITORY_BRANCH resource). Add `is_default_branch: true`.
-- **Container images (CVEs → `vulnerabilities`)**: filter `container_repository` by the UUIDs in `${WIZ_CONTAINER_REPO_IDS}` — one per image (acme-api, acme-web, acme-session-engine, acme-gateway).
+- **Container images (CVEs → `vulnerabilities`)**: filter `container_repository` by the UUIDs in `${WIZ_CONTAINER_REPO_IDS}` — one per image the project ships.
 
 Default `severity` to `["CRITICAL", "HIGH"]`, `status` to `["OPEN"]`, and add `has_fix: true` when the goal is to fix (only fixable findings are actionable). Per finding, `layerMetadata.isBaseLayer` and `artifactType.group` (`OS_PACKAGE` vs `CODE_LIBRARY`) say whether the fix is a base-image bump or a dependency bump.
 
@@ -60,7 +60,7 @@ execute("list_vulnerability_findings_grouped", {
 
 ## Before treating a finding as real
 
-Wiz findings, SAST especially, carry false positives; verify against the code before proposing a fix. Read the flagged line. Example false-positive shapes seen in practice: Redis `EVALSHA` SHA-1 (mandated by Redis, must not change), `setTimeout(fn, ...)` flagged as "eval", internal config dirs flagged as path traversal, and `noEscape` template rendering that produces plain text rather than HTML.
+Wiz findings, SAST especially, carry false positives; verify against the code before proposing a fix. Read the flagged line. Example false-positive shapes: a weak hash (SHA-1, MD5) mandated by a protocol or used as a non-security checksum, a timer or callback API flagged as "eval", internal config dirs flagged as path traversal, and template rendering with escaping off that produces plain text rather than HTML.
 
 ## Read-only guardrail
 

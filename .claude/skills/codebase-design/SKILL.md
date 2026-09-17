@@ -81,8 +81,8 @@ Good interfaces make testing natural:
 
 1. **Accept dependencies, don't create them.**
 
-   ```typescript
-   // Testable
+   ```
+   // Testable (illustrative pseudo-code)
    function processOrder(order, paymentGateway) {}
 
    // Hard to test
@@ -93,8 +93,8 @@ Good interfaces make testing natural:
 
 2. **Return results, don't produce side effects.**
 
-   ```typescript
-   // Testable
+   ```
+   // Testable (illustrative pseudo-code)
    function calculateDiscount(cart): Discount {}
 
    // Hard to test
@@ -116,7 +116,7 @@ Good interfaces make testing natural:
 ## Rejected framings
 
 - **Depth as ratio of implementation-lines to interface-lines** (Ousterhout): rewards padding the implementation. We use depth-as-leverage instead.
-- **"Interface" as the TypeScript `interface` keyword or a class's public methods**: too narrow — interface here includes every fact a caller must know.
+- **"Interface" as a language's `interface` / protocol / trait keyword or a class's public methods**: too narrow — interface here includes every fact a caller must know.
 - **"Boundary"**: overloaded with DDD's bounded context. Say **seam** or **interface**.
 
 ## Going deeper

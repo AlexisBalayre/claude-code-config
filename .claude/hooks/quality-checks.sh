@@ -1,46 +1,54 @@
 #!/bin/bash
-# Quality checks: lint/format on the session's dirty files + repo typecheck.
+# Quality checks: format/lint the session's dirty source files + repo typecheck.
 # Runs on Claude Code Stop event — after every response that modifies files.
-# Tests are NOT run here: the pre-commit hook runs the full turbo suite, and
-# whole-repo lint is deliberately avoided so unrelated red on main can't block
-# an unrelated session.
+# Commands come from .claude/project.env; an empty command is skipped, so an
+# unadapted template no-ops. Tests are NOT run here: scripts/pre-commit runs
+# TEST_CMD, and whole-repo lint is deliberately avoided so unrelated red on the
+# trunk can't block an unrelated session.
 
 set -o pipefail
 
 cd "$CLAUDE_PROJECT_DIR" || exit 1
+[ -f .claude/project.env ] && . .claude/project.env
 
-# Lint/typecheck only target TS/TSX; markdown/YAML/JSON edits skip the suite.
+[ -z "${FORMAT_FIX_CMD}${LINT_CMD}${TYPECHECK_CMD}" ] && exit 0
+
+EXT_RE=$(printf '%s' "${SOURCE_EXTENSIONS:-}" | tr -s ' ' '|')
+[ -z "$EXT_RE" ] && exit 0
+
 # Includes untracked files (Write-created files aren't staged yet).
-DIRTY_TS=$(
+DIRTY=$(
   {
     git diff --name-only 2>/dev/null
     git diff --cached --name-only 2>/dev/null
     git ls-files --others --exclude-standard 2>/dev/null
-  } | grep -E '\.(ts|tsx)$' | sort -u | while read -r f; do [ -f "$f" ] && echo "$f"; done
+  } | grep -E "\.($EXT_RE)$" | sort -u | while read -r f; do [ -f "$f" ] && echo "$f"; done
 )
 
-if [ -z "$DIRTY_TS" ]; then
-  exit 0
-fi
+[ -z "$DIRTY" ] && exit 0
 
 echo "Running quality checks..." >&2
 
-# 1. Lint & format auto-fix on dirty files only (applies fixes via Biome)
-echo "-> Lint & format dirty files (auto-fix)..." >&2
-echo "$DIRTY_TS" | xargs pnpm exec biome check --write 1>&2 2>&1
-
-# 2. Verify no lint/format issues remain after auto-fix
-echo "-> Verifying lint & format..." >&2
-if ! echo "$DIRTY_TS" | xargs pnpm exec biome check 1>&2; then
-  echo "Lint/format check failed on the files this session touched. Fix the remaining issues above." >&2
-  exit 2
+if [ -n "${FORMAT_FIX_CMD:-}" ]; then
+  echo "-> Format/fix dirty files: $FORMAT_FIX_CMD" >&2
+  printf '%s\n' "$DIRTY" | tr '\n' '\0' | xargs -0 sh -c "$FORMAT_FIX_CMD \"\$@\"" _ 1>&2
 fi
 
-# 3. Typecheck (whole repo — type errors cross file boundaries; turbo caches)
-echo "-> Typecheck..." >&2
-if ! pnpm typecheck 1>&2; then
-  echo "Typecheck failed. Fix the type errors above." >&2
-  exit 2
+if [ -n "${LINT_CMD:-}" ]; then
+  echo "-> Lint dirty files: $LINT_CMD" >&2
+  if ! printf '%s\n' "$DIRTY" | tr '\n' '\0' | xargs -0 sh -c "$LINT_CMD \"\$@\"" _ 1>&2; then
+    echo "Lint failed on the files this session touched. Fix the remaining issues above." >&2
+    exit 2
+  fi
+fi
+
+# Whole repo: type errors cross file boundaries.
+if [ -n "${TYPECHECK_CMD:-}" ]; then
+  echo "-> Typecheck: $TYPECHECK_CMD" >&2
+  if ! bash -c "$TYPECHECK_CMD" 1>&2; then
+    echo "Typecheck failed. Fix the type errors above." >&2
+    exit 2
+  fi
 fi
 
 echo "All quality checks passed!" >&2

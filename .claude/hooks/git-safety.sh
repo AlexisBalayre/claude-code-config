@@ -12,8 +12,8 @@ if [ -z "$COMMAND" ]; then
   exit 0
 fi
 
-# Trunk branch is configurable via .env (defaults to main).
-if [ -f "${CLAUDE_PROJECT_DIR:-.}/.env" ]; then set -a; . "${CLAUDE_PROJECT_DIR:-.}/.env"; set +a; fi
+# Trunk branch is configurable via .claude/project.env (defaults to main).
+[ -f "${CLAUDE_PROJECT_DIR:-.}/.claude/project.env" ] && . "${CLAUDE_PROJECT_DIR:-.}/.claude/project.env"
 TRUNK="${GIT_TRUNK:-main}"
 
 # --- Destructive shell / SQL patterns -----------------------------------------
@@ -40,7 +40,7 @@ fi
 if echo "$COMMAND" | grep -qE 'git[[:space:]]+checkout[[:space:]]+-b\b'; then
   CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "")
   if [ "$CURRENT_BRANCH" = "$TRUNK" ]; then
-    echo "BLOCKED: do not use 'git checkout -b' on $TRUNK. Use 'pnpm worktree:create <name>' instead." >&2
+    echo "BLOCKED: do not use 'git checkout -b' on $TRUNK. Use 'scripts/worktree-create.sh <name>' instead." >&2
     exit 2
   fi
 fi

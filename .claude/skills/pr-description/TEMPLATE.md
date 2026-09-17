@@ -15,7 +15,7 @@ surface (PROJ-XXXX, under the PROJ-YYYY epic).">
 
 ## How
 
-<Approach + notable decisions. Reference files plainly (`service.ts`); don't
+<Approach + notable decisions. Reference files plainly by basename; don't
 narrate every file.>
 
 ## Migration            <!-- only if schema/migration changed -->
@@ -39,7 +39,7 @@ Closes PROJ-XXXX. Part of the PROJ-YYYY epic. Remaining: **PROJ-ZZZZ** (…).   
 Title:
 
 ```
-feat(admin): super_admin rename and soft-archive an organization (PROJ-2509)
+feat(admin): rename and soft-archive a workspace (PROJ-2509)
 ```
 
 Body:
@@ -47,27 +47,27 @@ Body:
 ```md
 ## What
 
-Third slice of the super_admin org-administration surface (PROJ-2509, under the
-PROJ-2497 epic). Adds **rename** and **soft-archive** for any organization, plus
-the gate that stops archived orgs from starting new sessions.
+Third slice of the workspace-administration surface (PROJ-2509, under the
+PROJ-2497 epic). Adds **rename** and **soft-archive** for any workspace, plus
+the gate that stops archived workspaces from creating new projects.
 
-- **`PATCH /admin/organizations/{id}`** (super_admin-only): partial update
+- **`PATCH /admin/workspaces/{id}`** (admin-only): partial update
   `{ name?, archived? }`.
-- Org detail page gains **Rename** and **Archive/Unarchive** actions and an
+- Workspace detail page gains **Rename** and **Archive/Unarchive** actions and an
   archived badge.
-- Org list gains a **"Show archived"** toggle (archived excluded by default).
+- Workspace list gains a **"Show archived"** toggle (archived excluded by default).
 
 ## Migration
 
-`0056_mute_shape.sql`: additive nullable `organizations.archived_at timestamptz`
+`0056_workspace_archived_at.sql`: additive nullable `workspaces.archived_at timestamptz`
 (no default, no backfill; null = not archived). Backwards-compatible.
 
 ## Behaviour
 
-- **Soft-archive**, not delete: sessions/messages/usage/billing are retained;
+- **Soft-archive**, not delete: projects, members, and billing are retained;
   unarchive clears the flag.
-- **New-session gate**: `sessions.service.create()` refuses an archived org on
-  both capped and uncapped paths. Existing-session writes still allowed.
+- **New-project gate**: project creation refuses an archived workspace on
+  every path. Writes to existing projects still allowed.
 
 Closes PROJ-2509. Part of the PROJ-2497 epic. Remaining: **PROJ-2510** (usage/billing panel).
 ```
@@ -77,7 +77,7 @@ Closes PROJ-2509. Part of the PROJ-2497 epic. Remaining: **PROJ-2510** (usage/bi
 Title:
 
 ```
-docs: add ADR-0014 per-org delivery policies + Delivery Policy glossary term
+docs: add ADR-0014 per-workspace retention policies + Retention Policy glossary term
 ```
 
 Body:
@@ -85,12 +85,11 @@ Body:
 ```md
 ## What
 
-Docs-only. Records the decision behind Epic
-[PROJ-2517](https://linear.app/acme/issue/PROJ-2517) (per-organization delivery
+Docs-only. Records the decision behind Epic PROJ-2517 (per-workspace retention
 policies):
 
-- **`docs/adr/0014-per-org-delivery-policies.md`** (status `proposed`).
-- **`docs/glossary.md`** adds the **Delivery Policy** glossary term.
+- **`docs/adr/0014-per-workspace-retention-policies.md`** (status `proposed`).
+- **`docs/glossary.md`** adds the **Retention Policy** glossary term.
 - **`docs/adr/README.md`** index entry.
 
 ## Why now

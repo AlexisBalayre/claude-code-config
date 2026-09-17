@@ -26,9 +26,9 @@ Yes: "Bug in auth middleware. Token expiry check use `<` not `<=`. Fix:"
 
 ### Examples
 
-**"Why React component re-render?"**
+**"Why endpoint slow?"**
 
-> Inline obj prop -> new ref -> re-render. `useMemo`.
+> N+1 query -> one DB round-trip per row. Batch fetch.
 
 **"Explain database connection pooling."**
 

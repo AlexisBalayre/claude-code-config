@@ -8,8 +8,8 @@ ADRs are append-only. To change a past decision, write a new ADR that supersedes
 
 ## Naming
 
-`NNNN-short-kebab-title.md`, e.g. `0001-postgres-over-dynamodb.md`. Numbers are sequential and
-never reused.
+`NNNN-short-kebab-title.md`, e.g. `0001-use-postgres-for-primary-store.md`. Numbers are sequential and
+never reused. No ADRs ship with the template; the first real decision is `0001`.
 
 ## Template
 

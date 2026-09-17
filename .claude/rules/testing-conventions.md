@@ -1,11 +1,12 @@
 ---
 paths:
-  - "**/*.test.ts"
-  - "**/*.test.tsx"
-  - "**/*.mock.ts"
   - "**/test/**"
-  - "**/vitest*.config.ts"
-  - "tools/vitest/**"
+  - "**/tests/**"
+  - "**/__tests__/**"
+  - "**/*.test.*"
+  - "**/*.spec.*"
+  - "**/*_test.*"
+  - "**/test_*.*"
 ---
 
 @docs/conventions/testing.md

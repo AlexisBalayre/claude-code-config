@@ -47,7 +47,9 @@ secrets and a write token.
 
 Follow the setup comment at the top of the workflow: add the OAuth token secret and create the
 `ci/review-metrics` orphan branch. The package is deliberately
-standalone (no workspace, no shared config) so it drops into any repo layout; if you keep a
-pnpm workspace, fold it in and switch the workflow's `--dir` invocations to `--filter`.
+standalone (no workspace, no shared config) so it drops into any repo layout and any stack: the
+workflow installs Node and pnpm for this tool alone, whatever the host project builds with. If
+the host repo is itself a pnpm workspace, you can fold it in and switch the workflow's `--dir`
+invocations to `--filter`.
 
 Verify locally with `pnpm --dir tools/review test` and `pnpm --dir tools/review typecheck`.

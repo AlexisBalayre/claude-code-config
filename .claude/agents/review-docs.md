@@ -14,7 +14,7 @@ Coding agents routinely emit low-quality comments and docstrings: restating the 
 ## Flag
 
 - **Noise comments**: comments that restate what the code does (`// increment the retry counter` over `retries++`), narrate structure step by step, or run longer than the insight they carry.
-- **Seam-duplicating comments**: a call-site comment that restates the callee's JSDoc or class doc. If the seam already says it, the copy is a violation. Adjudicate by payload, not by shape: read the seam doc and match each fact the comment carries against a seam line stating it; "a comment sits at a call site and the callee has JSDoc" is not the test. If any fact survives unmatched (a call-site-specific consequence, a duration, a WHY the contract omits), the comment is not a duplicate.
+- **Seam-duplicating comments**: a call-site comment that restates the callee's doc comment or class doc. If the seam already says it, the copy is a violation. Adjudicate by payload, not by shape: read the seam doc and match each fact the comment carries against a seam line stating it; "a comment sits at a call site and the callee has a doc comment" is not the test. If any fact survives unmatched (a call-site-specific consequence, a duration, a WHY the contract omits), the comment is not a duplicate.
 - **Low-value docstrings**: docstrings that re-spell the function name or signature, repeat type information, or state the obvious.
 - **Contract leakage**: a docstring describing internal fields, helpers, or mechanics rather than the public contract; it rots the moment the implementation changes.
 - **Stale or inaccurate prose**: documentation or comments now factually wrong because the code changed (stale signature, wrong parameter, contradicted behavior).

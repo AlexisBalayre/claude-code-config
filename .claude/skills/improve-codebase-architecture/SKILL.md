@@ -11,7 +11,7 @@ Surface architectural friction and propose **deepening opportunities** — refac
 This command is _informed_ by the project's domain model and built on a shared design vocabulary:
 
 - Run the `/codebase-design` skill for the architecture vocabulary (**module**, **interface**, **depth**, **seam**, **adapter**, **leverage**, **locality**) and its principles (the deletion test, "the interface is the test surface", "one adapter = hypothetical seam, two = real"). Use these terms exactly in every suggestion — don't drift into "component," "service," "API," or "boundary."
-- The domain language (Glossary in `docs/glossary.md`, naming taxonomy in `docs/conventions/core.md`) gives names to good seams; ADRs in `docs/adr/` record decisions this command should not re-litigate.
+- The domain language (Glossary in `docs/glossary.md`, naming conventions in `docs/conventions/core.md`) gives names to good seams; ADRs in `docs/adr/` record decisions this command should not re-litigate.
 
 ## Process
 
@@ -22,7 +22,7 @@ This command is _informed_ by the project's domain model and built on a shared d
 - If the user named a direction (a module, a subsystem, a pain point), take it and skip the inference below.
 - Otherwise, walk back a good stretch of the commit history (`git log --oneline`) to find the codebase's hot spots: the files and areas that keep coming up. Let those paths pull your attention first. If the changes are scattered with no clear hot spot, widen the net.
 
-Read the Glossary in `docs/glossary.md`, the naming taxonomy in `docs/conventions/core.md`, and any ADRs in `docs/adr/` for the area you're touching first.
+Read the Glossary in `docs/glossary.md`, the naming conventions in `docs/conventions/core.md`, and any ADRs in `docs/adr/` for the area you're touching first.
 
 Then use the Agent tool with `subagent_type=Explore` to walk the codebase. Don't follow rigid heuristics — explore organically and note where you experience friction:
 
@@ -51,7 +51,7 @@ For each candidate, the same template as before, but rendered as a card:
 
 End the report with a **Top recommendation** section: which candidate you'd tackle first and why.
 
-**Use the Glossary (`docs/glossary.md`) and naming taxonomy (`docs/conventions/core.md`) for the domain, and the `/codebase-design` vocabulary for the architecture.** If the Glossary defines "Pipeline," talk about "the Pipeline coordinator," not "the FooBarHandler," and not "the Pipeline service."
+**Use the Glossary (`docs/glossary.md`) and naming conventions (`docs/conventions/core.md`) for the domain, and the `/codebase-design` vocabulary for the architecture.** If the Glossary defines "Pipeline," talk about "the Pipeline coordinator," not "the FooBarHandler," and not "the Pipeline service."
 
 **ADR conflicts**: if a candidate contradicts an existing ADR, only surface it when the friction is real enough to warrant revisiting the ADR. Mark it clearly in the card (e.g. a warning callout: _"contradicts ADR-0007 — but worth reopening because…"_). Don't list every theoretical refactor an ADR forbids.
 

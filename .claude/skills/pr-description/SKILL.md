@@ -14,14 +14,16 @@ description: Write a PR title and description in this repo's house style, then c
 
 1. **Gather context** (run together):
 
+   The trunk is `GIT_TRUNK` from `.claude/project.env` (default `main`); substitute it below.
+
    ```sh
-   git branch --show-current                              # MUST NOT be "main"; abort if it is
-   git log main..HEAD --pretty=format:'%h %s%n%b'         # commits on this branch
-   git diff main...HEAD --stat                            # changed files + churn
+   git branch --show-current                              # MUST NOT be the trunk; abort if it is
+   git log <trunk>..HEAD --pretty=format:'%h %s%n%b'         # commits on this branch
+   git diff <trunk>...HEAD --stat                            # changed files + churn
    gh pr view --json number,url,state,title,body 2>/dev/null   # non-zero exit = no PR yet
    ```
 
-   Read the diff for the key files (`git diff main...HEAD -- <path>`); on large diffs lean on `--stat` plus the important files.
+   Read the diff for the key files (`git diff <trunk>...HEAD -- <path>`); on large diffs lean on `--stat` plus the important files.
 
 2. **Ground in the tracker (read-only).** Grep branch + commit subjects for `PROJ-\d+`. If found, fetch issue + parent epic with `mcp__linear-server__get_issue` for *What/Why* and the canonical link. NEVER call any `save_*` tool. No id: derive from diff + commits.
 
@@ -36,7 +38,7 @@ description: Write a PR title and description in this repo's house style, then c
    # update existing; pass --title only if it changes:
    gh pr edit <number> --body-file <tmp> [--title "<drafted title>"]
    # or create new:
-   gh pr create --base main --title "<drafted title>" --body-file <tmp>
+   gh pr create --base <trunk> --title "<drafted title>" --body-file <tmp>
    ```
 
    Report the PR URL.
@@ -62,8 +64,8 @@ Communicate *what changed and why* at a glance, specific enough that a reviewer 
   | `perf`     | Performance improvement                     |
 
   Mixed diff: pick the user-visible win, mention the rest in `## Notes`.
-- **`<scope>`**: optional but usually present. Lowercase kebab. Common scopes in this repo: `web` (FE SPA), `api`, `db`, `gateway`, `session-engine`, `providers`, `rpc`, `auth`, `admin`, `tooling`, `deps`, `adr`, `skills`. Multi-scope `(api,db)` only when both are non-trivial. Drop the scope when the change is repo-wide.
-- **`<summary>`**: imperative present tense, lowercase first word, no trailing period. Proper nouns keep their case (`Drizzle`, `TanStack`, `ADR-0014`); double quotes around identifiers are fine.
+- **`<scope>`**: optional but usually present. Lowercase kebab, naming the component or area touched. Common scopes in this repo: <!-- TODO(adapt): list the repo's scopes, e.g. `api`, `web`, `db`, `auth`, `tooling`, `deps`, `adr`, `skills` -->. Multi-scope `(api,db)` only when both are non-trivial. Drop the scope when the change is repo-wide.
+- **`<summary>`**: imperative present tense, lowercase first word, no trailing period. Proper nouns keep their case (`PostgreSQL`, `GitHub`, `ADR-0014`); double quotes around identifiers are fine.
 - **`(PROJ-XXXX)`**: most specific tracker id (slice over epic); drop entirely if none. Follow-ups with no ticket: `(follow-up to #NNNN)`.
 
 **Lint:**
@@ -71,17 +73,17 @@ Communicate *what changed and why* at a glance, specific enough that a reviewer 
 - No em-dash (`—` / `–`). Hyphen, colon, or rephrase.
 - No trailing period; no capital after the colon (proper nouns excepted).
 - ≲ 80 chars including `(PROJ-XXXX)`; if over, trim adjectives, not specificity.
-- Reject generic verbs (`update`, `improve`, `change`, `various`). Strong fix-title names cause, surface, impact: `fix(gateway): race condition in session cleanup that caused 502s under load`, not `fix bug`.
+- Reject generic verbs (`update`, `improve`, `change`, `various`). Strong fix-title names cause, surface, impact: `fix(api): race condition in cache invalidation that caused 502s under load`, not `fix bug`.
 
 **Worked examples** (paired bodies in [TEMPLATE.md](TEMPLATE.md)):
 
 | Diff shape                          | Title |
 | :---------------------------------- | :---- |
-| FE + API slice tied to a ticket     | `feat(admin): super_admin rename and soft-archive an organization (PROJ-2509)` |
-| Targeted backend bug, no ticket     | `fix(db): resolve ambiguous "id" in org-admin list/detail reads` |
-| Docs/ADR landing ahead of impl      | `docs: add ADR-0014 per-org delivery policies + Delivery Policy glossary term` |
+| FE + API slice tied to a ticket     | `feat(admin): rename and soft-archive a workspace (PROJ-2509)` |
+| Targeted backend bug, no ticket     | `fix(db): resolve ambiguous "id" in admin list/detail reads` |
+| Docs/ADR landing ahead of impl      | `docs: add ADR-0014 per-workspace retention policies + Retention Policy glossary term` |
 | Follow-up to a prior PR             | `docs: scrub em-dashes from ADR-0014 (follow-up to #1287)` |
-| Repo-wide change, no scope          | `feat: collapse the platform-role enum to super_admin and member (PROJ-2504)` |
+| Repo-wide change, no scope          | `feat: collapse the user-role enum to admin and member (PROJ-2504)` |
 
 ## Section selection
 
@@ -90,7 +92,7 @@ Communicate *what changed and why* at a glance, specific enough that a reviewer 
 | `## What`      | Always. Concrete bullets of what changed + slice/epic context.               |
 | `## How`       | Any code change with a non-obvious approach or notable design decision.      |
 | `## Why` / `## Why now` | Docs/ADR PRs, or when motivation is not self-evident from What.     |
-| `## Migration` | `packages/acme-db/src/schema/**` or `drizzle/**` changed. Name the file, state additive/nullable + backwards-compat verdict. |
+| `## Migration` | Database schema or migration files changed. Name the file, state additive/nullable + backwards-compat verdict. |
 | `## Behaviour` | New business rules, gates, or edge cases worth flagging.                     |
 | `## Notes`     | Asides: "docs-only", "no code change", pre-commit green, follow-ups deferred. |
 

@@ -36,4 +36,4 @@ You are looking for patterns, not incidents; "recurring" is your call, with no n
 
 ## Act
 
-Walk the user through what the evidence shows and what you propose to change, and let them steer before you write any diff. For what survives the discussion: branch off `main`, apply the changes, and open a PR (via the `pr-description` skill) with a title of the form `[review-retro] <short summary>`, whose description cites the evidence per change. Wait for the user's sign-off. If nothing recurring emerged, say so and stop: open no PR in that case.
+Walk the user through what the evidence shows and what you propose to change, and let them steer before you write any diff. For what survives the discussion: branch off the trunk with `scripts/worktree-create.sh review-retro-<date>`, apply the changes, and open a PR (via the `pr-description` skill) with a title of the form `[review-retro] <short summary>`, whose description cites the evidence per change. Wait for the user's sign-off. If nothing recurring emerged, say so and stop: open no PR in that case.

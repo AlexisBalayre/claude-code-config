@@ -1,78 +1,69 @@
 # Security Model
 
-The auth, secrets, and input-handling model for Acme. This file is `@imported` by the
-**`security-reviewer`** subagent — it is the spec that review checks against, so keep it
-concrete and reviewable.
+The trust, auth, secrets, and input-handling model for this project. This file is `@imported` by
+the **`security-reviewer`** subagent: it is the spec that review checks against, so keep it
+concrete and reviewable. State each rule as an obligation a reviewer can verify in a diff.
+
+<!-- TODO(adapt): fill each section from the code; delete a section only when it truly does not apply (e.g. no users means no authn), and say so in one line instead. -->
+
+## Trust boundaries
+
+Every boundary where data or control crosses from a less-trusted to a more-trusted side must be
+listed here, with the check that guards it. Anything not on this list is assumed untrusted.
+
+| Boundary | Untrusted side | Guarded by |
+| :------- | :------------- | :--------- |
+| <!-- TODO(adapt): e.g. public HTTP API --> | <!-- TODO(adapt): e.g. browser / API clients --> | <!-- TODO(adapt): e.g. session middleware in `src/api/middleware/` --> |
 
 ## Authentication
 
-Two distinct trust boundaries, two mechanisms:
+<!-- TODO(adapt): the mechanism per kind of caller (end users, service-to-service, CLI/API keys), where it is verified, and the rule that no internal call is anonymous if that holds. -->
 
-- **End users** (web + public API): **BetterAuth sessions**. The browser holds a session
-  cookie; `apps/acme-api` and `apps/acme-web` validate it. Sensitive routes are guarded by
-  `requireAuth()` / `requireAdmin()` middleware in `src/routes/`.
-- **Internal service-to-service** (gRPC between Gateway and Session Engine): **JWT / service
-  tokens** verified by `createServerAuthMiddleware`. **No internal call is anonymous** — the
-  middleware is wired on every server in `packages/acme-rpc`.
+## Authorization
 
-The Gateway bridges the two: it validates the **end-user session at the WebSocket upgrade**
-(`server.on("upgrade", …)` must validate before `upgrade()`), then carries a **service token**
-inward.
+<!-- TODO(adapt): the permission model (roles, ownership, tenancy), the single place checks are enforced, and how a reviewer spots a missing check. -->
 
-## Secrets
+- Authorization is checked server-side on every request; a client-side guard is UX, never a
+  control.
 
-Secrets are read **only** through `src/config/env.ts` for the workspace — never inlined,
-never read from `process.env` at a call site. This gives one validated, typed choke point.
+## Secrets handling
 
-```ts
-// ✗ const key = process.env.STRIPE_KEY;        // ad-hoc, unvalidated
-import { env } from "../config/env";
-const key = env.PROVIDER_API_KEY;
-```
+<!-- TODO(adapt): the one module or mechanism that reads secrets (validated config, secret manager) and the pattern reviewers grep for. -->
 
-Provider YAML config carries endpoints and limits, **not credentials** — those come from env.
-Reviewers grep for `apiKey` / `token` / `secret` / `password` assignments outside `env.ts`.
+- Secrets are read through one validated config choke point, never inlined and never read ad hoc
+  at a call site.
+- Config files carry endpoints and limits, not credentials.
+- Reviewers grep for `apiKey` / `token` / `secret` / `password` assignments outside that choke
+  point.
 
 ## Input validation
 
-**Every endpoint validates input with a Zod schema** in `src/schemas/`. List endpoints carry a
-bounded `limit` — no unbounded query parameters. Validation runs before any Service call.
+<!-- TODO(adapt): the validation library or layer, where it runs, and any project-specific bounds. -->
 
-```ts
-const ListMessagesQuery = z.object({
-  sessionId: z.string().uuid(),
-  limit: z.number().int().min(1).max(100).default(50),
-});
-```
+- Every external input (request body, query, headers, messages, files, env) is validated at the
+  boundary, before any business logic runs.
+- List endpoints carry a bounded limit; no unbounded query parameters.
+- Queries are parameterised; no string-interpolated SQL, shell commands, or paths built from
+  input.
+- Outbound requests never target a URL taken from user input without an allowlist (SSRF).
 
-## Output: serializers
+## Output and data protection
 
-**No raw DB entity is ever returned** in an API response. Every response passes through a
-`serializer` that selects fields explicitly — this is what prevents accidental exposure of
-internal columns, soft-delete flags, or other Members' data.
+<!-- TODO(adapt): what counts as PII or sensitive data here, where it is stored, retention, and encryption at rest/in transit. -->
 
-## Rate limiting
+- No raw storage entity is returned from an external interface; responses select fields
+  explicitly.
+- Logs never contain secrets, PII, or raw stack traces sent to clients.
+- Rendered output is escaped by default; any raw-HTML escape hatch requires sanitization.
 
-Rate-limiting middleware is applied to **auth endpoints (login, registration)** and
-**expensive endpoints** (anything that fans out to Providers or runs heavy queries). This blunts
-credential stuffing and abuse.
+## Abuse controls
 
-## Concurrency safety
+<!-- TODO(adapt): rate limiting, quotas, lockouts, and which endpoints carry them. -->
 
-Session slot reservations use **atomic Lua scripts** (`RESERVE_SLOT_SCRIPT`) in Redis, never
-`GET`+`SET` — see [services conventions](../conventions/services.md). The race
-between read and write is a real over-allocation bug, not a theoretical one.
+- Authentication endpoints and expensive endpoints (fan-out, heavy queries) are rate-limited.
 
-## OWASP Top 10 mapping
+## Known accepted risks
 
-| OWASP (2021) | Where it's handled |
-| :--- | :--- |
-| A01 Broken Access Control | `requireAuth`/`requireAdmin` on routes; WS upgrade validation; Service/Repository layering (no route hits the DB directly) |
-| A02 Cryptographic Failures | TLS at the edge; secrets via `env.ts`; no plaintext credentials in config |
-| A03 Injection | Drizzle parameterised queries (no string-interpolated `.where()`); Zod validation; React escaping (`dangerouslySetInnerHTML` forbidden without sanitization) |
-| A04 Insecure Design | Three-tier boundaries; stateless API; affinity/discovery for state |
-| A05 Security Misconfiguration | Typed `env.ts` with required-var validation at boot |
-| A07 Identification & Auth Failures | BetterAuth sessions; rate-limited login/registration |
-| A08 Software & Data Integrity | gRPC stubs generated, never hand-edited; additive proto changes only |
-| A09 Logging Failures | Structured logs via `@acme/acme-logger`; **no PII or raw stack traces** logged |
-| A10 SSRF | Provider endpoints come from the YAML registry, not user input |
+| Risk | Why accepted | Revisit when |
+| :--- | :----------- | :----------- |
+| <!-- TODO(adapt): or "none recorded" --> | | |

@@ -1,7 +1,7 @@
 # How I work: the worktree-first loop
 
-This config is built around one habit: **never work on `main`, one git worktree per unit of
-work.** Everything else (the safety hook, the statusline, the compaction hook, the way agents
+This config is built around one habit: **never work on the trunk (`main` by default), one git
+worktree per unit of work.** Everything else (the safety hook, the statusline, the compaction hook, the way agents
 are dispatched) exists to support that habit. This page explains the loop and how the config
 enforces it.
 
@@ -24,28 +24,29 @@ This matters more with an agent in the loop:
 ## The loop
 
 ```
-pnpm worktree:create my-feature      # .worktrees/my-feature on branch feature/my-feature
+scripts/worktree-create.sh my-feature   # .worktrees/my-feature on branch feature/my-feature
   └─ cd .worktrees/my-feature
        ├─ explore + plan (read 2-3 neighbours; match patterns)
        ├─ TDD: red → green → refactor       (tdd skill)
-       ├─ Stop hook gates every response     (lint/format dirty files · typecheck)
-       ├─ convention-checker before commit   (≥3 files across apps/services/packages)
-       ├─ commit (pre-commit runs the test suite; lands on feature/ branch, never main)
+       ├─ Stop hook gates every response     (format/lint dirty files · typecheck)
+       ├─ convention-checker before commit   (≥3 source files changed)
+       ├─ commit (pre-commit runs TEST_CMD; lands on feature/ branch, never main)
        └─ open PR  →  /pr-description  →  /pr-ci-review
-pnpm worktree:clean                   # remove worktrees whose remote branch is gone
+scripts/worktree-clean.sh               # remove worktrees whose remote branch is gone
 ```
 
 ## What enforces it
 
 | Mechanism | File | What it guarantees |
 | :-------- | :--- | :----------------- |
-| Branch protection | `.claude/hooks/git-safety.sh` | Blocks `git checkout -b` on `main`, blocks pushes to `main`, blocks `git reset --hard` and `rm -rf`. |
-| Worktree creation | `scripts/worktree-create.sh` + `package.json` | `pnpm worktree:create <name>` always makes `.worktrees/<name>` on `feature/<name>` and installs deps. |
-| Worktree cleanup | `scripts/worktree-clean.sh` | `pnpm worktree:clean` removes worktrees whose remote branch is gone (e.g. after merge). |
-| Quality gate | `.claude/hooks/quality-checks.sh` | On every `Stop`, lint/format-fixes the dirty files and typechecks the repo; blocks on failure. Tests run in the pre-commit hook. |
+| Branch protection | `.claude/hooks/git-safety.sh` | Blocks `git checkout -b` on the trunk, blocks pushes to the trunk, blocks `git reset --hard` and `rm -rf`. |
+| Worktree creation | `scripts/worktree-create.sh` | `scripts/worktree-create.sh <name>` always makes `.worktrees/<name>` on `feature/<name>` and runs `INSTALL_CMD`. |
+| Worktree cleanup | `scripts/worktree-clean.sh` | Removes worktrees whose remote branch is gone (e.g. after merge). |
+| Quality gate | `.claude/hooks/quality-checks.sh` | On every `Stop`, runs `FORMAT_FIX_CMD` and `LINT_CMD` on the dirty files and `TYPECHECK_CMD` on the repo (all from `.claude/project.env`); blocks on failure. An empty key skips that check. |
+| Test gate | `scripts/pre-commit` | Runs `TEST_CMD` from `.claude/project.env` before every commit. |
 | Context survival | `.claude/hooks/pre-compact-preserve.sh` | Preserves the current branch + worktree path + test results across compaction. |
 | Visibility | `.claude/statusline.sh` | Shows the active worktree branch, context usage, and cost in the statusline. |
-| `CLAUDE.md` | repo root | States the rule in always-on context: PRs only, worktrees only, never `main`. |
+| `CLAUDE.md` | repo root | States the rule in always-on context: PRs only, worktrees only, never the trunk. |
 
 ## Dispatching agents into worktrees
 
@@ -62,7 +63,7 @@ category; do not bundle unrelated removals into one PR.*
 
 ## Adapting it
 
-The scripts assume `feature/<name>` branches and an `origin` remote. If your team uses a
-different branch prefix or trunk name, edit `scripts/worktree-create.sh` /
-`scripts/worktree-clean.sh` and the patterns in `.claude/hooks/git-safety.sh` together so the
-helper and the guard stay in agreement.
+The trunk and branch prefix are `GIT_TRUNK` (default `main`) and `WORKTREE_BRANCH_PREFIX`
+(default `feature`) in `.claude/project.env`. The worktree scripts and `.claude/hooks/git-safety.sh`
+both read them from there, so the helper and the guard stay in agreement automatically. The loop
+above assumes the defaults and an `origin` remote.

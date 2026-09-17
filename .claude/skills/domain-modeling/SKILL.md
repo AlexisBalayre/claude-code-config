@@ -11,46 +11,45 @@ Actively sharpen the project's documented language as you design: challenge term
 
 | Source                        | What it covers                                                            |
 | :---------------------------- | :------------------------------------------------------------------------ |
-| `docs/glossary.md`            | Cross-cutting nouns: Organization, Member, Session, Participant, Provider, Channel, etc. |
-| `docs/conventions/core.md`    | Role taxonomy and naming stems for modules / classes                      |
+| `docs/glossary.md`            | Cross-cutting domain nouns and the aliases to avoid                       |
+| `docs/conventions/`           | Naming and structure rules (`core.md`) plus per-area conventions          |
 | `docs/explanation/<topic>.md` | Current narrative for a subsystem (system architecture, security model)   |
 | `docs/adr/`                   | Dated log of why a hard-to-reverse choice was made                        |
 
-Before a session, skim the Glossary, the relevant `docs/explanation/` doc, and any ADRs already filed for the area. For *why*/*how* questions that span multiple services, delegate to the `architecture-explainer` subagent rather than re-reading docs in the main context.
+Before a session, skim the Glossary, the relevant `docs/explanation/` doc, and any ADRs already filed for the area. For *why*/*how* questions that span multiple components, delegate to the `architecture-explainer` subagent rather than re-reading docs in the main context.
 
 ## During the session
 
 ### Challenge against the existing language
 
-When the user uses a term that conflicts with the Glossary or `core.md`, call it out. Example: "Glossary defines `Session` as the live client connection context; you're using it for the engine process that runs it. Which do you mean?"
+When the user uses a term that conflicts with the Glossary or `core.md`, call it out. Example: "Glossary defines `Order` as the customer's request; you're using it for the fulfilment record created from it. Which do you mean?"
 
 ### Sharpen fuzzy language
 
-Propose precise canonical terms; pull from the existing Glossary first, only invent when nothing fits. Common ambiguities here:
+Propose precise canonical terms; pull from the existing Glossary first, only invent when nothing fits. Typical ambiguities to hunt for:
 
-- "Session" (the user-facing connection context vs. the engine process running it)
-- "Message" (the inbound event vs. the rendered delivery to a Channel)
-- "Tenant" vs. `Organization` (BetterAuth term wins)
-- "Member" vs. "Participant" vs. "User"
+- One word for two things (the request a user makes vs. the record the system keeps for it)
+- Two words for one thing ("Account" vs. "Customer" vs. "User")
+- A term borrowed from a library or vendor that clashes with the domain's own word (decide which wins and record it)
 
 ### Stress-test with concrete scenarios
 
-Force precision with edge cases that touch service boundaries:
+Force precision with edge cases that touch component boundaries, e.g.:
 
-- "What happens to an in-flight Message dispatch when the Participant disconnects mid-send?"
-- "If the Gateway and Session Engine disagree on a Session's active state, who wins?"
-- "A Message fans out to email and SMS; the SMS Provider fails: is the Message delivered, partial, or failed?"
+- "What happens to an in-flight operation when the caller disconnects mid-way?"
+- "If two components disagree on an entity's current state, which one is the source of truth?"
+- "A request fans out to two downstream systems and one fails: is the result succeeded, partial, or failed?"
 
 ### Cross-reference with code
 
-When the user states how something works, verify against the code in the relevant service (`apps/acme-api/`, `services/acme-session-engine/`, `services/acme-gateway/`, `apps/acme-web/`). Surface contradictions: "`session.manager.ts` tears down on the last Participant leaving, but you said Sessions stay warm. Which is right?"
+When the user states how something works, verify against the code in the relevant component (`docs/reference/architecture.md` maps where each lives). Surface contradictions: "the cleanup job deletes drafts after 24 hours, but you said drafts are kept forever. Which is right?"
 
 ### Update the existing docs inline
 
 When something resolves, update it in place. Capture as it happens; don't batch.
 
 - **New cross-cutting noun?** Add to the Glossary table in `docs/glossary.md`.
-- **Naming stem or role suffix decision?** Update `docs/conventions/core.md`.
+- **Naming or structure decision?** Update `docs/conventions/core.md` (or the area doc in `docs/conventions/` it belongs to).
 - **Subsystem narrative has drifted from reality?** Update the relevant `docs/explanation/<topic>.md`.
 - **Hard-to-reverse choice with non-obvious rejected alternatives?** Open an ADR.
 

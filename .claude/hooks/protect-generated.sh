@@ -1,27 +1,18 @@
 #!/bin/bash
-# Protect generated files from manual edits
-# Runs as PreToolUse hook on Edit/Write tool calls
+# PreToolUse(Edit|Write) hook — blocks manual edits to generated files
+# (GENERATED_PATHS_REGEX in .claude/project.env; unset = no check).
 
 set -o pipefail
 
-# The tool input is passed via stdin as JSON
+[ -f "${CLAUDE_PROJECT_DIR:-.}/.claude/project.env" ] && . "${CLAUDE_PROJECT_DIR:-.}/.claude/project.env"
+[ -z "${GENERATED_PATHS_REGEX:-}" ] && exit 0
+
 INPUT=$(cat)
-FILE_PATH=$(echo "$INPUT" | grep -o '"file_path":"[^"]*"' | head -1 | sed 's/"file_path":"//;s/"$//')
+FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')
+[ -z "$FILE_PATH" ] && exit 0
 
-# If we can't extract the file path, allow it
-if [ -z "$FILE_PATH" ]; then
-  exit 0
-fi
-
-# Block: any *.gen.ts file
-if echo "$FILE_PATH" | grep -qE '\.gen\.ts$'; then
-  echo "BLOCKED: *.gen.ts files are auto-generated. Do not edit manually." >&2
-  exit 2
-fi
-
-# Block: gRPC generated stubs
-if echo "$FILE_PATH" | grep -qE 'packages/acme-rpc/src/protos/generated/'; then
-  echo "BLOCKED: gRPC stubs are auto-generated. Edit the .proto files in packages/acme-rpc/proto/ and run 'pnpm --filter @acme/acme-rpc proto:gen' instead." >&2
+if echo "$FILE_PATH" | grep -qE "$GENERATED_PATHS_REGEX"; then
+  echo "BLOCKED: $FILE_PATH is generated. Edit its source and rerun the generator instead." >&2
   exit 2
 fi
 

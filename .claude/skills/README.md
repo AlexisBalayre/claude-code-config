@@ -9,13 +9,11 @@ to invoke it.
 - **Auto (Claude-only)** — Claude triggers it; hidden from the `/` menu (`user-invocable: false`).
 - **Manual only** — you invoke it; Claude never auto-triggers (`disable-model-invocation: true`).
 
-## Scaffolding — generate files that follow the conventions
+## Setup — fit the template to a project
 
 | Skill | When to use | Invoke |
 | :---- | :---------- | :----- |
-| `new-api-endpoint` | You ask to "add an endpoint" / "add an API for X". Scaffolds route + schema + service + serializer + test per `docs/conventions/backend.md`. | Auto (Claude-only) |
-| `new-frontend-route` | "add a page" / "create a route" / "add a frontend view". Scaffolds a react-router-dom route (single route table) + query hooks + feature components. | Auto (Claude-only) |
-| `new-provider` | "add a provider" / "integrate a new email/SMS/push provider". Scaffolds a delivery Provider via the factory + YAML registry. | Auto (Claude-only) |
+| `adapt-to-project` | Right after copying the template into a repo, or when the project grows a new area. Surveys the codebase, fills `.claude/project.env`, `AGENTS.md`, the conventions docs and their rule loaders, the architecture/security/glossary docs, then prunes skills and agents the project can't use. Re-runnable. | Manual only (`/adapt-to-project`) |
 
 ## Engineering — build, fix, and clean up
 

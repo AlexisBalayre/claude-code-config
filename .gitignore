@@ -1,11 +1,10 @@
-# Dependencies
+# Dependencies (tools/review; add your stack's below)
 node_modules/
-.pnpm-store/
 
 # Claude Code local overrides (copy settings.local.json.example to start)
 .claude/settings.local.json
 
-# Git worktrees created by `pnpm worktree:create`
+# Git worktrees created by scripts/worktree-create.sh
 .worktrees/
 
 # CodeGraph index (built by `codegraph init`, per checkout)
@@ -14,7 +13,6 @@ node_modules/
 # Build output
 dist/
 build/
-*.tsbuildinfo
 
 # Env / secrets
 .env
