@@ -11,7 +11,7 @@ type Listed = Pick<Finding, "file" | "line" | "area" | "description"> & { body?:
 
 export function findingLine(finding: Listed): string {
   const location = finding.file
-    ? `\`${finding.file}${finding.line ? `:${finding.line}` : ""}\``
+    ? `\`${finding.file}:${finding.line}\``
     : "location unrecorded";
   return `- ${location} (${finding.area}): ${finding.body ?? finding.description}`;
 }
