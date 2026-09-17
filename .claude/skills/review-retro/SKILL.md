@@ -12,10 +12,11 @@ You run the retrospective for the automated review setup (the learn stage of the
 
 **Dormant until there is history.** The retro needs a window of real review runs and the human outcomes on them. Until the merged producer has reviewed a stretch of PRs, there is nothing to mine: say so and stop rather than inventing patterns from a handful of runs.
 
-> **Setup:** the `ci/review-metrics` branch is produced by your own CI wiring (a workflow that
-> runs `/pr-ci-review` with a `--json-schema` and appends each run's record); this template
-> ships no workflow. Without it, the retro degrades gracefully — it reports there is no history
-> to mine and stops.
+> **Setup:** the `ci/review-metrics` branch is produced by
+> [`claude-code-review.yml`](../../../.github/workflows/claude-code-review.yml) (which runs
+> `/pr-ci-review` with a `--json-schema` from [`tools/review`](../../../tools/review/) and
+> appends each run's record). Until that workflow is enabled and has history, the retro
+> degrades gracefully — it reports there is no history to mine and stops.
 
 ## Evidence
 

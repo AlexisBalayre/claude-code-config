@@ -12,11 +12,13 @@ Provide a context-aware code review of local changes or a pull request, across s
 
 The governing rule is **spend only where it buys recall**. Deterministic tooling and the human in the loop are free, so lean on them first and spawn an agent only when judgment is the thing missing. Recall comes from the deterministic suite plus the correctness and security reviewers; almost everything else is a cut.
 
-> **Setup:** the CI paths (`--json-schema`, the `review-metrics` record, the poster) assume your
-> own CI wiring — a workflow whose preflight checks out the PR head and resolves the mode, that
-> invokes `/pr-ci-review` with the PR named in prose plus a schema, appends each run's record to
-> a `ci/review-metrics` orphan branch, and renders/posts the record with a poster script. This
-> template ships no workflow; without one, the local `report` / `--fix` paths work unchanged.
+> **Setup:** the CI paths (`--json-schema`, the `review-metrics` record, the poster) are wired
+> by [`claude-code-review.yml`](../../../.github/workflows/claude-code-review.yml): its
+> preflight checks out the PR head and resolves the mode, it invokes `/pr-ci-review` with the
+> PR named in prose plus a schema generated from [`tools/review`](../../../tools/review/), the
+> poster script renders/posts the record, and each run's record lands on the
+> `ci/review-metrics` orphan branch. Follow the setup comment at the top of that workflow to
+> enable it; without it, the local `report` / `--fix` paths work unchanged.
 
 ## Review Constraints
 
