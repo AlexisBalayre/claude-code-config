@@ -60,7 +60,7 @@ improve the pipeline itself.
 
 ```bash
 # 1. Install the Claude GitHub App (the action trades an OIDC token for its own)
-open https://github.com/apps/claude
+#    at https://github.com/apps/claude
 # 2. Mint a token and store it as a repo secret
 claude setup-token && gh secret set CLAUDE_CODE_OAUTH_TOKEN
 # 3. Create the metrics sink once
@@ -68,7 +68,7 @@ git push origin "$(git commit-tree "$(git hash-object -t tree /dev/null)" -m 're
 ```
 
 The review bills whoever's token that secret holds, so the job runs **only when the actor is the
-repository owner** — the person who opened or pushed to the PR, or who commented `@claude review`.
+repository owner**: the person who opened or pushed to the PR, or who commented `@claude review`.
 A PR from anyone else is skipped, spending nothing. Widen or narrow that gate in the job's `if:`;
 on an organization repo `github.repository_owner` is the org name, which matches no user, so
 replace it with the logins (or a team check) you want to allow.

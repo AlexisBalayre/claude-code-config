@@ -4,13 +4,8 @@
 # model itself has no write channel). Each run's record is appended to the
 # `ci/review-metrics` orphan branch for the /review-retro skill to mine.
 #
-# Setup for your repo:
-#   1. Install the Claude GitHub App on the repo: https://github.com/apps/claude
-#   2. Add the `CLAUDE_CODE_OAUTH_TOKEN` secret: `claude setup-token`, then
-#      `gh secret set CLAUDE_CODE_OAUTH_TOKEN`.
-#   3. Create the orphan branch once:
-#        git checkout --orphan ci/review-metrics && git rm -rf . \
-#          && git commit --allow-empty -m "review-metrics: init" && git push origin ci/review-metrics
+# Setup for your repo (App install, secret, metrics branch): the commands live
+# once, under "The CI review pipeline" in README.md.
 name: Claude Code Review
 
 on:
