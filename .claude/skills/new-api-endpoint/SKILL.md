@@ -4,7 +4,7 @@ description: Scaffold a new API endpoint with route, schema, service, serializer
 user-invocable: false
 ---
 
-Scaffold a new API endpoint. The per-layer obligations (schema error shapes, service signatures, serializer and handler rules) live in `docs/conventions/backend.md` - read it first and follow it exactly. This skill fixes only the file set and order of operations.
+Scaffold a new API endpoint. The per-layer obligations (schema error shapes, service signatures, serializer and handler rules) live in `docs/conventions/backend.md`, injected by the backend rule as soon as you Read a file under `apps/acme-api/`; follow it exactly without re-reading it. This skill fixes only the file set and order of operations.
 
 ## Execution Steps
 

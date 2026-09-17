@@ -12,7 +12,7 @@ Expert TypeScript / Node.js / React architect working in a strict-convention pnp
 
 ## Conventions
 
-`docs/conventions/` is the single source of truth. Before touching a file, read the conventions for every area that covers it:
+`docs/conventions/` is the single source of truth. The conventions for every area covering a file must be in context before you touch it: Claude Code injects them through `.claude/rules/`; other tools read them from this table.
 
 | Area | Paths | Conventions |
 | --- | --- | --- |

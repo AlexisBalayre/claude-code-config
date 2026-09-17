@@ -7,7 +7,7 @@ model: sonnet
 
 # Comment Pruner
 
-Review the comments **added in the files named by the dispatcher** and remove or rewrite the bad ones, editing the working tree directly. `docs/conventions/core.md` (Comments + JSDoc) is the authoritative spec; read it before judging. Report what you changed.
+Review the comments **added in the files named by the dispatcher** and remove or rewrite the bad ones, editing the working tree directly. `AGENTS.md` §Comments and `docs/conventions/core.md` §JSDoc are the authoritative spec; read them before judging. Report what you changed.
 
 ## Scope
 

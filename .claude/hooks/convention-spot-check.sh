@@ -1,49 +1,46 @@
 #!/usr/bin/env bash
-# Stop hook: lightweight structural convention spot-check on changed files.
-# Advisory only (exit 0). Comment-quality findings are owned by comment-pruner.sh.
+# Stop hook: structural convention spot-check on the files this session changed.
+# Findings reach the model once per Stop cycle (exit 2); on the stop_hook_active
+# re-run the hook is silent so a heuristic the model judged a false positive
+# cannot loop. Exit-0 output never reaches the model, so "advisory" here means
+# "shown once, then dropped". Named exports are Biome's job (noDefaultExport, run
+# by quality-checks.sh); comment quality is comment-pruner.sh's.
 set -uo pipefail
 
-# Get changed .ts/.tsx files (staged + unstaged)
-CHANGED_FILES=$(git diff --name-only HEAD 2>/dev/null || true)
-STAGED_FILES=$(git diff --cached --name-only 2>/dev/null || true)
-ALL_FILES=$(echo -e "${CHANGED_FILES}\n${STAGED_FILES}" | sort -u | grep -E '\.(ts|tsx)$' || true)
+cd "${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}" 2>/dev/null || exit 0
 
-if [ -z "$ALL_FILES" ]; then
-  exit 0
+if [ ! -t 0 ]; then
+  INPUT=$(cat 2>/dev/null || true)
+  printf '%s' "$INPUT" | grep -q '"stop_hook_active"[[:space:]]*:[[:space:]]*true' && exit 0
 fi
+
+# Untracked files included: a freshly written file is where a wrong role or an
+# inline type most often lands.
+ALL_FILES=$(
+  {
+    git diff --name-only HEAD 2>/dev/null
+    git diff --cached --name-only 2>/dev/null
+    git ls-files --others --exclude-standard 2>/dev/null
+  } | grep -E '\.(ts|tsx)$' | sort -u
+)
+[ -z "$ALL_FILES" ] && exit 0
 
 WARNINGS=""
 
 while IFS= read -r file; do
-  # Skip if file doesn't exist (deleted files)
-  if [ ! -f "$file" ]; then
-    continue
-  fi
+  [ -f "$file" ] || continue
 
-  # Check for export default
-  if grep -qE '^\s*export\s+default\s' "$file" 2>/dev/null; then
-    WARNINGS+="  ⚠ $file: uses 'export default' — use named exports only\n"
-  fi
-
-  # Check for inline type/interface in service or route files
   if [[ "$file" =~ \.(service|routes)\.(ts|tsx)$ ]]; then
     if grep -qE '^\s*export\s+(interface|type)\s' "$file" 2>/dev/null; then
-      WARNINGS+="  ⚠ $file: exports type/interface inline — move to types/ folder\n"
+      WARNINGS+="  $file: exports a type/interface inline; move it to types/ (core.md §Structure)\n"
     fi
   fi
 
-  # Skip JSDoc check in tests/fixtures/mocks — these exports don't need docs.
   if [[ "$file" =~ \.(test|spec|mock|fixture)\.(ts|tsx)$ ]] || [[ "$file" =~ /__mocks__/ ]] || [[ "$file" =~ /test/ ]]; then
     continue
   fi
 
-  # JSDoc on exports is only required for the package public surface (packages/*).
-  # apps/* and services/* are leaf workspaces with no external consumers; JSDoc
-  # there is optional and only added when WHY is non-obvious. The path-scoped
-  # checks further down (Readonly<Props> for apps, EventEmitter ban for
-  # session-engine, factory-only services for gateway) still apply, so we wrap
-  # only the JSDoc check in the packages/* guard rather than skipping the rest
-  # of the iteration.
+  # JSDoc is required only on the package public surface (core.md §JSDoc).
   if [[ "$file" == packages/* ]]; then
     EXPORTS_WITHOUT_JSDOC=$(awk '
       BEGIN { saw_close = 0 }
@@ -53,44 +50,38 @@ while IFS= read -r file; do
         saw_close = 0
       }
     ' "$file" 2>/dev/null || true)
-
     if [ -n "$EXPORTS_WITHOUT_JSDOC" ]; then
       COUNT=$(echo "$EXPORTS_WITHOUT_JSDOC" | wc -l | tr -d ' ')
-      WARNINGS+="  ⚠ $file: $COUNT export(s) may be missing JSDoc comments\n"
+      WARNINGS+="  $file: $COUNT export(s) may be missing JSDoc (core.md §JSDoc)\n"
     fi
   fi
 
-  # Frontend: React component props should be Readonly<Props>.
-  # Flags destructured or positional props typed as `XProps` without Readonly wrapper.
   if [[ "$file" == apps/acme-web/* ]] && [[ "$file" =~ \.tsx$ ]]; then
     NON_READONLY_PROPS=$(grep -nE ':\s*\w+Props[[:space:]]*[,)=]' "$file" 2>/dev/null | grep -vE ':\s*Readonly<' || true)
     if [ -n "$NON_READONLY_PROPS" ]; then
-      WARNINGS+="  ⚠ $file: component props not wrapped in Readonly<…> (see docs/conventions/core.md)\n"
+      WARNINGS+="  $file: component props not wrapped in Readonly<...> (core.md §TypeScript)\n"
     fi
   fi
 
-  # Session engine: EventEmitter is forbidden (see docs/conventions/services.md — "NEVER EventEmitter").
   if [[ "$file" == services/acme-session-engine/* ]]; then
     if grep -qE "from\s+['\"](node:events|events)['\"]" "$file" 2>/dev/null; then
-      WARNINGS+="  ⚠ $file: imports EventEmitter — use typed callbacks instead (docs/conventions/services.md)\n"
+      WARNINGS+="  $file: imports EventEmitter; use typed callback arrays (services.md §Session Engine › Events & errors)\n"
     fi
   fi
 
-  # Gateway: services must be created via factories, never via `new XService()`
-  # (see docs/conventions/services.md — "factories ONLY, NEVER classes").
   if [[ "$file" == services/acme-gateway/* ]]; then
     if grep -qE 'new\s+[A-Z][A-Za-z0-9_]*Service\s*\(' "$file" 2>/dev/null; then
-      WARNINGS+="  ⚠ $file: instantiates a Service class directly — use the create*Service factory (docs/conventions/services.md)\n"
+      WARNINGS+="  $file: instantiates a Service class directly; use the create*Service factory (services.md §Gateway › Layout)\n"
     fi
   fi
-
 done <<< "$ALL_FILES"
 
-if [ -n "$WARNINGS" ]; then
-  echo "" >&2
-  echo "Convention spot-check warnings:" >&2
-  echo -e "$WARNINGS" >&2
-  echo "These are advisory — fix before committing if possible." >&2
-fi
+[ -z "$WARNINGS" ] && exit 0
 
-exit 0
+{
+  echo
+  echo "Convention spot-check on files changed this session:"
+  echo -e "$WARNINGS"
+  echo "Fix each real finding; if one is a heuristic misfire, say so and stop again (this check stays silent on the re-run)."
+} >&2
+exit 2

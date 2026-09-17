@@ -11,6 +11,13 @@ if [ -z "$FILE_PATH" ]; then
   exit 0
 fi
 
+# Hooks are per-session, keyed on the directory the session started in, so a session launched here
+# and working in a sibling repo would otherwise hold that repo to this taxonomy. Only paths under
+# this checkout are ours.
+if [ -n "${CLAUDE_PROJECT_DIR:-}" ] && [[ "$FILE_PATH" != "$CLAUDE_PROJECT_DIR"/* ]]; then
+  exit 0
+fi
+
 # Only check .ts/.tsx files
 if [[ ! "$FILE_PATH" =~ \.(ts|tsx)$ ]]; then
   exit 0

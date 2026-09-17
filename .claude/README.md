@@ -27,6 +27,19 @@ This directory contains all Claude Code customizations for the Acme project. Eve
 
 **Context budget matters.** Everything in "Always-On" consumes tokens every turn. Rules with `paths:` and skills with descriptions load on-demand, saving context. Subagents run in isolated windows. Hooks cost zero context.
 
+What a session pays for this config, in approximate tokens (bytes / 4), so additions stay deliberate:
+
+| Surface | Loaded | Cost |
+|---|---|---|
+| `CLAUDE.md` + `AGENTS.md` | every session | ~1.0k |
+| Descriptions of the model-invocable skills | every session | ~0.7k |
+| Descriptions of all 12 agents | every session | ~0.7k |
+| `docs/conventions/core.md` | first `.ts` / `.tsx` file touched | ~4.4k |
+| `backend.md` / `services.md` | first file touched in that area | ~2.7k / ~2.7k |
+| `frontend.md` / `testing.md` | first file touched in that area | ~1.0k / ~1.0k |
+
+A rule fires on the first Read, Edit, or Write of a matching path (not on MCP results such as codegraph) and its `@import` pulls the whole file, so each convention doc is paid once per session per area. Keep them obligations-only, never instruct the model to Read one, and prefer `disable-model-invocation: true` for user-only skills since agents have no equivalent switch.
+
 ---
 
 ## Directory Structure
@@ -66,7 +79,7 @@ This directory contains all Claude Code customizations for the Acme project. Eve
 │
 └── hooks/                    # Deterministic shell scripts (zero LLM cost)
     ├── quality-checks.sh          # Stop: lint/format dirty files + repo typecheck
-    ├── convention-spot-check.sh   # Stop: advisory file-level convention scan
+    ├── convention-spot-check.sh   # Stop: file-level convention scan (blocks once)
     ├── comment-pruner.sh          # Stop: dispatch the comment-pruner subagent on new comments
     ├── git-safety.sh              # PreToolUse(Bash): block dangerous git/shell ops
     ├── protect-generated.sh       # PreToolUse(Edit|Write): block generated files
@@ -153,11 +166,11 @@ Shell scripts that run outside the LLM loop on lifecycle events. Zero context co
 | Hook | Event | What it does |
 |------|-------|-------------|
 | `quality-checks.sh` | Stop | Lint/format dirty files, typecheck the repo (blocks on failure; tests live in pre-commit) |
-| `convention-spot-check.sh` | Stop | Advisory scan for `export default`, inline types, missing JSDoc (`packages/` only) |
+| `convention-spot-check.sh` | Stop | Scan for inline types, missing JSDoc (`packages/` only), area anti-patterns; blocks once, silent on the re-run |
 | `comment-pruner.sh` | Stop | Dispatch the `comment-pruner` subagent when the session added net-new comments |
 | `git-safety.sh` | PreToolUse(Bash) | Block `rm -rf`, `git reset --hard`, force push, `checkout -b` on main, push to main |
 | `protect-generated.sh` | PreToolUse(Edit\|Write) | Block edits to `*.gen.ts` and gRPC stubs |
-| `validate-file-naming.sh` | PreToolUse(Write) | Enforce `kebab-case.role.ts` on new files |
+| `validate-file-naming.sh` | PreToolUse(Write) | Enforce `kebab-case.role.ts` on new files under this checkout |
 | `pre-compact-preserve.sh` | PreCompact | Preserve branch, modified files, test output across compaction |
 
 **Exit codes:**
