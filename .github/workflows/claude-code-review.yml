@@ -5,8 +5,10 @@
 # `ci/review-metrics` orphan branch for the /review-retro skill to mine.
 #
 # Setup for your repo:
-#   1. Add the `CLAUDE_CODE_OAUTH_TOKEN` secret (see the claude-code-action docs).
-#   2. Create the orphan branch once:
+#   1. Install the Claude GitHub App on the repo: https://github.com/apps/claude
+#   2. Add the `CLAUDE_CODE_OAUTH_TOKEN` secret: `claude setup-token`, then
+#      `gh secret set CLAUDE_CODE_OAUTH_TOKEN`.
+#   3. Create the orphan branch once:
 #        git checkout --orphan ci/review-metrics && git rm -rf . \
 #          && git commit --allow-empty -m "review-metrics: init" && git push origin ci/review-metrics
 name: Claude Code Review
@@ -26,9 +28,14 @@ env:
 
 jobs:
   claude-review:
+    # Owner-only: the review bills the owner's Claude subscription, so a PR
+    # opened, pushed to, or `@claude review`-commented by anyone else is skipped.
+    # `actor` is the PR opener/pusher or the commenter.
     if: |
-      (github.event_name == 'pull_request' && github.event.pull_request.draft == false) ||
-      (github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, '@claude review'))
+      github.actor == github.repository_owner && (
+        (github.event_name == 'pull_request' && github.event.pull_request.draft == false) ||
+        (github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, '@claude review'))
+      )
     runs-on: ubuntu-latest
     # Generous headroom: a run cancelled at the timeout is a fully billed review
     # discarded for want of a few minutes.
@@ -72,6 +79,9 @@ jobs:
         # Pinned to a full SHA: this workflow carries secrets + a write token, so
         # third-party actions are pinned, not floated on a mutable tag.
         uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+        with:
+          # No root package.json: the pnpm version lives in the tooling package.
+          package_json_file: tools/review/package.json
 
       - name: Set up Node
         uses: actions/setup-node@v4
