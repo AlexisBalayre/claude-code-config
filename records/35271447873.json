@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "timestamp": "2026-09-17T20:37:36.671Z",
+  "repository": "AlexisBalayre/claude-code-power-config",
+  "run_id": "35271447873",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-power-config/actions/runs/35271447873",
+  "actor": "AlexisBalayre",
+  "commit_sha": "6bacb3ec704ef72c82c36b1df7e1fb628f2aa8b5",
+  "source": "pr",
+  "pr_number": 11,
+  "action": "review",
+  "reviewers_spawned": [
+    "docs",
+    "conventions",
+    "context"
+  ],
+  "reviewers_skipped": [
+    "correctness",
+    "security",
+    "maintainability"
+  ],
+  "review_mode": "incremental",
+  "incremental_from_sha": "5143a23c21ea913fe12a8f11fc4d8511e759601c",
+  "prior_importants": [],
+  "findings": [],
+  "refuted_findings": [],
+  "process_issues": [
+    {
+      "component": "docs",
+      "description": "The docs reviewer's `gh pr view`/`gh api` calls returned no output in its sandbox (no network/auth), so it could not independently pull the PR's \"This PR has not been reviewed\" comment to cross-check the new paragraph's 401/byte-identical claim; it fell back to the orchestrator's brief plus internal consistency of the surrounding prose. Did not block the review, but is worth noting since it reduces independent verification depth on a factual claim."
+    }
+  ],
+  "comments_posted_actual": 0,
+  "is_error": false,
+  "cost_usd": 1.36277535,
+  "duration_ms": 247596,
+  "num_turns": 16,
+  "tokens": {
+    "input": 17,
+    "output": 10511,
+    "cache_read": 367200,
+    "cache_creation": 41870,
+    "total": 419598
+  }
+}
