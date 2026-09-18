@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "timestamp": "2026-09-18T09:44:10.891Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "35330776604",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/35330776604",
+  "actor": "AlexisBalayre",
+  "commit_sha": "40ee6785cb28a68776fa77841d72507cd3eebedf",
+  "source": "pr",
+  "pr_number": 13,
+  "action": "review",
+  "reviewers_spawned": [
+    "conventions",
+    "docs"
+  ],
+  "reviewers_skipped": [
+    "correctness",
+    "security",
+    "context",
+    "maintainability"
+  ],
+  "review_mode": "full",
+  "incremental_from_sha": null,
+  "prior_importants": [],
+  "findings": [
+    {
+      "file": "assets/README.md",
+      "line": "3-6",
+      "area": "docs",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "New prose in assets/README.md uses em-dashes on lines 3, 4, and 6; house style (per the review-docs reviewer's standing directive) is to avoid em/en dashes in newly added prose, even though existing repo prose uses them freely.",
+      "body": null,
+      "suggestion": null
+    }
+  ],
+  "refuted_findings": [],
+  "process_issues": [],
+  "comments_posted_actual": 0,
+  "is_error": false,
+  "cost_usd": 0.84115515,
+  "duration_ms": 173346,
+  "num_turns": 14,
+  "tokens": {
+    "input": 17,
+    "output": 9065,
+    "cache_read": 352989,
+    "cache_creation": 36486,
+    "total": 398557
+  }
+}
