@@ -1,4 +1,11 @@
-# claude-code-power-config
+# claude-code-config
+
+**A complete Claude Code setup you can drop into any repo: path-scoped rules, 34 skills, 12
+subagents, 7 deterministic hooks, and a multi-agent PR review that runs in GitHub Actions.**
+
+[![Use this template](https://img.shields.io/badge/use%20this-template-2ea44f?style=flat-square&logo=github)](https://github.com/AlexisBalayre/claude-code-config/generate)
+[![Stars](https://img.shields.io/github/stars/AlexisBalayre/claude-code-config?style=flat-square)](https://github.com/AlexisBalayre/claude-code-config/stargazers)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 
 A complete, opinionated **[Claude Code](https://code.claude.com/docs)** configuration template: rules,
 skills, subagents, and deterministic hooks, wired together and documented end to end. It is
@@ -15,6 +22,22 @@ conventions, architecture docs, and prunes what the project can't use.
 > workflow that never lets an agent commit to `main`.
 
 ---
+
+## Why this one
+
+Most published Claude Code configs are a personal `CLAUDE.md` plus a pile of commands, shaped
+around one stack. This one is built on three different bets:
+
+- **Nothing assumes your stack.** Commands, conventions, naming rules and the trunk name live in
+  one `project.env` profile that `/adapt-to-project` fills in by surveying your codebase. You are
+  not deleting someone else's Python hooks from a TypeScript repo.
+- **The important rules are deterministic, not prompted.** 7 shell hooks (0 tokens, no model in
+  the loop) enforce formatting, the convention spot-check, file naming, generated-file protection
+  and the never-commit-to-`main` rule. An agent cannot talk its way past a hook.
+- **The PR review is a pipeline, not a prompt.** A deterministic preflight resolves the head and
+  the full-vs-incremental mode, six gated reviewers report, a validator refutes weak findings, and
+  a poster script writes the result. The model has no write channel to your PR, which is both the
+  injection defense and the reason a dead run still posts "not reviewed".
 
 ## What's inside
 
@@ -90,8 +113,8 @@ their own worktree. Read the full loop in **[`docs/workflow.md`](docs/workflow.m
 
 1. **Copy the template into your repo.**
    ```bash
-   git clone https://github.com/AlexisBalayre/claude-code-power-config.git
-   cd claude-code-power-config
+   git clone https://github.com/AlexisBalayre/claude-code-config.git
+   cd claude-code-config
    cp -R .claude AGENTS.md CLAUDE.md docs scripts .mcp.json ../your-repo/
    # optional: the CI review pipeline
    cp -R .github tools ../your-repo/
@@ -182,4 +205,4 @@ This config stands on ideas and patterns from:
 
 ## License
 
-[MIT](LICENSE).
+[MIT](LICENSE). If it saves you an afternoon of wiring, a star helps other people find it.
