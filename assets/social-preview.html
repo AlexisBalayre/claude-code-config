@@ -1,0 +1,96 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;500;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    width: 1280px; height: 640px;
+    background: #0c0d10;
+    background-image:
+      radial-gradient(circle at 88% 12%, rgba(217,119,87,0.16), transparent 46%),
+      linear-gradient(rgba(255,255,255,0.028) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.028) 1px, transparent 1px);
+    background-size: auto, 32px 32px, 32px 32px;
+    font-family: 'Inter', -apple-system, sans-serif;
+    color: #e8e6e3;
+    display: flex; flex-direction: column;
+    padding: 72px 76px 64px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .accent {
+    position: absolute; top: 0; left: 0;
+    width: 100%; height: 6px;
+    background: linear-gradient(90deg, #D97757 0%, #d9a157 50%, transparent 92%);
+  }
+
+  .eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 21px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: #D97757; font-weight: 700;
+  }
+
+  h1 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 78px; font-weight: 700; letter-spacing: -0.025em;
+    margin-top: 22px; color: #fff;
+  }
+
+  .tagline {
+    font-size: 28px; line-height: 1.45; font-weight: 400;
+    color: #a9a6a1; margin-top: 26px; max-width: 1060px;
+  }
+  .tagline b { color: #e8e6e3; font-weight: 600; }
+
+  .stats { display: flex; gap: 14px; margin-top: auto; }
+
+  .stat {
+    border: 1px solid rgba(217,119,87,0.32);
+    background: rgba(217,119,87,0.07);
+    border-radius: 11px;
+    padding: 15px 22px;
+    display: flex; align-items: baseline; gap: 10px;
+  }
+  .stat .n {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 30px; font-weight: 700; color: #fff;
+  }
+  .stat .l { font-size: 20px; color: #a9a6a1; font-weight: 500; }
+
+  .footer {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 34px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 20px; color: #7d7a75;
+  }
+  .footer .repo { color: #a9a6a1; }
+</style>
+</head>
+<body>
+  <div class="accent"></div>
+
+  <div class="eyebrow">Claude Code · drop-in configuration</div>
+  <h1>claude-code-config</h1>
+  <div class="tagline">
+    Path-scoped rules, deterministic hooks and a <b>multi-agent PR review</b> in CI.<br>
+    Stack-agnostic: run <b>/adapt-to-project</b> and it fits your repo.
+  </div>
+
+  <div class="stats">
+    <div class="stat"><span class="n">34</span><span class="l">skills</span></div>
+    <div class="stat"><span class="n">12</span><span class="l">subagents</span></div>
+    <div class="stat"><span class="n">7</span><span class="l">hooks</span></div>
+    <div class="stat"><span class="n">6</span><span class="l">CI reviewers</span></div>
+  </div>
+
+  <div class="footer">
+    <span class="repo">github.com/AlexisBalayre/claude-code-config</span>
+    <span>MIT · template repository</span>
+  </div>
+</body>
+</html>
