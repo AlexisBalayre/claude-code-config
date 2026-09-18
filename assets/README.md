@@ -1,9 +1,9 @@
 # Assets
 
-- `statusline.png` — the README's statusline screenshot.
-- `social-preview.png` — the repo's GitHub social preview (1280x640). Upload it by hand at
+- `statusline.png`: the README's statusline screenshot.
+- `social-preview.png`: the repo's GitHub social preview (1280x640). Upload it by hand at
   Settings > General > Social preview; the REST API has no endpoint for it.
-- `social-preview.html` — the source the PNG is rendered from. Re-render after editing:
+- `social-preview.html`: the source the PNG is rendered from. Re-render after editing:
 
   ```bash
   "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser" --headless --disable-gpu \
