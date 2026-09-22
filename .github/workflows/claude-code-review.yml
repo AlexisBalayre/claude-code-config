@@ -25,9 +25,12 @@ jobs:
   claude-review:
     # Owner-only: the review bills the owner's Claude subscription, so a PR
     # opened, pushed to, or `@claude review`-commented by anyone else is skipped.
-    # `actor` is the PR opener/pusher or the commenter.
+    # `actor` is the PR opener/pusher or the commenter. A re-run keeps the
+    # original `actor` but sets `triggering_actor` to whoever clicked "Re-run",
+    # so both must match or any collaborator could re-run the owner's review.
     if: |
-      github.actor == github.repository_owner && (
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner && (
         (github.event_name == 'pull_request' && github.event.pull_request.draft == false) ||
         (github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, '@claude review'))
       )
