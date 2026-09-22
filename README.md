@@ -92,9 +92,10 @@ git push origin "$(git commit-tree "$(git hash-object -t tree /dev/null)" -m 're
 
 The review bills whoever's token that secret holds, so the job runs **only when the actor is the
 repository owner**: the person who opened or pushed to the PR, or who commented `@claude review`.
-A PR from anyone else is skipped, spending nothing. Widen or narrow that gate in the job's `if:`;
-on an organization repo `github.repository_owner` is the org name, which matches no user, so
-replace it with the logins (or a team check) you want to allow.
+A PR from anyone else is skipped, spending nothing, and so is a re-run anyone else starts. Widen
+or narrow that gate in the job's `if:`; on an organization repo `github.repository_owner` is the
+org name, which matches no user, so replace both of its uses with the logins (or a team check)
+you want to allow.
 
 One upstream rule to expect: the App only mints a token when the workflow file on the PR branch
 is byte-identical to the copy on the default branch, so **a PR that edits
