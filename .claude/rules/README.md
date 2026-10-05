@@ -1,3 +1,8 @@
+---
+paths:
+  - ".claude/rules/**"
+---
+
 # Rule catalog
 
 Path-scoped convention rules. Each auto-loads when you open or edit a file matching its `paths:`
