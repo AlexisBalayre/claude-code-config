@@ -150,7 +150,7 @@ jobs:
           echo "schema=$schema" >> "$GITHUB_OUTPUT"
 
       # AGENTS.md is startup-read config like CLAUDE.md (which imports it), but
-      # the action's SENSITIVE_PATHS list predates it: v1.0.112 restores
+      # the action's SENSITIVE_PATHS list predates it: v1.0.237 still restores
       # CLAUDE.md, .claude/ and .mcp.json, not AGENTS.md, so the PR head's copy
       # would execute unreviewed. Apply the action's own treatment first:
       # snapshot the head's copy for reviewers under .claude-pr/, then take the
@@ -172,13 +172,14 @@ jobs:
       - name: Run Claude Code Review
         if: steps.pr-head.outputs.skip != 'true' && steps.preflight.outputs.skip != 'true'
         id: claude-review
-        # Pinned: v1.0.113 has a Claude Code / install.sh path mismatch that
-        # leaves the SDK looking for a binary at ~/.local/bin/claude that the
-        # installer didn't put there. Tracked upstream in
-        # https://github.com/anthropics/claude-code-action/issues/1260
-        # Roll forward once a release with the bundled-binary fallback ships.
         # SHA-pinned (secrets + write token); the tag comment tracks the version.
-        uses: anthropics/claude-code-action@2cc1ac1331eac7a6a96d716dd204dd2888d0fcd2 # v1.0.112
+        uses: anthropics/claude-code-action@fd1c128679612beff4ca259c78021c506e8aa7a7 # v1.0.237
+        # The reviewer manifests keep their `opus` / `sonnet` aliases; these pin
+        # the aliases to exact ids, so a Claude Code bump cannot move a tier
+        # silently, while a local /pr-ci-review still follows the local defaults.
+        env:
+          ANTHROPIC_DEFAULT_OPUS_MODEL: claude-opus-5-5
+          ANTHROPIC_DEFAULT_SONNET_MODEL: claude-sonnet-5-5
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
@@ -187,10 +188,25 @@ jobs:
             Pull request: #${{ github.event.pull_request.number || github.event.issue.number }} in ${{ github.repository }}
             ${{ steps.preflight.outputs.mode_line }}
             Merge base: ${{ steps.preflight.outputs.merge_base }}
-          # Orchestrator model only: reviewer manifests pin their own tiers, so
-          # correctness/security stay on opus regardless. Sonnet here cuts the
-          # run's largest context and output share; posted precision is still
-          # gated by the per-important opus validators.
+          # Background tasks off: recent Claude Code runs a subagent in the
+          # background unless the model asks otherwise, and the action keeps the
+          # first `result` a run emits and stops reading. With reviewers still
+          # out, that result is an empty record, which reads as a clean review
+          # of a diff nobody reviewed. Off, every Agent call runs in the
+          # foreground and returns its report, calls sent in one message still
+          # run together, and the run emits a single result.
+          # Through `settings`, the action's documented channel for custom env,
+          # not the step `env:` above: the action's run step forwards only the
+          # names its own `env:` lists. `settings` lands in user settings, whose
+          # `env` Claude Code applies at startup.
+          settings: |
+            {"env": {"CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"}}
+          # Orchestrator model only: the reviewers take their tiers from their
+          # manifests through the aliases the env above pins. The orchestrator
+          # runs Opus at its default effort because its spawn and triage
+          # decisions decide what the review covers; the opus-tier reviewers ask
+          # for high in their manifests. Posted precision is still gated by the
+          # per-important opus validators.
           # Every verb the protocol needs is listed: unlisted ones fall through to
           # a permission prompt that nobody is here to answer, and the run halts
           # at the gate with an empty record that reads as a clean review. The
@@ -204,7 +220,7 @@ jobs:
           # action's config restore, which re-arms the injection that restore
           # exists to disarm.
           claude_args: |
-            --model "claude-sonnet-5"
+            --model "claude-opus-5-5"
             --allowedTools "Agent,Skill,Read,Glob,Grep,Bash(gh pr diff*),Bash(gh pr view*),Bash(gh api repos/*),Bash(git diff*),Bash(git status*),Bash(git log*),Bash(git show*),Bash(git rev-parse*),Bash(git rev-list*),Bash(git merge-base*),Bash(git grep*)"
             --json-schema '${{ steps.gen-schema.outputs.schema }}'
 

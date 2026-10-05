@@ -57,15 +57,31 @@ export function collapsedSections(summary: ReviewSummary): string[] {
   return sections;
 }
 
-export function bodyLines(summary: ReviewSummary | null, unanchored: Finding[], anchoredCount: number): string[] {
-  if (!summary || summary.reviewers_spawned.length === 0) {
-    const blockers = (summary?.process_issues ?? []).map((issue) => `- **${issue.component}**: ${issue.description}`);
+function issueLines(summary: ReviewSummary | null): string[] {
+  return (summary?.process_issues ?? []).map((issue) => `- **${issue.component}**: ${issue.description}`);
+}
+
+/** `noVerdict` is `noVerdictReason`'s answer for the round: the one rule for whether this body may read as a review. */
+export function bodyLines(
+  summary: ReviewSummary | null,
+  noVerdict: string | null,
+  unanchored: Finding[],
+  anchoredCount: number,
+): string[] {
+  if (noVerdict !== null || summary === null) {
+    const blockers = issueLines(summary);
     return [
-      "**This PR has not been reviewed.** The run ended before any reviewer reported, so nothing in this diff has been checked.",
+      `**${noVerdict ?? "Not reviewed"}.** Nothing in this round is a verdict on the diff.`,
       ...(blockers.length ? ["", "What stopped it:", "", ...blockers] : []),
       "",
       "Comment `@claude review` to run it again.",
     ];
+  }
+
+  if (summary.reviewers_spawned.length === 0) {
+    const notes = issueLines(summary);
+    const since = summary.incremental_from_sha?.slice(0, 7) ?? "the prior review";
+    return [`No reviewer was spawned for the changes since ${since}.`, ...(notes.length ? ["", ...notes] : [])];
   }
 
   const spawned = [...new Set(summary.reviewers_spawned)];

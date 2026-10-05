@@ -3,6 +3,7 @@ name: review-security
 description: Reviews changed code for real, reachable security issues at system boundaries. Spawned by the pr-ci-review skill.
 tools: Read, Glob, Grep, Bash
 model: opus
+effort: high
 ---
 
 # Security reviewer

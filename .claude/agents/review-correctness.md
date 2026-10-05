@@ -3,6 +3,7 @@ name: review-correctness
 description: Reviews changed code for logic and behavior defects that deterministic tooling cannot catch, including behavioral regressions on the surface tests do not cover. Spawned by the pr-ci-review skill.
 tools: Read, Glob, Grep, Bash
 model: opus
+effort: high
 ---
 
 # Correctness reviewer

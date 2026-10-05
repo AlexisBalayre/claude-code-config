@@ -90,7 +90,16 @@ Each subagent's manifest defines its expertise; your brief supplies everything e
 - **Under CI, the review is static**: test/build spikes, dependency installs, `git fetch`, and shell redirection to temp files are all off-limits; the Bash tool accepts `gh` and the read-only `git` verbs, nothing else. Hand the reviewer the two diff reads that work, so it does not spend calls discovering the ones that do not: `gh pr diff <n>` for the whole diff (authoritative, but it rejects a `-- <path>` filter and can exceed one read on a large PR), and `git diff <merge_base>..HEAD -- <path>` for a scoped slice, quoting the SHA from the invocation's `Merge base:` line. **Never `git diff origin/<trunk>...HEAD`**: the action shallow-fetches the base branch at depth 1 before the model starts, which grafts it parentless, so the three-dot form dies with `fatal: no merge base` as soon as the trunk moves past the PR. **Never `git diff HEAD~1 HEAD`** either: on a multi-commit PR it silently reviews only the last commit. Installed dependencies are only the review tooling's (the CI install is scoped to `tools/review`), so the project's dependency sources are **not** readable in-tree; a claim about a dependency's internals rests on pinned-version knowledge and caps at `medium` confidence. When the change touches the config paths the action restores (§2), tell the reviewer to `Read .claude-pr/<path>` for the PR's version: in-tree those files are the base branch's copies, so reading them serves content the PR does not contain. None of this is an impediment worth logging: it is the CI path's normal shape.
 - A reminder that its final message *is* the deliverable for the next stage, not a human-facing report.
 
-**Spawn together, then block.** Sending every instance at once is where the parallelism comes from, but the spawn is not the deliverable, the return is: wait on each one before you consolidate, and never end a turn with an agent still in flight. A turn that ends on an outstanding spawn lets the harness demand the structured output first, and what it gets is an empty record that reads as a clean review of a PR nobody reviewed. Blocking is about the turn, not about idling: when a reviewer returns while others are still out, apply §6's free checks to its `important` findings (tag-vs-body, provenance) and spawn their per-finding validators (§7) right away, so validation overlaps the slowest reviewer instead of queueing behind it. Cross-area dedup still waits for every return.
+**Spawn together, then block.** Send every instance in one message: that is where the parallelism comes from. But the spawn is not the deliverable, the return is: consolidate only once every instance you spawned has reported, and never end a turn with one still out. The CI action keeps the first result a run emits as the round's structured output and stops reading, so a turn that ends with reviewers out becomes an empty record that reads as a clean review of a PR nobody reviewed.
+
+- **Under CI the Agent call blocks.** The workflow turns background tasks off (`CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` in its `settings`), so every Agent call runs in the foreground and its result *is* the reviewer's report, and the calls you send in one message still run together. When they return, you hold every report.
+- **Anywhere else, spawn with `run_in_background: false`** wherever the Agent tool offers it. **If a call still returns a launch acknowledgement instead of a report**, that subagent runs in the background (an interactive session backgrounds every subagent), so wait in this loop before anything else:
+  1. List the instances you spawned, each by area and direction.
+  2. Make one cheap read-only call you need anyway: the next hunk you will consolidate against (`git diff <merge_base>..HEAD -- <path>`), or `gh pr view <n> --json headRefOid -q .headRefOid`, which §2's second freshness assertion reads.
+  3. Tick each instance whose completion notice arrived with that call's result. An instance whose notice reports a failure is ticked as failed: it goes in `process_issues`, never in `reviewers_returned`.
+  4. While any instance is unticked, go back to 2. Do not end the turn, and do not emit the §9 object, until none is.
+
+Blocking is about the turn, not about idling: when a report arrives while others are still out (the loop above), apply §6's free checks to its `important` findings (tag-vs-body, provenance) and spawn their per-finding validators (§7) right away. Under CI the reports arrive together, so the validators follow in one message of their own. Validators are Agent calls too, and the same rule holds for them. Cross-area dedup waits for every return either way.
 
 ## 6. Consolidate (yourself, inline)
 
@@ -110,7 +119,7 @@ Validation buys precision, never recall, and precision is only worth paying for 
 
 - **action = report**: spawn **no** validator. Every finding goes to a human who is the final judge.
 - **action = fix**: validate the **`important`** findings only, before editing. `nit` findings are never auto-fixed.
-- **action = record (CI)**: one `review-validator` per consolidated `important`, tiered (opus for `correctness`/`security` findings, sonnet for the rest), spawned as soon as that finding's reviewer returns (§5) so validation overlaps the slower reviewers. A confirmed finding (with any location correction) survives; a refuted one is dropped from the posting set and carried in `refuted_findings` with its refutation reason, which CI renders in a collapsed section so a wrongly-killed finding is still catchable by the author.
+- **action = record (CI)**: one `review-validator` per consolidated `important`, tiered (opus for `correctness`/`security` findings, sonnet for the rest), spawned as soon as that finding's reviewer returns (§5). A confirmed finding (with any location correction) survives; a refuted one is dropped from the posting set and carried in `refuted_findings` with its refutation reason, which CI renders in a collapsed section so a wrongly-killed finding is still catchable by the author.
 
 ## 8. Act on the result
 
@@ -135,9 +144,10 @@ Impediments surfaced by subagents never appear in the report, the fixes, or the 
 
 ## 9. Structured summary (when a schema is requested)
 
-If the harness runs this skill with a `--json-schema`, your **final message** must be the object that schema validates, in addition to the actions above. Emit it only once every spawned agent has returned (§5): a record built mid-flight reports zero findings and is indistinguishable from a clean review. Report what the review actually did, not a target:
+If the harness runs this skill with a `--json-schema`, your **final message** must be the object that schema validates, in addition to the actions above. Emit it only once every spawned agent has returned (§5): a record built mid-flight has no findings in it, and CI posts it as an incomplete review that has to run again. Report what the review actually did, not a target:
 
 - `reviewers_spawned`: one entry per reviewer instance that ran, by area (an area repeats when several instances ran).
+- `reviewers_returned`: one entry per instance whose report you received and consolidated, by area as in `reviewers_spawned`; on a finished round the two are equal. An instance that failed, or that you had to emit without, stays out of it and is named in `process_issues` (component `orchestrator`). The poster then posts "Review incomplete: N of M reviewers returned; re-run" and fails the check, which is the truth, where an empty record would have read as a clean review.
 - `review_mode` and `incremental_from_sha`: echo what the invocation's `Mode:` line gave you (`full` with `null`, or `incremental` with the delta-base SHA).
 - `prior_importants`: on an incremental run, the prior record's `important` findings, each `{file, line, status}` with `status` `resolved` or `unresolved` against the current head (§3); empty on a full run.
 - `findings`: the confirmed findings, each `{file, line, area, confidence, tag, description, body, suggestion}`. `body` and `suggestion` are `null` on anything below `important`; see §8 for what they must contain above it.
@@ -151,7 +161,8 @@ There is no `comments_posted` field to report: you do not post, so the count is 
 - [ ] Parse arguments into source + action, and read the mode from the invocation's `Mode:` line; reject invalid combinations.
 - [ ] Gate the run: config-restore awareness under CI, freshness for a local pr, pre-flight lint/typecheck/test suite for local source.
 - [ ] Steer: read the change shape and intent yourself; on incremental, read the prior record's importants.
-- [ ] Gate and spawn only the touched areas, tiered and instance-capped.
+- [ ] Gate and spawn only the touched areas, tiered and instance-capped, all in one message.
+- [ ] Block until every spawned instance has reported (§5); only those go in `reviewers_returned`.
 - [ ] Consolidate inline: dedup and assign one area citation-first.
 - [ ] Validate importants only (none for report; before editing for fix; per-finding for record/CI).
 - [ ] Re-assert the head SHA before consolidating.
