@@ -30,7 +30,7 @@ the model buys three guarantees a model-posted review cannot make:
 | `review-preflight.script.ts` | before the model | Asserts the tree is the PR's clean current head, resolves the merge base, and decides **full vs. incremental** against the prior record on `ci/review-metrics` (same-SHA retriggers skip; rebases, force-pushes, and merge-bearing deltas resolve to full). |
 | `print-schema.script.ts` | before the model | Emits the structured-output contract as JSON Schema for `--json-schema`, generated from the zod source so the contract cannot drift. |
 | `post-review.script.ts` | after the model, `always()` | The review's only writer: posts one review with anchored inline comments (falling back to per-comment posting if the batch 422s), and pins the `claude-review` commit status. |
-| `review-metrics.script.ts` | after the poster, `always()` | Builds the normalized run record (findings, refutations, mode, cost, tokens, `is_error`) from the model output + execution log + poster hand-off; the workflow's second job appends it to the `ci/review-metrics` orphan branch for `/review-retro`. |
+| `review-metrics.script.ts` | after the poster, `always()` | Builds the normalized run record (findings, refutations, mode, reviewers returned, cost, tokens, `is_error` with its `incomplete_reason`) from the model output + execution log + poster hand-off; the workflow's second job appends it to the `ci/review-metrics` orphan branch for `/review-retro`. |
 
 ## Threat model, in short
 

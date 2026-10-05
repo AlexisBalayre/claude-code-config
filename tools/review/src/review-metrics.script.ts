@@ -1,4 +1,5 @@
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { noVerdictReason } from "./review-completeness.utils";
 import {
   type MetricsRecord,
   metricsRecordSchema,
@@ -21,7 +22,7 @@ import {
 // Bump whenever the record's meaning changes (a field added or repurposed, a
 // pipeline change that alters what a field measures): the retro partitions
 // trends by schema_version, so a silent semantic change poisons its baselines.
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 function warn(message: string): void {
   process.stdout.write(`::warning::${message}\n`);
@@ -169,6 +170,7 @@ function summaryTable(record: MetricsRecord): string {
       : record.review_mode;
   const rows: [string, string | number][] = [
     ["Mode", mode],
+    ["Reviewers returned", `${record.reviewers_returned.length} of ${record.reviewers_spawned.length}`],
     ["Findings", findings.length],
     ["Refuted (validation)", (record.refuted_findings ?? []).length],
     ["Process issues", (record.process_issues ?? []).length],
@@ -197,18 +199,18 @@ function main(): void {
   const prNumber = /^\d+$/.test(prRaw) ? Number.parseInt(prRaw, 10) : null;
   const commitSha = env.REVIEW_COMMIT_SHA ?? env.GITHUB_SHA ?? null;
 
+  // Parsed whatever the step outcome, unlike the poster, which discards a failed
+  // step's output: the record keeps what that step reported for the retro.
   const summary = parseSummary(env.REVIEW_STRUCTURED_OUTPUT ?? "");
   const platform = platformMetrics(env.REVIEW_EXECUTION_FILE);
 
   // A failed action step often produces no execution log, so its result cannot
-  // report the error; without the step outcome the record would read clean. Fold
-  // it in so a failed run is never recorded as a successful one. An empty outcome
-  // (a local run with no step) is treated as not failed.
-  const stepOutcome = env.REVIEW_STEP_OUTCOME ?? "";
-  const runFailed = stepOutcome !== "" && stepOutcome !== "success";
-  if (runFailed && !platform.is_error) {
-    warn(`review step outcome was ${stepOutcome}; marking the record errored`);
-  }
+  // report the error; the step outcome folds in through `noVerdictReason`. The
+  // record is errored, not clean, so the preflight never takes this head as
+  // reviewed: neither skipping its re-run as a duplicate nor diffing the next
+  // one from it.
+  const incomplete = noVerdictReason(summary, env.REVIEW_STEP_OUTCOME ?? "");
+  if (incomplete) warn(`${incomplete}; marking the record errored`);
 
   const record: MetricsRecord = {
     schema_version: SCHEMA_VERSION,
@@ -222,6 +224,7 @@ function main(): void {
     pr_number: prNumber,
     action: "review",
     reviewers_spawned: summary?.reviewers_spawned ?? [],
+    reviewers_returned: summary?.reviewers_returned ?? [],
     reviewers_skipped: summary ? reviewersSkipped(summary.reviewers_spawned) : [],
     // A summary-less (errored) run defaults to "full": mode is unknowable without
     // the orchestrator's report, and full is the population errored runs belong in.
@@ -232,7 +235,8 @@ function main(): void {
     refuted_findings: summary?.refuted_findings ?? null,
     process_issues: summary?.process_issues ?? null,
     comments_posted_actual: postedCount(env.REVIEW_POSTED_INPUT),
-    is_error: platform.is_error || runFailed,
+    is_error: platform.is_error || incomplete !== null,
+    incomplete_reason: incomplete,
     cost_usd: platform.cost_usd,
     duration_ms: platform.duration_ms,
     num_turns: platform.num_turns,

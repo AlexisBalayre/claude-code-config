@@ -81,6 +81,11 @@ const processIssueSchema = z.object({
 
 export const reviewSummarySchema = z.object({
   reviewers_spawned: z.array(reviewerAreaSchema).describe("One entry per instance; an area repeats when several ran."),
+  reviewers_returned: z
+    .array(reviewerAreaSchema)
+    .describe(
+      "One entry per instance whose report you received and consolidated, by area as in reviewers_spawned. Emit the record only once this equals reviewers_spawned: any shortfall is posted as an incomplete review, never as a clean one.",
+    ),
   review_mode: reviewModeSchema.describe(
     "full reviews the PR diff; incremental reviews the delta since the prior review.",
   ),
@@ -122,6 +127,7 @@ export const metricsRecordSchema = z.object({
   pr_number: z.number().int().nullable(),
   action: z.literal("review"),
   reviewers_spawned: z.array(reviewerAreaSchema),
+  reviewers_returned: z.array(reviewerAreaSchema),
   reviewers_skipped: z.array(reviewerAreaSchema).describe("Derived: the reviewer areas absent from reviewers_spawned."),
   review_mode: reviewModeSchema,
   incremental_from_sha: z.string().nullable(),
@@ -135,6 +141,12 @@ export const metricsRecordSchema = z.object({
     .nullable()
     .describe("What the poster wrote, counted from GitHub's response to its own call."),
   is_error: z.boolean(),
+  incomplete_reason: z
+    .string()
+    .nullable()
+    .describe(
+      "Why the round is no verdict on the diff: the review step did not succeed, it left no structured output that matches the schema, a full review spawned no reviewer, or a spawned reviewer never returned. It also sets is_error; null when the record is a verdict.",
+    ),
   cost_usd: z.number().nullable(),
   duration_ms: z.number().int().nullable(),
   num_turns: z.number().int().nullable(),

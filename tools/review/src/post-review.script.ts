@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { commentableLines, resolveAnchor, trueLine } from "./diff-anchor.utils";
 import { bodyLines } from "./review-body.utils";
+import { noVerdictReason } from "./review-completeness.utils";
 import { type Finding, postedRecordSchema, type ReviewSummary, reviewSummarySchema } from "./review-metrics.schemas";
 
 /**
@@ -173,15 +174,21 @@ function main(): void {
   const stepOutcome = env.REVIEW_STEP_OUTCOME ?? "";
   const summary =
     stepOutcome === "" || stepOutcome === "success" ? parseSummary(env.REVIEW_STRUCTURED_OUTPUT ?? "") : null;
-  const { anchored, unanchored } = summary
-    ? prepare(summary, env.REVIEW_MERGE_BASE ?? "")
-    : { anchored: [], unanchored: [] };
+  const noVerdict = noVerdictReason(summary, stepOutcome);
+  // A round with no verdict asks for a re-run, which raises any findings it
+  // carries again, so anchoring them now would put each one on the diff twice.
+  const { anchored, unanchored } =
+    summary && !noVerdict ? prepare(summary, env.REVIEW_MERGE_BASE ?? "") : { anchored: [], unanchored: [] };
 
   const runUrl = `https://github.com/${repository}/actions/runs/${runId}`;
   const body = (findings: Finding[], anchoredCount: number) =>
-    [REVIEW_HEADING, "", ...bodyLines(summary, findings, anchoredCount), "", `<sub>[review run](${runUrl})</sub>`].join(
-      "\n",
-    );
+    [
+      REVIEW_HEADING,
+      "",
+      ...bodyLines(summary, noVerdict, findings, anchoredCount),
+      "",
+      `<sub>[review run](${runUrl})</sub>`,
+    ].join("\n");
 
   let posted = 0;
   let reviewPosted = false;
@@ -204,7 +211,7 @@ function main(): void {
     const sha = env.REVIEW_COMMIT_SHA ?? "";
     if (sha) {
       const importants = anchored.length + unanchored.length;
-      if (!summary) setCommitStatus(repository, sha, "failure", "the diff was not reviewed");
+      if (noVerdict) setCommitStatus(repository, sha, "failure", noVerdict);
       else if (!reviewPosted) setCommitStatus(repository, sha, "failure", "the review could not be posted");
       else {
         setCommitStatus(
@@ -219,6 +226,10 @@ function main(): void {
     }
     const output = env.REVIEW_POSTED_OUTPUT ?? "posted.json";
     writeFileSync(output, `${JSON.stringify(postedRecordSchema.parse({ comments_posted: posted }), null, 2)}\n`);
+  }
+  if (noVerdict) {
+    process.stdout.write(`::error::${noVerdict}\n`);
+    process.exitCode = 1;
   }
 }
 

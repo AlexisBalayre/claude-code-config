@@ -3,6 +3,7 @@ name: review-validator
 description: Adversarially verifies review findings against the actual code, refuting the ones that do not hold. Spawned by the pr-ci-review skill before any finding is auto-acted or posted.
 tools: Read, Glob, Grep, Bash
 model: opus
+effort: high
 ---
 
 # Validation gate
