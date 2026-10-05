@@ -1,0 +1,201 @@
+{
+  "schema_version": 2,
+  "timestamp": "2026-10-05T14:30:54.181Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "37324759175",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/37324759175",
+  "actor": "AlexisBalayre",
+  "commit_sha": "ed8e81901686b71fa762e729f2141a36ad24f630",
+  "source": "pr",
+  "pr_number": 15,
+  "action": "review",
+  "reviewers_spawned": [
+    "correctness",
+    "correctness",
+    "security",
+    "context",
+    "conventions",
+    "maintainability",
+    "docs"
+  ],
+  "reviewers_returned": [
+    "correctness",
+    "correctness",
+    "security",
+    "context",
+    "conventions",
+    "maintainability",
+    "docs"
+  ],
+  "reviewers_skipped": [],
+  "review_mode": "full",
+  "incremental_from_sha": null,
+  "prior_importants": [],
+  "findings": [
+    {
+      "file": "tools/review/src/review-completeness.utils.ts",
+      "line": "49-51",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "A full review where §4 legitimately gates out every area (e.g. a binary- or lockfile-only PR) now goes red with 'no reviewer was spawned; re-run', and since an errored record is never taken as reviewed, every re-run reproduces it; the skill (§4, §8 'a round that reviewed nothing') still allows zero spawns on a full review, so either require at least `conventions` there or relax the guard.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".github/workflows/claude-code-review.yml",
+      "line": "178-179",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The `settings` comment says the action forwards only the names its own `env:` lists, not step `env:`, yet ANTHROPIC_DEFAULT_OPUS_MODEL / ANTHROPIC_DEFAULT_SONNET_MODEL are set as step `env:`; if the comment is right the alias pins never reach Claude Code and the tiers float silently. Moving both into the `settings` JSON `env` alongside CLAUDE_CODE_DISABLE_BACKGROUND_TASKS removes the doubt.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-completeness.utils.ts",
+      "line": "14-15",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "UNRETURNED_REVIEWERS is an English-prose heuristic that also matches notes from a finished clean review (e.g. 'none returned any findings', or §2's 'HEAD moved before the reviewers returned; re-checked'), turning a complete empty full review into 'Review incomplete', a red status and an errored record; it will also drift as orchestrator wording changes.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-completeness.utils.ts",
+      "line": "19-21",
+      "area": "correctness",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "incompleteReason compares only array lengths, so returned `[correctness, correctness]` against spawned `[correctness, security]`, or a longer returned list with unspawned areas, passes as complete; a per-area multiset check would enforce the schema's 'by area as in reviewers_spawned'.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-completeness.utils.ts",
+      "line": "3-9",
+      "area": "conventions",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "The opening `/** Whether a round's record covers every reviewer it spawned ... */` block is attached to no declaration, a file-header banner that core.md §Comments forbids; keep only its WHY on incompleteReason's doc comment or the regex comment.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-completeness.utils.ts",
+      "line": "17-39",
+      "area": "conventions",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The doc comments on incompleteReason and noVerdictReason are noun phrases (noVerdictReason's runs to six lines enumerating branches) rather than the imperative one-line summary core.md §Comments asks for.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-completeness.utils.ts",
+      "line": "18",
+      "area": "conventions",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "incompleteReason is exported but its only production caller is noVerdictReason; per AGENTS.md §Altitude, either name its WHY or fold it into noVerdictReason and drop the export.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/test/integration/successful-step-without-a-verdict.test.ts",
+      "line": "94",
+      "area": "conventions",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The test 'leaves a round with a verdict green in both scripts' asserts on both the poster and the metrics script, so either regression fails the same test; testing.md asks for one reason to fail per test, so split it per script.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-body.utils.ts",
+      "line": "71-85",
+      "area": "maintainability",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "bodyLines takes both summary and the derived noVerdict, so `summary === null` and the `?? \"Not reviewed\"` fallback are dead, and the full-vs-incremental zero-spawn rule is split between noVerdictReason and an unkeyed `reviewers_spawned.length === 0` branch that only works because the full case was filtered upstream.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-completeness.utils.ts",
+      "line": "21-50",
+      "area": "maintainability",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "Reason strings embed '; re-run' and counts and are reused verbatim as status description, ::error:: text, metrics incomplete_reason and bold body heading (which then adds its own re-run instruction), so the metrics field is not groupable and the body repeats itself; a short reason code would let each surface phrase it.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/test/unit/review-completeness-utils.test.ts",
+      "line": "29-115",
+      "area": "maintainability",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "Unit and integration tests assert full reason prose (down to the trailing period added by bodyLines), so a rewording breaks several tests with no behaviour change; assert null vs non-null or a stable prefix and keep the exact text in one test.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/README.md",
+      "line": "17-19",
+      "area": "docs",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "README quotes a 'this PR has not been reviewed' verdict that no longer exists; bodyLines now renders 'Not reviewed: …; re-run.' or 'Review incomplete: N of M reviewers returned; re-run.'.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/skills/review-retro/SKILL.md",
+      "line": "25",
+      "area": "docs",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The retro skill describes the record's spawn shape as reviewers_spawned/reviewers_skipped and is_error as 'failed before producing output'; it now misses reviewers_returned, incomplete_reason, the hollow-round is_error case and schema_version 2.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/README.md",
+      "line": "151",
+      "area": "docs",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "The agent-frontmatter reference lists the `model` field but not the `effort:` key this PR adds to three review-agent manifests.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/post-review.script.ts",
+      "line": null,
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "pre-existing",
+      "description": "platform.is_error can mark a metrics record errored while the poster still sets a green claude-review status, so the two consumers can disagree on a round's outcome.",
+      "body": null,
+      "suggestion": null
+    }
+  ],
+  "refuted_findings": [],
+  "process_issues": [],
+  "comments_posted_actual": 0,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 2.616663000000001,
+  "duration_ms": 216353,
+  "num_turns": 13,
+  "tokens": {
+    "input": 12,
+    "output": 12290,
+    "cache_read": 227721,
+    "cache_creation": 44167,
+    "total": 284190
+  }
+}
