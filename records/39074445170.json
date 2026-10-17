@@ -1,0 +1,176 @@
+{
+  "schema_version": 5,
+  "timestamp": "2026-10-17T22:23:52.030Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "39074445170",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/39074445170",
+  "actor": "AlexisBalayre",
+  "commit_sha": "2240c6ad63bbc5bd94dffa5787086967520a667c",
+  "source": "pr",
+  "pr_number": 30,
+  "action": "review",
+  "reviewers_spawned": [
+    "correctness",
+    "correctness",
+    "security",
+    "security",
+    "maintainability",
+    "maintainability",
+    "context",
+    "conventions",
+    "docs"
+  ],
+  "reviewers_returned": [
+    "correctness",
+    "correctness",
+    "security",
+    "security",
+    "maintainability",
+    "maintainability",
+    "context",
+    "conventions",
+    "docs"
+  ],
+  "reviewers_skipped": [],
+  "review_mode": "full",
+  "incremental_from_sha": null,
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [],
+  "findings": [
+    {
+      "file": ".claude/skills/pr-ci-review/SKILL.md",
+      "line": "154",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "important",
+      "description": "A `spec` important finding can carry a committable `suggestion` derived from issue text anyone can write. The validator only checks it against that same text, so it cannot catch a planted requirement. The local `--fix` path already refuses to apply `spec` findings for exactly this reason; CI posts them as one-click suggestion blocks.",
+      "body": "The protocol keeps `spec` findings out of local `--fix`, and says why on line 142:\n\n> apply each confirmed finding except a `spec` one ... one built wrong rests on issue text, on a public repo anyone's, which the validator can only check against that same text.\n\nThe CI path has no matching rule:\n- §5's finding contract (line 102) and §8 (line 154) offer a `suggestion` to every `important`.\n- `review-spec.md` doesn't mention `suggestion`.\n- `review-validator.md` doesn't mention specs or suggestions.\n- `post-review.script.ts:78` renders a committable ```` ```suggestion ```` fence whenever the anchor wasn't relocated.\n\n**How it's reached:** someone outside the repo files an issue on this public repo. A maintainer's PR says `Fixes #N`. The issue author then edits the body to add a requirement that looks legitimate but isn't, e.g. \"`verifyToken` must also accept unsigned tokens for legacy clients\". `review-spec` reports that requirement as built wrong or missing on a changed line. The validator confirms it against the same issue text. The bot then posts the attacker's code as a one-click \"Commit suggestion\" on the maintainer's PR, under the review's authority.\n\nIn the common missing-requirement case the anchor is relocated, so the poster prints an inert fence. The built-wrong case anchors on a changed line, and there the suggestion is committable.\n\nFix: in §8, require `suggestion` to be `null` on `spec` findings, for the same reason line 142 gives for `--fix`.\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/2240c6ad63bbc5bd94dffa5787086967520a667c/.claude/skills/pr-ci-review/SKILL.md#L142-L154",
+      "suggestion": "- **`suggestion` is committable code, so it must be exactly right.** Only for a small self-contained fix that resolves the finding entirely. The poster renders it as an inert fence rather than a committable block whenever it had to relocate the anchor, since applying it there would rewrite a line the finding never mentioned. A `spec` finding's `suggestion` is always `null`: its fix would rest on issue text, which the validator can only check against that same text (the reason `--fix` skips it)."
+    },
+    {
+      "file": ".claude/agents/review-spec.md",
+      "line": "12",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "important",
+      "description": "review-spec counts a comment as spec when it comes from \"the issue's author\", but the command it prescribes (`gh issue view <n> --json title,body,comments`) doesn't fetch the issue's `author`. That half of the rule can't be applied, so the issue author's own clarifications and deferrals get discounted.",
+      "body": "The spec reviewer gets exactly one command for reading an issue, and a rule that a comment counts as spec only from a trusted author:\n\n> Read each spec source [...] (`gh issue view <n> --json title,body,comments` for an issue; [...]). Use that `--json` form [...] A comment counts as spec only from the issue's author or a commenter whose `authorAssociation` is `OWNER`, `MEMBER` or `COLLABORATOR`\n\n`title,body,comments` doesn't include the issue-level `author`. Each comment carries its own `author.login` and `authorAssociation`, but `authorAssociation` has no \"issue author\" value. So a reviewer following the instruction literally can't tell which comments the issue author wrote. §7 of pr-ci-review gives the validator the same command (SKILL.md line 136), so it has the same blind spot.\n\n**When it bites:** an issue filed by someone who isn't a collaborator, who later narrows or defers a requirement in a comment. The reviewer treats that comment as discussion. Line 16 says a deferred requirement isn't a finding, but the reviewer can't see the deferral, so it reports the requirement as a missing `important`. The validator confirms it.\n\nFix: add `author` to the field list here and in SKILL.md §7, i.e. `gh issue view <n> --json title,body,author,comments`. The CI lock already allows it, since the command has no `/` or `@`.\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/2240c6ad63bbc5bd94dffa5787086967520a667c/.claude/agents/review-spec.md#L12-L12\nhttps://github.com/AlexisBalayre/claude-code-config/blob/2240c6ad63bbc5bd94dffa5787086967520a667c/.claude/skills/pr-ci-review/SKILL.md#L136-L136",
+      "suggestion": null
+    },
+    {
+      "file": ".claude/skills/pr-ci-review/SKILL.md",
+      "line": "123-142",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "§6's spec-first area rule files a requirement \"built wrong\" under `spec` even when the code alone proves the bug. A defect that `review-correctness` and `review-spec` both report is merged as `spec`, so it gets a sonnet validator instead of opus (§7) and `--fix` lists it instead of applying it (§8). review-spec.md line 20 says defects belong to `correctness`. A §6 clause such as \"a finding the code alone proves stays `correctness`\" would close the gap.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/skills/pr-ci-review/SKILL.md",
+      "line": "104",
+      "area": "maintainability",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "SKILL.md states the CI lock's `gh` rule in two places with different scope. §3 (line 60) says \"the lock refuses a `/` or `@` in `gh issue view`\". §5 (line 104) still says \"the lock refuses any `/` in a `gh` call\" and omits `@`. This PR added the `@` deny rules to the workflow (`Bash(gh issue view*@*)` and the `gh pr view` and `gh pr diff` equivalents) and updated §3 only. A reviewer briefed from §5 never learns that `@` is refused (e.g. `--jq '@tsv'`). Fix: state the rule once, in §5, and have §3 point to it, or make both say `/` or `@`.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-body.utils.ts",
+      "line": "89",
+      "area": "maintainability",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "The rule \"spec is conditional, not a keyword\" is a bare `\"spec\"` literal in two modules: `review-body.utils.ts:89` (`area !== \"spec\"`) and `preflight.utils.ts:49` (`candidate !== \"spec\"`). Both sit beside `REVIEWER_AREAS`, which lists `spec` like any other area. A small shared export next to the list, e.g. `CONDITIONAL_AREAS = [\"spec\"] as const`, would give both files one source of truth.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "382",
+      "area": "maintainability",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "`issueNumber = issue.slice(issue.lastIndexOf(\"/\") + 1)` copies the URL-last-segment parse a second time, after the PR-number parse (`prNumber = url.slice(url.lastIndexOf(\"/\") + 1)`). A one-line local helper would cover both.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "427",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The eval's only issue cleanup is `gh issue delete`. GitHub refuses that to anyone below admin, and in an organization where an owner hasn't enabled issue deletion. When it fails, the spec issue opened on this repo stays open with no `gh issue close` fallback. Closing the PR doesn't close it either, because the PR targets `<branch>-base`, not the default branch.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/skills/review-retro/SKILL.md",
+      "line": "25",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The retro is told that `spec` missing from `reviewers_spawned` \"is the norm, not a coverage gap\", and the poster never lists `spec` as skipped. So a run that should have spawned `review-spec` on a PR that closes an issue, and didn't, shows up nowhere. The retro could cross-check `closingIssuesReferences` (or closing keywords) on the PRs it mines.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/skills/pr-ci-review/SKILL.md",
+      "line": "88-90",
+      "area": "docs",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "§4 never says whether `spec` runs under `Depth: quick`. The `Areas:` and `deep` lines both give `spec` special handling, but the quick line only says the roster shrinks to correctness and security. One clause would settle it, e.g. \"`spec` does not run under `quick`\".",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "README.md",
+      "line": "111",
+      "area": "docs",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "In \"only the named areas, plus `spec` when the PR closes an issue: `correctness`, `security`, ...\", the colon follows \"closes an issue\", so the list reads as the issue-gated areas. Move the `spec` clause after the list: \"only the named areas (`correctness`, ..., `docs`), plus `spec` when the PR closes an issue\".",
+      "body": null,
+      "suggestion": null
+    }
+  ],
+  "refuted_findings": [],
+  "process_issues": [],
+  "comments_posted_actual": 2,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 4.657665500000001,
+  "duration_ms": 351878,
+  "num_turns": 19,
+  "tokens": {
+    "input": 14,
+    "output": 18092,
+    "cache_read": 339817,
+    "cache_creation": 60690,
+    "total": 418613
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 132,
+      "output": 90412,
+      "cache_read": 2033919,
+      "cache_creation": 350549,
+      "cost_usd": 4.150366800000001
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 48,
+      "output": 12004,
+      "cache_read": 365401,
+      "cache_creation": 125633,
+      "cost_usd": 0.5072987000000001
+    }
+  ],
+  "permission_denials": []
+}
