@@ -107,8 +107,8 @@ the request, so `@claude review, thanks` is a plain review.
 | `@claude review` | the changes since the last complete review; the whole PR when there is none, when it reviewed this same head, or after a rebase or a merge from the base |
 | `@claude review full` | the whole PR diff |
 | `@claude review quick` | correctness, plus security when a trust boundary is touched, one instance each |
-| `@claude review deep` | every area, gate or not; one more instance of each size-scaled area (up to 3); maintainability on Opus; the orchestrator at high effort |
-| `@claude review security docs` | only the named areas: `correctness`, `security`, `context`, `conventions`, `maintainability`, `docs`, `spec` (which still needs a linked issue) |
+| `@claude review deep` | every area, gate or not (`spec` still needs an issue the PR closes); one more instance of each size-scaled area (up to 3); maintainability on Opus; the orchestrator at high effort |
+| `@claude review security docs` | only the named areas: `correctness`, `security`, `context`, `conventions`, `maintainability`, `docs` |
 
 A quick or area-restricted review is partial: the next review diffs from the last complete one,
 so what it skipped is covered then; comment `@claude review` for a complete pass now. The comment

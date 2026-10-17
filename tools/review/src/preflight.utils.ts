@@ -26,7 +26,9 @@ export interface PriorRecord {
  * Words split on anything but letters and hyphens, so punctuation or markdown
  * around a keyword (`full.`, a code span, bold) never hides it, and a quote of
  * an earlier comment never stands in for this one's trigger. `areas` is empty
- * when the comment named none, leaving the orchestrator to gate them.
+ * when the comment named none, leaving the orchestrator to gate them. `spec` is
+ * no keyword: it spawns only on a PR that closes an issue, so a review asked
+ * for it alone could spawn nothing and fail.
  */
 export function parseReviewRequest(comment: string): { full: boolean; depth: ReviewDepth; areas: ReviewerArea[] } {
   const unquoted = comment
@@ -44,7 +46,7 @@ export function parseReviewRequest(comment: string): { full: boolean; depth: Rev
   const areas = new Set<ReviewerArea>();
   for (const word of words) {
     const named = REVIEW_DEPTHS.find((candidate) => candidate === word);
-    const area = REVIEWER_AREAS.find((candidate) => candidate === word);
+    const area = REVIEWER_AREAS.find((candidate) => candidate === word && candidate !== "spec");
     if (word === "full") full = true;
     else if (named) depth = named;
     else if (area) areas.add(area);
