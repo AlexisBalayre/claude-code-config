@@ -1,0 +1,162 @@
+{
+  "schema_version": 5,
+  "timestamp": "2026-10-17T23:35:14.903Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "39079221918",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/39079221918",
+  "actor": "AlexisBalayre",
+  "commit_sha": "8678d9c0a733f4388fe37092edf009f44435d5bc",
+  "source": "pr",
+  "pr_number": 30,
+  "action": "review",
+  "reviewers_spawned": [
+    "correctness",
+    "security",
+    "maintainability",
+    "conventions",
+    "docs"
+  ],
+  "reviewers_returned": [
+    "correctness",
+    "security",
+    "maintainability",
+    "conventions",
+    "docs"
+  ],
+  "reviewers_skipped": [
+    "context"
+  ],
+  "review_mode": "incremental",
+  "incremental_from_sha": "799fa4868ee037b7e7c97d6988bcf43ea516acdb",
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [
+    {
+      "file": "tools/review/src/review-body.utils.ts",
+      "line": "49-61",
+      "status": "resolved"
+    },
+    {
+      "file": "tools/review/src/review-body.utils.ts",
+      "line": "28-29",
+      "status": "resolved"
+    },
+    {
+      "file": "tools/review/src/review-body.utils.ts",
+      "line": "28-29",
+      "status": "resolved"
+    }
+  ],
+  "findings": [
+    {
+      "file": "tools/review/src/review-body.utils.ts",
+      "line": "45",
+      "area": "correctness",
+      "confidence": "high",
+      "tag": "important",
+      "description": "`inertFences` now runs `.replace(/<(?=[a-z])/gi, \"<​\")` over the whole body, inside code spans and fences too, breaking the `<https://...>` permalink every important body carries, adding U+200B to quoted code such as `Array<string>`, and turning legitimate HTML into literal text; the comment's claim that the text \"reads as it did\" is false.",
+      "body": "**This rewrite breaks the permalink every important comment carries, and changes quoted code.**\n\n`inertFences` now adds a zero-width space after every `<` followed by a letter. It does this everywhere in the body, code included:\n\n```ts\n    .replace(/<(?=[a-z])/gi, \"<​\");\n```\n\n- The review skill (§8, `.claude/skills/pr-ci-review/SKILL.md:152`) tells every `important` body to cite its code as `<https://github.com/OWNER/REPO/blob/SHA/path#La-Lb>`. That becomes `<​https://...>`, which is no longer a CommonMark autolink, so the brackets render as literal text. If GFM's bare-URL autolink picks the link up, it probably keeps the trailing `>`, so no line range gets highlighted. Every line comment the poster sends goes through `commentBody` (`post-review.script.ts:87`), so all of them are affected.\n- Code quoted in fences or spans (`Array<string>`, `Map<K, V>`, `#include <stdio.h>`, JSX `<div>`) looks unchanged but now contains U+200B. Copying it out gives an \"invalid character\" compile error that the reader can't see.\n- Legitimate HTML in a body (`<details>`, `<sub>`, `<kbd>`) renders as literal text.\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/8678d9c0a733f4388fe37092edf009f44435d5bc/tools/review/src/review-body.utils.ts#L30-L45\n\nThe only tag this has to defuse is `<pre`. A tag name must directly follow `<`, so you can neutralise every `<pre` opener without working out where the tag ends. That still covers the code-span, blockquote and NBSP cases, and it leaves every other `<` alone. All five raw-tag rows in the \"makes … inert\" table still pass. When you make the change, reword lines 30-32 to say that only a `<pre` opener is broken, and add a \"leaves as written\" row for a body that holds a `<https://...>` permalink and a quoted `Array<string>`.",
+      "suggestion": "    .replace(/<(?=pre)/gi, \"<​\");"
+    },
+    {
+      "file": "tools/review/src/review-body.utils.ts",
+      "line": "50",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The relocation prefix `Re: \\`${finding.file}:${relocatedFrom}\\`` skips `inertFences`, so a path containing a backtick and `<pre lang=\"suggestion\">` could render a committable block on a relocated comment. Only the PR author controls that path, though, so this gives no escalation. Wrapping the prefix in `inertFences(...)` closes it.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-body.utils.ts",
+      "line": "30-32",
+      "area": "docs",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The new `inertFences` comment names only `<pre lang=\"suggestion\">` while the rewrite touches every `<` before a letter, and the clause \"where a tag ends inside markdown only a full parser knows, so no tag opens at all\" is a hard-to-parse comma splice.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/test/unit/review-body-utils.test.ts",
+      "line": "121",
+      "area": "docs",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "The new test comment \"A lazy footnote label backtracks exponentially…\" restates the source comment at `review-body.utils.ts:36-37` and sits above a test this commit otherwise leaves untouched. Delete it, or cut it down to why the test uses 28 labels.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/test/unit/review-body-utils.test.ts",
+      "line": "96-143",
+      "area": "maintainability",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The \"leaves as written\" table lost every row containing `<`, and no row checks that `<` before a non-letter (`a < b`, `</pre>`, `<!--`) or a permalink stays untouched. The tag rows, which only insert a ZWSP, also share a table with the fence rows, which swap the language, so loosening or tightening the regex fails no test.",
+      "body": null,
+      "suggestion": null
+    }
+  ],
+  "refuted_findings": [],
+  "process_issues": [
+    {
+      "component": "validator",
+      "description": "The validator's `git diff 799fa48..HEAD`, `git show HEAD` and `git show 799fa48:<path>` calls were blocked as needing approval, so it fell back to `gh pr diff` and the checked-out tree. The verdict did not depend on the base comparison."
+    },
+    {
+      "component": "conventions",
+      "description": "The `.claude/rules` injection for the conventions reviewer contained only the `@docs/conventions/*.md` loader lines, not the doc bodies, so the reviewer used Grep on docs/conventions to read the rule text."
+    }
+  ],
+  "comments_posted_actual": 1,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 1.8050671,
+  "duration_ms": 298207,
+  "num_turns": 18,
+  "tokens": {
+    "input": 18,
+    "output": 11170,
+    "cache_read": 387946,
+    "cache_creation": 51675,
+    "total": 450809
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 56,
+      "output": 37101,
+      "cache_read": 680441,
+      "cache_creation": 121430,
+      "cost_usd": 1.6405072000000003
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 16,
+      "output": 4576,
+      "cache_read": 71452,
+      "cache_creation": 41791,
+      "cost_usd": 0.1645599
+    }
+  ],
+  "permission_denials": [
+    {
+      "tool": "Bash",
+      "input": "cd /home/runner/work/claude-code-config/claude-code-config; git show origin/ci/review-metrics:records/39078539149.json | python3 -c \"import json,sys;d=json.load(sys.stdin);[print(f['file'],f['line'],f"
+    },
+    {
+      "tool": "Bash",
+      "input": "git -C /home/runner/work/claude-code-config/claude-code-config diff 799fa4868ee037b7e7c97d6988bcf43ea516acdb..HEAD"
+    },
+    {
+      "tool": "Bash",
+      "input": "git -C /home/runner/work/claude-code-config/claude-code-config show HEAD --stat"
+    },
+    {
+      "tool": "Bash",
+      "input": "git -C /home/runner/work/claude-code-config/claude-code-config show 799fa4868ee037b7e7c97d6988bcf43ea516acdb:tools/review/src/review-body.utils.ts"
+    }
+  ]
+}
