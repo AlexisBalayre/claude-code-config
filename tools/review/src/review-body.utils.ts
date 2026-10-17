@@ -1,10 +1,11 @@
 import { type Finding, REVIEWER_AREAS, type RefutedFinding, type ReviewSummary } from "./review-metrics.schemas";
 
 /**
- * Renders the review body the poster submits. Importants anchor
- * inline on the diff; everything else the run confirmed, and everything
- * validation refuted, renders here in collapsed sections, so severity decides
- * how loudly a finding is displayed, never whether it is displayed at all.
+ * Renders what the poster submits: the review body, and the line comment for
+ * each important anchored inline on the diff. Everything else the run
+ * confirmed, and everything validation refuted, renders in the body in
+ * collapsed sections, so severity decides how loudly a finding is displayed,
+ * never whether it is displayed at all.
  */
 
 type Listed = Pick<Finding, "file" | "line" | "area" | "description"> & { body?: string | null };
@@ -16,11 +17,29 @@ export function findingLine(finding: Listed): string {
   return `- ${location} (${finding.area}): ${finding.body ?? finding.description}`;
 }
 
-// GitHub turns any suggestion fence in a line comment into a "Commit suggestion"
-// button, and a finding's text can quote what a PR or issue author wrote, so
-// only the fence commentBody opens itself stays committable.
+function isPlainLanguage(info: string): boolean {
+  const language = info.replace(/^[ \t]+|[ \t\r]+$/g, "");
+  return /^[\w+#.-]*$/.test(language) && !/^suggestion/i.test(language);
+}
+
+// GitHub turns a block whose language is `suggestion` into a "Commit suggestion"
+// button in a line comment, and a finding's text can quote what a PR or issue
+// author wrote. GitHub decodes and trims a fence's info string before reading
+// it, and a fence can follow any container prefix, so rather than spot the word,
+// every fence (and raw `<pre lang>`) whose language is not a plain token becomes
+// `text`. Only the fence commentBody opens itself stays committable.
 function inertFences(markdown: string): string {
-  return markdown.replace(/^([ \t>*+\-\d.)]*)(`{3,}|~{3,})[ \t]*suggestion/gim, "$1$2text");
+  return markdown
+    .replace(
+      /(`{3,})([^`\n]*)$|(~{3,})([^\n]*)$/gm,
+      (match, ticks?: string, tickInfo?: string, tildes?: string, tildeInfo?: string) =>
+        isPlainLanguage(tickInfo ?? tildeInfo ?? "") ? match : `${ticks ?? tildes}text`,
+    )
+    .replace(
+      /(<pre\b[^>]*?\blang\s*=\s*)("[^"]*"|'[^']*'|[^\s>]*)/gi,
+      (match, attribute: string, value: string) =>
+        isPlainLanguage(value.replace(/^["']|["']$/g, "")) ? match : `${attribute}"text"`,
+    );
 }
 
 export function commentBody(finding: Finding, relocatedFrom: number | null): string {
