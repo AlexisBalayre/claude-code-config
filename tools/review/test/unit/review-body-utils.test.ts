@@ -102,6 +102,11 @@ describe("commentBody", () => {
     ],
     ["a pre block behind a quoted >", '<pre title=">" lang="suggestion">', '<pre title=">" lang="text">'],
     ["an unquoted upper-case pre block", "<PRE LANG=suggestion>", '<PRE LANG="text">'],
+    [
+      "a pre block behind a quote in an attribute name",
+      '<pre a"b c=">" lang="suggestion">',
+      '<pre a"b c=">" lang="text">',
+    ],
   ])("makes %s quoted in a finding inert", (_label, quoted, inert) => {
     expect(commentBody(finding({ body: quoted }), null)).toBe(inert);
   });
@@ -118,6 +123,8 @@ describe("commentBody", () => {
     ["a mid-line backtick run", "Wrap the fix in a ```ts block before posting"],
     ["quoted code holding a fence", '```ts\nconst fence = "```";\n```'],
     ["pre blocks with a plain language", "<pre lang=\"ts\"> <pre lang='ts'> <pre lang=ts>"],
+    ["a lang= outside a pre block", 'const lang = detect(text);\nrender(lang=code);\nif (lang === "suggestion") {}'],
+    ["inline code opening with a backtick run", "```foo``` is wrong, and ```` ```suggestion ```` is what they wrote"],
   ])("leaves %s as written", (_label, text) => {
     expect(commentBody(finding({ body: text }), null)).toBe(text);
   });

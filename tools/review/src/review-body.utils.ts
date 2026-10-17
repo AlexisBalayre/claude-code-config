@@ -26,17 +26,28 @@ function isPlainLanguage(info: string): boolean {
 // button in a line comment, and a finding's text can quote what a PR or issue
 // author wrote. GitHub decodes the info string first (`&#115;uggestion` counts),
 // opens a fence after any container prefix, and keeps `lang` on a raw `<pre>`,
-// so a fence opener or a `lang=` whose language is not a plain token, or starts
-// with `suggestion`, gets `text` as its language. Nothing else on the line changes.
+// so a fence opener or a `<pre>`'s `lang=` whose language is not a plain token,
+// or starts with `suggestion`, gets `text` as its language. Nothing else changes.
 function inertFences(markdown: string): string {
   return markdown
     .replace(
-      /^((?:[^\S\r\n]*(?:>|[-+*]|\d{1,9}[.)]|\[\^.*?\]:))*[^\S\r\n]*)(`{3,}|~{3,})(.*)$/gm,
+      // A footnote label stops at its first unescaped `]`: one way to split a
+      // line of labels, where a lazy match backtracks exponentially.
+      /^((?:[^\S\r\n]*(?:>|[-+*]|\d{1,9}[.)]|\[\^(?:\\.|[^\]\\\r\n])*\]:))*[^\S\r\n]*)(`{3,}|~{3,})(.*)$/gm,
       (match, prefix: string, fence: string, info: string) =>
-        isPlainLanguage(info) ? match : `${prefix}${fence}text ${info}`,
+        // A backtick in a backtick fence's info string makes it inline code.
+        isPlainLanguage(info) || (fence.startsWith("`") && info.includes("`"))
+          ? match
+          : `${prefix}${fence}text ${info}`,
     )
-    .replace(/(\blang\s*=\s*)("[^"]*"|'[^']*'|[^\s>]*)/gi, (match, attribute: string, value: string) =>
-      isPlainLanguage(value.replace(/^["']|["']$/g, "")) ? match : `${attribute}"text"`,
+    .replace(
+      // To the closing tag, not the first `>`: an HTML parser and a regex can
+      // disagree on which quotes enclose a `>`, never on where the block ends.
+      /<pre\b[\s\S]*?(?=<\/pre|$)/gi,
+      (block) =>
+        block.replace(/(\blang\s*=\s*)("[^"]*"|'[^']*'|[^\s>]*)/gi, (match, attribute: string, value: string) =>
+          isPlainLanguage(value.replace(/^["']|["']$/g, "")) ? match : `${attribute}"text"`,
+        ),
     );
 }
 
