@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { writeFileSync } from "node:fs";
+import { appendFileSync, writeFileSync } from "node:fs";
 import { commentableLines, resolveAnchor, trueLine } from "./diff-anchor.utils";
 import { bodyLines } from "./review-body.utils";
 import { noVerdictReason } from "./review-completeness.utils";
@@ -208,11 +208,11 @@ function main(): void {
     reviewPosted = true;
     process.stdout.write(`posted a review on #${prNumber} with ${posted} inline comment(s)\n`);
   } finally {
+    const importants = anchored.length + unanchored.length;
+    const failure = noVerdict ?? (reviewPosted ? null : "the review could not be posted");
     const sha = env.REVIEW_COMMIT_SHA ?? "";
     if (sha) {
-      const importants = anchored.length + unanchored.length;
-      if (noVerdict) setCommitStatus(repository, sha, "failure", noVerdict);
-      else if (!reviewPosted) setCommitStatus(repository, sha, "failure", "the review could not be posted");
+      if (failure) setCommitStatus(repository, sha, "failure", failure);
       else {
         setCommitStatus(
           repository,
@@ -223,6 +223,11 @@ function main(): void {
       }
     } else {
       warn("no commit sha; skipping the claude-review status");
+    }
+    // The workflow mirrors this onto the `@claude review` comment as a reaction;
+    // a local run has no step to hand it to.
+    if (env.GITHUB_OUTPUT) {
+      appendFileSync(env.GITHUB_OUTPUT, `verdict=${failure ? "not-reviewed" : importants > 0 ? "issues" : "ready"}\n`);
     }
     const output = env.REVIEW_POSTED_OUTPUT ?? "posted.json";
     writeFileSync(output, `${JSON.stringify(postedRecordSchema.parse({ comments_posted: posted }), null, 2)}\n`);

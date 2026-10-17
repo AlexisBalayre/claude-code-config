@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
-import { decideMode, newestCleanRecord, type PriorRecord, porcelainPaths } from "./preflight.utils";
+import { decideMode, newestCleanRecord, type PriorRecord, parseReviewRequest, porcelainPaths } from "./preflight.utils";
 
 /**
  * Deterministic review preflight. Asserts the working
@@ -68,6 +68,8 @@ function priorRecords(prNumber: string): PriorRecord[] {
         commit_sha: typeof parsed.commit_sha === "string" ? parsed.commit_sha : null,
         timestamp: typeof parsed.timestamp === "string" ? parsed.timestamp : "",
         is_error: parsed.is_error === true,
+        partial:
+          parsed.review_depth === "quick" || (Array.isArray(parsed.review_areas) && parsed.review_areas.length > 0),
       });
     } catch {
       warn(`unreadable record ${hit}; skipping it`);
@@ -80,7 +82,9 @@ async function main(): Promise<void> {
   const prNumber = process.env.REVIEW_PR_NUMBER ?? "";
   if (!/^\d+$/.test(prNumber)) fail("REVIEW_PR_NUMBER missing or not a number");
   const trigger = process.env.REVIEW_TRIGGER ?? "";
-  const forceFull = process.env.REVIEW_FORCE_FULL === "true";
+  const request = parseReviewRequest(process.env.REVIEW_COMMENT ?? "");
+  out("depth", request.depth);
+  out("areas", request.areas.join(", "));
 
   let headSha = headRefOid(prNumber);
   if (git("rev-parse", "HEAD") !== headSha) {
@@ -131,7 +135,7 @@ async function main(): Promise<void> {
     prior,
     headSha,
     trigger,
-    forceFull,
+    forceFull: request.full,
     isAncestor: priorSha !== null && gitOk("merge-base", "--is-ancestor", priorSha, "HEAD"),
     hasMerges,
   });
