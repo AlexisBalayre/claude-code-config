@@ -1,0 +1,121 @@
+{
+  "schema_version": 5,
+  "timestamp": "2026-10-17T22:45:53.449Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "39076060609",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/39076060609",
+  "actor": "AlexisBalayre",
+  "commit_sha": "9ffb2c0859424a099b3dd8e28d6046fb0a1a1113",
+  "source": "pr",
+  "pr_number": 30,
+  "action": "review",
+  "reviewers_spawned": [
+    "correctness",
+    "security",
+    "maintainability",
+    "conventions",
+    "docs"
+  ],
+  "reviewers_returned": [
+    "correctness",
+    "security",
+    "maintainability",
+    "conventions",
+    "docs"
+  ],
+  "reviewers_skipped": [
+    "context"
+  ],
+  "review_mode": "incremental",
+  "incremental_from_sha": "30cd04954fbd4ddeeb9e6f97996b40f908b5ca75",
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [
+    {
+      "file": ".claude/skills/pr-ci-review/SKILL.md",
+      "line": "154",
+      "status": "resolved"
+    }
+  ],
+  "findings": [
+    {
+      "file": "tools/review/src/review-body.utils.ts",
+      "line": "22-24",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "important",
+      "description": "inertFences checks the raw text of an opener line with `^([ \\t>*+\\-\\d.)]*)(`{3,}|~{3,})[ \\t]*suggestion`. cmark-gfm (GitHub's renderer) works out a fence's info string after decoding entities and trimming all whitespace, and it treats GFM footnote definitions as block containers. So at least three openers get past the regex but still render as a suggestion block: (1) an entity in the info string, e.g. ```&#115;uggestion or ```&#32;suggestion; (2) a form feed or vertical tab between the fence and the word, e.g. ```\\fsuggestion, since the regex only allows [ \\t]; (3) a fence that starts a footnote definition, `[^1]: ```suggestion`, with 4-space continuation lines and a `[^1]` reference, because `[`, `^`, `]` and `:` are not in the prefix class. Each one inside finding.body/description, or inside finding.suggestion after an early closing ``` on a relocated anchor, still gives a 'Commit suggestion' button in the bot's line comment. The unit test's `committable` helper uses the same regex as the code, so it cannot catch any input the regex misses.",
+      "body": "**The suggestion-fence neutraliser can be bypassed.** `inertFences` matches the raw opener line:\n\n```ts\nreturn markdown.replace(/^([ \\t>*+\\-\\d.)]*)(`{3,}|~{3,})[ \\t]*suggestion/gim, \"$1$2text\");\n```\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/9ffb2c0859424a099b3dd8e28d6046fb0a1a1113/tools/review/src/review-body.utils.ts#L22-L24\n\nGitHub's renderer (cmark-gfm) works out a fenced block's info string *after* decoding entity and numeric character references (CommonMark spec §2.5: references are recognised in info strings, e.g. ```` ``` f&ouml;&ouml; ```` renders `language-föö`) and after trimming whitespace. It also parses a block start that follows a GFM footnote label. So these openers still produce a suggestion block, and the regex leaves them alone:\n\n- `` ```&#115;uggestion `` or `` ```&#32;suggestion `` (the entity decodes to `s` or a space, so the info string becomes `suggestion`)\n- `` ```\\fsuggestion `` (form feed or vertical tab; the regex only allows `[ \\t]` there)\n- `` [^1]: ```suggestion `` followed by 4-space-indented lines, plus a `[^1]` reference (the footnote label is not in the prefix class)\n\nIf issue or PR text quoted into `body`/`description` contains one of these (`review-spec` is told to quote the requirement it rests on, and `commentBody` is what `post-review.script.ts` sends as each line comment), it still becomes a working \"Commit suggestion\" button in the bot's line comment. The same goes for `suggestion` text on a relocated anchor that closes the poster's plain fence early and then opens one of these. The new tests cannot catch this: `committable` in `review-body-utils.test.ts` uses the same regex as `inertFences`, so any input the code misses passes the test too.\n\nSuggested direction: stop pattern-matching the literal word `suggestion`. Neutralise every fence opener in quoted text whose info string is not a plain language token, e.g. rewrite the info to `text` whenever it contains `&`, `\\\\`, a non-space/tab whitespace character, or anything matching `/suggestion/i`, and widen the prefix to cover footnote labels. Then make the test check a list of known bypasses with exact expected output rather than reusing the implementation's regex.",
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/test/unit/review-body-utils.test.ts",
+      "line": "55",
+      "area": "maintainability",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "The `committable` helper copies `inertFences`'s own pattern, so each \"made inert\" test only shows the regex removed what it matches. Any opener the implementation misses, such as the character-reference form in finding 1, the helper misses too. Assert exact output strings, as the first test already does, or give the helper a looser definition of a suggestion fence than the implementation uses. There is also no test for the break-out without relocation (`relocatedFrom: null` with a suggestion containing a closing fence followed by a new suggestion opener). It runs through the same `inertFences` call, but a test would pin it down.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-body.utils.ts",
+      "line": "3-8",
+      "area": "maintainability",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The module doc comment says this file renders the review body the poster submits, but `commentBody` (now moved here) renders each inline line comment; widen the doc comment to cover per-finding comment bodies too.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/test/unit/review-body-utils.test.ts",
+      "line": "66-75",
+      "area": "conventions",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The `it.each` case asserts two behaviours: that `body` quoting is neutralised and that `description` quoting is neutralised. These are two fallback paths of `finding.body ?? finding.description`. The last test (lines 71-75) also asserts both that the early-closed fence is inert and that the `Re:` header is present. Splitting these would give each test one failure reason (`docs/conventions/testing.md`: \"One reason to fail per test\").",
+      "body": null,
+      "suggestion": null
+    }
+  ],
+  "refuted_findings": [],
+  "process_issues": [],
+  "comments_posted_actual": 1,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 1.7954831,
+  "duration_ms": 253770,
+  "num_turns": 11,
+  "tokens": {
+    "input": 10,
+    "output": 10732,
+    "cache_read": 186739,
+    "cache_creation": 44849,
+    "total": 242330
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 36,
+      "output": 41396,
+      "cache_read": 363447,
+      "cache_creation": 113033,
+      "cost_usd": 1.6004654000000003
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 20,
+      "output": 4631,
+      "cache_read": 110876,
+      "cache_creation": 50597,
+      "cost_usd": 0.19501770000000002
+    }
+  ],
+  "permission_denials": [
+    {
+      "tool": "Bash",
+      "input": "git -C /home/runner/work/claude-code-config/claude-code-config diff 30cd04954fbd4ddeeb9e6f97996b40f908b5ca75..HEAD"
+    }
+  ]
+}
