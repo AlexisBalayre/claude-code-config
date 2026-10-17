@@ -1,0 +1,96 @@
+{
+  "schema_version": 5,
+  "timestamp": "2026-10-17T23:43:06.289Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "39079919014",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/39079919014",
+  "actor": "AlexisBalayre",
+  "commit_sha": "a4534e0c148bb6d531f9d2ef58ca9b63f744d014",
+  "source": "pr",
+  "pr_number": 30,
+  "action": "review",
+  "reviewers_spawned": [
+    "correctness",
+    "security",
+    "maintainability",
+    "conventions",
+    "docs"
+  ],
+  "reviewers_returned": [
+    "correctness",
+    "security",
+    "maintainability",
+    "conventions",
+    "docs"
+  ],
+  "reviewers_skipped": [
+    "context"
+  ],
+  "review_mode": "incremental",
+  "incremental_from_sha": "8678d9c0a733f4388fe37092edf009f44435d5bc",
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [
+    {
+      "file": "tools/review/src/review-body.utils.ts",
+      "line": "45",
+      "status": "resolved"
+    }
+  ],
+  "findings": [
+    {
+      "file": "tools/review/test/unit/review-body-utils.test.ts",
+      "line": "147-150",
+      "area": "maintainability",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "No test pins the `\\b` in `<(?=pre\\b)`. `<prefix>` is buried in one long \"leaves as written\" string, and `</pre>` there is skipped because of the `/`, not the boundary. Give `<prefix>` its own row, and add a \"defused\" row for a bare `<PRE>` or `<pre>`, so a regression on either side of the boundary is easy to see.",
+      "body": null,
+      "suggestion": null
+    }
+  ],
+  "refuted_findings": [],
+  "process_issues": [
+    {
+      "component": "conventions",
+      "description": "The conventions reviewer said it opened neither docs/conventions/core.md nor docs/conventions/testing.md and did not check docs/adr/. It checked the delta against AGENTS.md and the diff only. The delta is small (a regex narrowing, a comment reword, two test additions), so the gap is probably minor, but convention coverage for this round is partial."
+    }
+  ],
+  "comments_posted_actual": 0,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 0.9255875,
+  "duration_ms": 123319,
+  "num_turns": 10,
+  "tokens": {
+    "input": 10,
+    "output": 5885,
+    "cache_read": 178131,
+    "cache_creation": 34787,
+    "total": 218813
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 22,
+      "output": 17787,
+      "cache_read": 224586,
+      "cache_creation": 63186,
+      "cost_usd": 0.8210362
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 12,
+      "output": 1798,
+      "cache_read": 38424,
+      "cache_creation": 31545,
+      "cost_usd": 0.10455129999999999
+    }
+  ],
+  "permission_denials": [
+    {
+      "tool": "Bash",
+      "input": "git -C /home/runner/work/claude-code-config/claude-code-config diff 8678d9c0a733f4388fe37092edf009f44435d5bc..HEAD"
+    }
+  ]
+}
