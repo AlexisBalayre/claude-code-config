@@ -68,7 +68,7 @@ replace them with yours.
 
 ```sh
 pnpm --dir tools/review exec tsx src/review-eval.script.ts                      # print the plants, spend nothing
-pnpm --dir tools/review exec tsx src/review-eval.script.ts --run [--pipeline <ref>] [--budget <usd>]
+pnpm --dir tools/review exec tsx src/review-eval.script.ts --run [--pipeline <ref>] [--budget <usd>] [--case <id>]
 ```
 
 `--run` opens a draft PR per case under the replayed PR's own title and body, with the plant folded
@@ -89,3 +89,4 @@ rights on the repo: without them it stays open, and the run prints the failed cl
 caps the spend (default $10); a case whose run reports no cost is charged its cap (up to $5).
 `--pipeline` picks whose `.claude/` and lock review, so two versions of the protocol score on the
 same cases; that ref's hooks run on your machine unsandboxed, so point it only at a ref you trust.
+`--case` runs one case alone, dry or not.

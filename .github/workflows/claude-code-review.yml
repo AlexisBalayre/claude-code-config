@@ -246,10 +246,11 @@ jobs:
       # file tools in every mode, since a --permission-mode flag outranks the
       # mode set here (the action's tag mode passes acceptEdits), and strips
       # `--output`, which makes any git diff, log or show write a file of its
-      # choosing, and refuses a `gh` read naming a repo (any `/`: a URL, `-R`,
-      # `--repo`): a fork's PR body can close another repo's issue, which the
-      # job's token may read and the review would quote, and no protocol call
-      # passes a `/` to gh. The sandbox
+      # choosing, and refuses a `gh` read naming a repo: a fork's PR body can
+      # close another repo's issue, which the job's token may read and the
+      # review would quote. `-R`/`--repo` and a URL name one with a `/`, except
+      # the scp form `git@github.com:owner%2Frepo`, whose `/` gh decodes itself,
+      # so `@` is refused too; no protocol call passes either to gh. The sandbox
       # confines what an allowed call can still reach: no write outside the
       # checkout (the runner's $GITHUB_ENV and the tooling copy among them) and
       # no host but GitHub's API; failIfUnavailable makes a sandbox that cannot
@@ -286,7 +287,10 @@ jobs:
                 "Bash(git *--output*)",
                 "Bash(gh issue view*/*)",
                 "Bash(gh pr view*/*)",
-                "Bash(gh pr diff*/*)"
+                "Bash(gh pr diff*/*)",
+                "Bash(gh issue view*@*)",
+                "Bash(gh pr view*@*)",
+                "Bash(gh pr diff*@*)"
               ]
             },
             "sandbox": {

@@ -24,7 +24,7 @@ import { type Finding, reviewSummarySchema } from "./review-metrics.schemas";
  * is what spawns the spec reviewer, and deletes the issue afterwards; its
  * requirements reach the reviewer through that issue alone. --pipeline <ref>
  * picks whose `.claude/` reviews (default HEAD), so two pipeline versions can
- * be scored on the same cases.
+ * be scored on the same cases; --case <id> runs that case alone.
  */
 
 const CASES_FILE = new URL("../eval/cases.json", import.meta.url);
@@ -321,7 +321,12 @@ function main(): void {
   let remaining = budgetAt === -1 ? DEFAULT_BUDGET_USD : Number(args[budgetAt + 1]);
   // NaN would pass every budget check below and cap no case.
   if (!Number.isFinite(remaining)) throw new Error(`--budget takes a USD amount, got ${args[budgetAt + 1]}`);
-  const cases = z.array(caseSchema).parse(JSON.parse(readFileSync(CASES_FILE, "utf8")));
+  const caseAt = args.indexOf("--case");
+  const cases = z
+    .array(caseSchema)
+    .parse(JSON.parse(readFileSync(CASES_FILE, "utf8")))
+    .filter((evalCase) => caseAt === -1 || evalCase.id === args[caseAt + 1]);
+  if (cases.length === 0) throw new Error(`--case names no case in ${CASES_FILE.pathname}: ${args[caseAt + 1]}`);
   // Holds what names the plants (index files, results), so it sits where no
   // clone's surroundings lead: this repo's git directory.
   const scratch = mkdtempSync(join(git(["rev-parse", "--path-format=absolute", "--git-common-dir"]), "review-eval-"));
@@ -329,13 +334,13 @@ function main(): void {
 
   for (const { evalCase, sha, line } of planted) {
     process.stdout.write(`\n== ${evalCase.id} (PR #${evalCase.pr})\n`);
+    if (evalCase.spec) process.stdout.write(`spec, opened as the issue the PR closes:\n${evalCase.spec}\n`);
     if (!evalCase.plant) {
       process.stdout.write("clean: no plant, any important finding is a candidate false positive\n");
       continue;
     }
     process.stdout.write(`${evalCase.plant.file}:${line}  ${evalCase.plant.regression}\n`);
     process.stdout.write(`${git(["diff", "--unified=1", evalCase.head, sha])}\n`);
-    if (evalCase.spec) process.stdout.write(`spec, opened as the issue the PR closes:\n${evalCase.spec}\n`);
   }
   if (!run) {
     rmSync(scratch, { recursive: true });
@@ -387,7 +392,8 @@ function main(): void {
         "--title",
         original.title,
         "--body",
-        // The replayed body restates the requirements the issue holds.
+        // The original body restates the requirements, and the issue must be
+        // their only route to the reviewer.
         issueNumber ? `Closes #${issueNumber}.` : original.body,
       );
       prNumber = url.slice(url.lastIndexOf("/") + 1);
