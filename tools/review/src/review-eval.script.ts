@@ -18,12 +18,13 @@ import { type Finding, reviewSummarySchema } from "./review-metrics.schemas";
  * workflow reviews a draft only on a `@claude review` comment), runs
  * /pr-ci-review against it locally the way the workflow invokes it, then closes
  * the PR and deletes the branches. Nothing in the PR, its branch or the folders
- * around its checkout names the eval, the case or the plant: what does stays in
- * this repo's git directory. A case with a `spec` opens it as an issue the PR
- * closes, which is what spawns the spec reviewer, and deletes the issue
- * afterwards; its requirements reach the reviewer through that issue alone.
- * --pipeline <ref> picks whose `.claude/` reviews (default HEAD), so two
- * pipeline versions can be scored on the same cases.
+ * around its checkout names the eval, the case or the plant: the plant-named
+ * index files and results.json stay in a `review-eval-*` folder of this repo's
+ * git directory. A case with a `spec` opens it as an issue the PR closes, which
+ * is what spawns the spec reviewer, and deletes the issue afterwards; its
+ * requirements reach the reviewer through that issue alone. --pipeline <ref>
+ * picks whose `.claude/` reviews (default HEAD), so two pipeline versions can
+ * be scored on the same cases.
  */
 
 const CASES_FILE = new URL("../eval/cases.json", import.meta.url);
