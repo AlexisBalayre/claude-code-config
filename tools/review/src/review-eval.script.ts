@@ -18,8 +18,9 @@ import { type Finding, reviewSummarySchema } from "./review-metrics.schemas";
  * workflow reviews a draft only on a `@claude review` comment), runs
  * /pr-ci-review against it locally the way the workflow invokes it, then closes
  * the PR and deletes the branches. Nothing in the PR, its branch or the folders
- * around its checkout names the eval, the case or the plant: what does stays in
- * this repo's git directory.
+ * around its checkout names the eval, the case or the plant: the plant-named
+ * index files and results.json stay in a `review-eval-*` folder of this repo's
+ * git directory.
  * --pipeline <ref> picks whose `.claude/` reviews (default HEAD), so two
  * pipeline versions can be scored on the same cases.
  */
