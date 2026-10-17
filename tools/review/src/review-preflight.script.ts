@@ -34,8 +34,11 @@ function out(name: string, value: string): void {
   appendFileSync(process.env.GITHUB_OUTPUT ?? "preflight-output.txt", `${name}=${value}\n`);
 }
 
+// The workflow runs this from the tooling copy, never the PR checkout, so git
+// and gh are pointed back at the checkout; unset (tests, a local run), they
+// inherit the working directory.
 function git(...args: string[]): string {
-  return execFileSync("git", args, { encoding: "utf8" }).trim();
+  return execFileSync("git", args, { encoding: "utf8", cwd: process.env.GITHUB_WORKSPACE }).trim();
 }
 
 function gitOk(...args: string[]): boolean {
@@ -48,7 +51,7 @@ function gitOk(...args: string[]): boolean {
 }
 
 function gh(...args: string[]): string {
-  return execFileSync("gh", args, { encoding: "utf8" }).trim();
+  return execFileSync("gh", args, { encoding: "utf8", cwd: process.env.GITHUB_WORKSPACE }).trim();
 }
 
 function headRefOid(prNumber: string): string {
