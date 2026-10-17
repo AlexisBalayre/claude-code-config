@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 You have been provided a spec. This spec should have tickets associated with it, describing how to implement the spec.
 
-The tickets live in the configured tracker (IDs from `.env`), or under `docs/plans/<feature-slug>/issues/` when there is no tracker (see `/to-tickets`). If you can't find them, ask the user.
+The tickets live in the configured tracker (IDs from `.env`), or under `docs/plans/<feature-slug>/issues/` when there is no tracker (see `/to-tickets`). If you can't find them, ask the user. `docs/plans/` is never committed, so it exists only in the main checkout: point subagents at it by absolute path.
 
 The goal is the entire spec implemented on a single **integration branch**, with every ticket resolved the way the issue tracker closes work.
 
