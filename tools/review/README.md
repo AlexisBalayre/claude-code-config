@@ -17,8 +17,9 @@ the model buys three guarantees a model-posted review cannot make:
 - **A dead run is visible.** The poster runs on `always()`: a run that halted at a permission
   prompt or died mid-flight still leaves a "this PR has not been reviewed" verdict and a red
   status, instead of the green silence that reads as a clean review.
-- **Injection has no channel.** The model's tool allowlist is read-only; a PR whose diff tells
-  the reviewer to post something has nothing to post with.
+- **Injection has no channel.** The model's permissions are read-only, set in managed settings
+  no file in the PR can widen; a PR whose diff tells the reviewer to post something has nothing
+  to post with.
 - **Anchoring is arithmetic, not judgment.** [`src/diff-anchor.utils.ts`](src/diff-anchor.utils.ts)
   maps each finding onto a line GitHub will accept, relocating out-of-diff findings to the
   nearest changed line with a `Re: file:line` prefix (suggestions turn inert on relocation).
@@ -38,10 +39,14 @@ CI review executes an LLM on untrusted PR content, so the defenses do not rely o
 behaving: claude-code-action restores startup-read config (`.claude/`, `CLAUDE.md`,
 `.mcp.json`, …) from the base branch before the model starts (the workflow extends this to
 `AGENTS.md`), preserving the PR's copies unexecuted under `.claude-pr/` for reviewers to read;
-the allowlist has no write verbs and no `git checkout`/`git fetch` (which could revert that
-restore); the metrics branch is written by a separate job so `contents: write` never coexists
-with model-driven steps; and third-party actions are SHA-pinned because the workflow carries
-secrets and a write token.
+the model's permissions come from managed settings written before it starts, which discard
+every repo and skill grant and allow only read verbs, with no `git checkout`/`git fetch`
+(which could revert that restore); its shell runs in a sandbox that cannot write outside the
+checkout or reach any host but GitHub's API; these scripts run from a copy set aside before the
+PR head is checked out, so a fork cannot swap in the code that holds the job's token; the
+metrics branch is written by a separate job so `contents: write` never coexists with
+model-driven steps; and third-party actions are SHA-pinned because the workflow carries secrets
+and a write token.
 
 ## Using it in your repo
 
