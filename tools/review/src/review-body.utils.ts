@@ -27,9 +27,9 @@ function isPlainLanguage(info: string): boolean {
 // author wrote. GitHub decodes the info string first (`&#115;uggestion` counts)
 // and opens a fence after any container prefix, so a fence opener whose language
 // is not a plain token, or starts with `suggestion`, gets `text` as its language.
-// A raw `<pre lang="suggestion">` renders the same block, and where a tag ends
-// inside markdown only a full parser knows, so no tag opens at all: a zero-width
-// space after `<` leaves the text reading as it did.
+// A raw `<pre lang="suggestion">` renders the same block. Only a full parser
+// knows where that tag ends inside markdown, but its name follows `<` directly,
+// so a zero-width space there stops it opening and the text reads as it did.
 function inertFences(markdown: string): string {
   return markdown
     .replace(
@@ -42,12 +42,12 @@ function inertFences(markdown: string): string {
           ? match
           : `${prefix}${fence}text ${info}`,
     )
-    .replace(/<(?=[a-z])/gi, "<\u200b");
+    .replace(/<(?=pre\b)/gi, "<\u200b");
 }
 
 export function commentBody(finding: Finding, relocatedFrom: number | null): string {
   const parts: string[] = [];
-  if (relocatedFrom !== null) parts.push(`Re: \`${finding.file}:${relocatedFrom}\``, "");
+  if (relocatedFrom !== null) parts.push(inertFences(`Re: \`${finding.file}:${relocatedFrom}\``), "");
   parts.push(inertFences(finding.body ?? finding.description));
   if (finding.suggestion !== null) {
     // Longer than any backtick run in the suggestion, so its code can never

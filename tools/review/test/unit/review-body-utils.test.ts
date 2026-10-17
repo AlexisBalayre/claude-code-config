@@ -58,6 +58,12 @@ describe("commentBody", () => {
     );
   });
 
+  it("makes a tag in a relocated finding's path inert", () => {
+    expect(commentBody(finding({ file: "a`<pre lang=suggestion>`.ts" }), 12)).toBe(
+      "Re: `a`<\u200bpre lang=suggestion>`.ts:12`\n\nthe description",
+    );
+  });
+
   it("offers a relocated finding's suggestion in an inert fence", () => {
     expect(commentBody(finding({ suggestion: "fixed();" }), 12)).toBe(
       "Re: `src/a.ts:12`\n\nthe description\n\n```\nfixed();\n```",
@@ -119,7 +125,7 @@ describe("commentBody", () => {
     expect(commentBody(finding({ body: quoted }), null)).toBe(inert);
   });
 
-  // A lazy footnote label backtracks exponentially: seconds at 28 labels, not milliseconds.
+  // 28 labels: milliseconds when the label matches one way, seconds when it backtracks.
   it("reads a line of footnote labels in linear time", () => {
     const labels = `${"[^a]:".repeat(28)}x`;
     const started = performance.now();
@@ -138,6 +144,10 @@ describe("commentBody", () => {
     ["a fence named in inline code", "use a ```` ```suggestion ```` fence here"],
     ["a mid-line backtick run", "Wrap the fix in a ```ts block before posting"],
     ["quoted code holding a fence", '```ts\nconst fence = "```";\n```'],
+    [
+      "a permalink, generics and other tags",
+      "See <https://github.com/o/r/blob/abc/a.ts#L1-L2>: `Array<string>`, a < b, <details>, <prefix>, <!-- x -->, </pre>.",
+    ],
     ["a lang= outside a pre block", 'const lang = detect(text);\nrender(lang=code);\nif (lang === "suggestion") {}'],
     ["a footnote label that never closes", "[^a\\]: ```suggestion\n    evil();"],
     ["inline code opening with a backtick run", "```foo``` is wrong, and ```` ```suggestion ```` is what they wrote"],
