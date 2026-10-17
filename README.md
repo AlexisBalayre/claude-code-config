@@ -112,11 +112,12 @@ the request, so `@claude review, thanks` is a plain review.
 
 A quick or area-restricted review is partial: the next review diffs from the last complete one,
 so what it skipped is covered then; comment `@claude review` for a complete pass now. The Claude
-GitHub app reacts 👀 to any `@claude` mention on its own, and the review adds its verdict as a
+GitHub App reacts 👀 to any `@claude` mention on its own, and the review adds its verdict as a
 reaction when it ends: 🚀 (no important findings), 👍 (no important findings from a partial review,
 whose `claude-review` status also says "partial review"), 👎 (important findings posted), or 😕
-(not reviewed: the run failed or was cancelled, or the PR had closed). A request that waits behind a running review can be displaced by a later
-push to the PR; it then never starts and gets no reaction, so comment again.
+(not reviewed: the run failed or was cancelled, or the PR had closed). A request that waits behind
+a running review can be displaced by a later push to the PR; it then never starts, and its comment
+keeps the App's 👀 with no verdict after it, so comment again.
 
 One upstream rule to expect: the App only mints a token when the workflow file on the PR branch
 is byte-identical to the copy on the default branch, so **a PR that edits
