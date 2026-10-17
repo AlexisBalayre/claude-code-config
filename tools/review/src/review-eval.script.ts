@@ -1,7 +1,7 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { z } from "zod";
 import { type Finding, reviewSummarySchema } from "./review-metrics.schemas";
 
@@ -13,52 +13,24 @@ import { type Finding, reviewSummarySchema } from "./review-metrics.schemas";
  * reviewers supply.
  *
  * Without --run it plants each case and prints the planted hunk, which spends
- * nothing. With --run it pushes `eval/<id>` branches, opens a draft PR per case
- * (the workflow never reviews a draft), runs /pr-ci-review against it locally
- * the way the workflow invokes it, then closes the PRs and deletes the
- * branches. --pipeline <ref> picks whose `.claude/` reviews (default HEAD), so
- * two pipeline versions can be scored on the same cases.
+ * nothing. With --run it pushes a pair of `eval/<run>-<n>` branches per case,
+ * opens a draft PR on them under the replayed PR's own title and body (the
+ * workflow reviews a draft only on a `@claude review` comment), runs
+ * /pr-ci-review against it locally the way the workflow invokes it, then closes
+ * the PR and deletes the branches. Nothing the reviewer can read names the case
+ * or the plant. --pipeline <ref> picks whose `.claude/` reviews (default HEAD),
+ * so two pipeline versions can be scored on the same cases.
  */
 
 const CASES_FILE = new URL("../eval/cases.json", import.meta.url);
-// Mirrors the workflow's managed allow list. Locally the project's own settings
-// still grant more, so the writes the lock denies are denied here by name.
-const ALLOWED = [
-  "Agent",
-  "Skill",
-  "Read",
-  "Glob",
-  "Grep",
-  "StructuredOutput",
-  "Bash(gh pr diff*)",
-  "Bash(gh pr view*)",
-  "Bash(git diff *)",
-  "Bash(git status*)",
-  "Bash(git log*)",
-  "Bash(git show*)",
-  "Bash(git rev-parse*)",
-  "Bash(git rev-list*)",
-  "Bash(git merge-base*)",
-];
-const DENIED = [
-  "Edit",
-  "Write",
-  "NotebookEdit",
-  "Bash(git push*)",
-  "Bash(git commit*)",
-  "Bash(gh pr comment*)",
-  "Bash(gh pr review*)",
-  "Bash(gh pr merge*)",
-  "Bash(gh pr edit*)",
-  "Bash(gh pr close*)",
-  "Bash(gh api*)",
-];
+const WORKFLOW_FILE = ".github/workflows/claude-code-review.yml";
 // The workflow's config restore, narrowed to what this repo carries.
 const CONFIG_PATHS = [".claude", "CLAUDE.md", "AGENTS.md"];
 // A finding this close to the plant is about it: reviewers anchor on the line
 // they reason from, which can sit a few lines off the edited one.
 const LINE_WINDOW = 10;
 const CASE_BUDGET_USD = 5;
+const DEFAULT_BUDGET_USD = 10;
 
 const caseSchema = z.object({
   id: z.string(),
@@ -97,7 +69,23 @@ function gh(...args: string[]): string {
   return execFileSync("gh", args, { encoding: "utf8" }).trim();
 }
 
-/** Commits the plant onto the case's head without a checkout; the clean case keeps its head. */
+/**
+ * The managed permission lock in the workflow at `pipeline`, so a run grants
+ * what that version of CI grants and no more.
+ */
+function lockedPermissions(pipeline: string): { allow: string[]; deny: string[] } {
+  const workflow = git(["show", `${pipeline}:${WORKFLOW_FILE}`]);
+  const lock = /managed-settings\.json[^\n]*<<'EOF'\n([\s\S]*?)\n\s*EOF\n/.exec(workflow)?.[1];
+  if (!lock) throw new Error(`no managed-settings lock in ${WORKFLOW_FILE} at ${pipeline}`);
+  return z
+    .object({ permissions: z.object({ allow: z.array(z.string()), deny: z.array(z.string()) }) })
+    .parse(JSON.parse(lock)).permissions;
+}
+
+/**
+ * Folds the plant into the case's head commit, under that commit's own message
+ * and parents, without a checkout; the clean case keeps its head.
+ */
 function plantCommit(evalCase: EvalCase, scratch: string): { sha: string; line: number | null } {
   const { plant, head } = evalCase;
   if (!plant) return { sha: head, line: null };
@@ -107,13 +95,17 @@ function plantCommit(evalCase: EvalCase, scratch: string): { sha: string; line: 
   if (at === -1 || original.indexOf(plant.find, at + 1) !== -1) {
     throw new Error(`${evalCase.id}: the plant's find string must occur exactly once in ${plant.file}`);
   }
-  const blob = git(["hash-object", "-w", "--stdin"], { input: original.replace(plant.find, plant.replace) });
+  // A replacer function, so `$&` and the like in a plant are never expanded.
+  const blob = git(["hash-object", "-w", "--stdin"], { input: original.replace(plant.find, () => plant.replace) });
   const mode = git(["ls-tree", head, "--", plant.file]).split(/\s/)[0];
   const env = { ...process.env, GIT_INDEX_FILE: join(scratch, `${evalCase.id}.index`) };
   git(["read-tree", head], { env });
   git(["update-index", "--cacheinfo", `${mode},${blob},${plant.file}`], { env });
   const tree = git(["write-tree"], { env });
-  const sha = git(["commit-tree", tree, "-p", head, "-m", `eval: plant ${evalCase.id}`]);
+  const parents = git(["rev-parse", `${head}^@`])
+    .split("\n")
+    .flatMap((parent) => ["-p", parent]);
+  const sha = git(["commit-tree", tree, ...parents], { input: git(["log", "-1", "--format=%B", head]) });
   return { sha, line: original.slice(0, at).split("\n").length };
 }
 
@@ -122,17 +114,25 @@ function lineSpan(line: string | null): [number, number] | null {
   return match ? [Number(match[1]), Number(match[2] ?? match[1])] : null;
 }
 
-function onPlant(finding: Pick<Finding, "file" | "line" | "description">, plant: Plant, line: number): boolean {
+function onPlant(
+  finding: Pick<Finding, "file" | "line" | "description"> & { body?: string | null },
+  plant: Plant,
+  line: number,
+): boolean {
   const span = lineSpan(finding.line);
   const near =
     finding.file === plant.file && span !== null && span[0] - LINE_WINDOW <= line && line <= span[1] + LINE_WINDOW;
-  const text = `${finding.description}\n${"body" in finding ? (finding.body ?? "") : ""}`;
-  return near || plant.keywords.some((keyword) => text.includes(keyword));
+  const text = `${finding.description}\n${finding.body ?? ""}`.toLowerCase();
+  return near || plant.keywords.some((keyword) => text.includes(keyword.toLowerCase()));
 }
 
-/** Checks the case out the way the workflow leaves the tree: PR head, base-branch config, the PR's copy under .claude-pr/. */
-function checkout(sha: string, pipeline: string, scratch: string, id: string): string {
-  const dir = join(scratch, id);
+/**
+ * Checks the case out the way the workflow leaves the tree: PR head, base-branch
+ * config, the PR's copy under .claude-pr/. The config's own permission grants
+ * go, as CI's `allowManagedPermissionRulesOnly` discards them, so only the lock
+ * passed on the command line grants anything.
+ */
+function checkout(sha: string, pipeline: string, dir: string): void {
   git(["worktree", "add", "--detach", dir, sha]);
   for (const path of CONFIG_PATHS) {
     if (!existsSync(join(dir, path))) continue;
@@ -141,10 +141,25 @@ function checkout(sha: string, pipeline: string, scratch: string, id: string): s
   }
   const archive = execFileSync("git", ["archive", pipeline, ...CONFIG_PATHS]);
   execFileSync("tar", ["-x", "-C", dir], { input: archive });
-  return dir;
+  const settingsFile = join(dir, ".claude", "settings.json");
+  if (existsSync(settingsFile)) {
+    const { permissions: _repoGrants, ...settings } = JSON.parse(readFileSync(settingsFile, "utf8")) as Record<
+      string,
+      unknown
+    >;
+    writeFileSync(settingsFile, `${JSON.stringify(settings, null, 2)}\n`);
+  }
 }
 
-function review(evalCase: EvalCase, prNumber: string, dir: string, repo: string, schema: string, budget: number) {
+function review(
+  evalCase: EvalCase,
+  prNumber: string,
+  dir: string,
+  repo: string,
+  schema: string,
+  lock: { allow: string[]; deny: string[] },
+  budget: number,
+) {
   const prompt = [
     "/pr-ci-review",
     "",
@@ -174,10 +189,11 @@ function review(evalCase: EvalCase, prNumber: string, dir: string, repo: string,
       "--no-session-persistence",
       "--max-budget-usd",
       budget.toFixed(2),
+      // The workflow's own `--allowedTools "Glob,Grep"` on top of the lock.
       "--allowedTools",
-      ALLOWED.join(","),
+      [...lock.allow, "Glob", "Grep"].join(","),
       "--disallowedTools",
-      DENIED.join(","),
+      lock.deny.join(","),
     ],
     {
       cwd: dir,
@@ -253,7 +269,7 @@ function main(): void {
   const pipelineAt = args.indexOf("--pipeline");
   const pipeline = git(["rev-parse", pipelineAt === -1 ? "HEAD" : args[pipelineAt + 1]]);
   const budgetAt = args.indexOf("--budget");
-  let remaining = budgetAt === -1 ? 10 : Number(args[budgetAt + 1]);
+  let remaining = budgetAt === -1 ? DEFAULT_BUDGET_USD : Number(args[budgetAt + 1]);
   const cases = z.array(caseSchema).parse(JSON.parse(readFileSync(CASES_FILE, "utf8")));
   const scratch = mkdtempSync(join(tmpdir(), "review-eval-"));
   const planted = cases.map((evalCase) => ({ evalCase, ...plantCommit(evalCase, scratch) }));
@@ -280,17 +296,25 @@ function main(): void {
       encoding: "utf8",
     },
   );
+  const lock = lockedPermissions(pipeline);
+  // Unique per run, so two runs side by side never push to or delete each
+  // other's branches.
+  const tag = basename(scratch).slice("review-eval-".length);
+  const resultsFile = join(scratch, "results.json");
   const outcomes: Outcome[] = [];
-  for (const { evalCase, sha, line } of planted) {
+  for (const [index, { evalCase, sha, line }] of planted.entries()) {
     if (remaining < 1) {
       process.stdout.write(`\nbudget spent; skipping ${evalCase.id} and the cases after it\n`);
       break;
     }
-    const branch = `eval/${evalCase.id}`;
+    const branch = `eval/${tag}-${index + 1}`;
+    const dir = join(scratch, String(index + 1));
     let prNumber: string | null = null;
-    let dir: string | null = null;
     try {
       git(["push", "-q", "origin", `${evalCase.base}:refs/heads/${branch}-base`, `${sha}:refs/heads/${branch}`]);
+      const original = z
+        .object({ title: z.string(), body: z.string() })
+        .parse(JSON.parse(gh("pr", "view", String(evalCase.pr), "--json", "title,body")));
       const url = gh(
         "pr",
         "create",
@@ -300,35 +324,60 @@ function main(): void {
         "--head",
         branch,
         "--title",
-        `eval: ${evalCase.id} (do not merge)`,
+        original.title,
         "--body",
-        `Review eval case replaying #${evalCase.pr}. Opened and closed by review-eval.script.ts.`,
+        original.body,
       );
       prNumber = url.slice(url.lastIndexOf("/") + 1);
-      dir = checkout(sha, pipeline, scratch, evalCase.id);
+      checkout(sha, pipeline, dir);
       process.stdout.write(`\nreviewing ${evalCase.id} as #${prNumber}...\n`);
       const outcome = grade(
         evalCase,
         line,
-        review(evalCase, prNumber, dir, repo, schema, Math.min(CASE_BUDGET_USD, remaining)),
+        review(evalCase, prNumber, dir, repo, schema, lock, Math.min(CASE_BUDGET_USD, remaining)),
       );
       remaining -= outcome.cost_usd ?? 0;
       outcomes.push(outcome);
       process.stdout.write(`${outcome.verdict}  $${outcome.cost_usd?.toFixed(2) ?? "?"}\n`);
+    } catch (error) {
+      const message = String(error).slice(0, 300);
+      outcomes.push({
+        id: evalCase.id,
+        verdict: "error",
+        cost_usd: null,
+        duration_ms: null,
+        importants: [],
+        refuted_on_plant: [],
+        permission_denials: 0,
+        error: message,
+      });
+      process.stdout.write(`error  ${message}\n`);
     } finally {
-      if (prNumber) gh("pr", "close", prNumber, "--delete-branch");
-      else git(["push", "-q", "origin", "--delete", branch]);
-      git(["push", "-q", "origin", "--delete", `${branch}-base`]);
-      if (dir) git(["worktree", "remove", "--force", dir]);
+      // Each step on its own, so one failing never strands the others.
+      const cleanups = [
+        () =>
+          prNumber ? gh("pr", "close", prNumber, "--delete-branch") : git(["push", "-q", "origin", "--delete", branch]),
+        () => git(["push", "-q", "origin", "--delete", `${branch}-base`]),
+        () => existsSync(dir) && git(["worktree", "remove", "--force", dir]),
+      ];
+      for (const cleanup of cleanups) {
+        try {
+          cleanup();
+        } catch (error) {
+          process.stderr.write(`cleanup after ${evalCase.id}: ${String(error).slice(0, 300)}\n`);
+        }
+      }
+      // After every case, so a crash later still leaves what was paid for.
+      writeFileSync(resultsFile, `${JSON.stringify({ pipeline, outcomes }, null, 2)}\n`);
     }
   }
 
-  const resultsFile = join(scratch, "results.json");
-  writeFileSync(resultsFile, `${JSON.stringify({ pipeline, outcomes }, null, 2)}\n`);
-  const planted_ = outcomes.filter((outcome) => outcome.verdict === "hit" || outcome.verdict === "miss");
-  const hits = planted_.filter((outcome) => outcome.verdict === "hit").length;
+  const scored = outcomes.filter((outcome) => outcome.verdict === "hit" || outcome.verdict === "miss");
+  const hits = scored.filter((outcome) => outcome.verdict === "hit").length;
+  const errored = outcomes.filter((outcome) => outcome.verdict === "error").length;
   const spent = outcomes.reduce((sum, outcome) => sum + (outcome.cost_usd ?? 0), 0);
-  process.stdout.write(`\nrecall ${hits}/${planted_.length}, spent $${spent.toFixed(2)}; details in ${resultsFile}\n`);
+  const tally = `recall ${hits}/${scored.length}${errored ? `, ${errored} errored` : ""}`;
+  process.stdout.write(`\n${tally}, spent $${spent.toFixed(2)}; details in ${resultsFile}\n`);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
