@@ -1,0 +1,61 @@
+[
+  {
+    "id": "pr15-sonnet-tier-on-opus",
+    "pr": 15,
+    "base": "647115db7832103cfa10bc80c42e8fc1e71d49f7",
+    "head": "2d3e564c89df4f30a328d3c6a368b06793cf39f4",
+    "plant": {
+      "file": ".github/workflows/claude-code-review.yml",
+      "find": "ANTHROPIC_DEFAULT_SONNET_MODEL: claude-sonnet-5-5",
+      "replace": "ANTHROPIC_DEFAULT_SONNET_MODEL: claude-opus-5-5",
+      "keywords": ["ANTHROPIC_DEFAULT_SONNET_MODEL"],
+      "regression": "The sonnet alias is pinned to an Opus id, so every sonnet-tier reviewer and validator runs on Opus: the run's cost jumps with no test or typecheck to notice."
+    }
+  },
+  {
+    "id": "pr17-schema-version-not-bumped",
+    "pr": 17,
+    "base": "43636691e6a9dfa986bfb6163059b656b108a13f",
+    "head": "99c76d657cc275b2dcaebdb3012004bff62b57b0",
+    "plant": {
+      "file": "tools/review/src/review-metrics.script.ts",
+      "find": "const SCHEMA_VERSION = 3;",
+      "replace": "const SCHEMA_VERSION = 2;",
+      "keywords": ["SCHEMA_VERSION", "schema_version"],
+      "regression": "`tokens` changes meaning (orchestrator only) and `model_usage` is added without the version bump the constant's own comment demands, so the retro mixes old and new records in one baseline."
+    }
+  },
+  {
+    "id": "pr18-every-review-partial",
+    "pr": 18,
+    "base": "99c76d657cc275b2dcaebdb3012004bff62b57b0",
+    "head": "1dbd348771ba2423983c7207c53fdd6972958f09",
+    "plant": {
+      "file": "tools/review/src/review-preflight.script.ts",
+      "find": "parsed.review_areas.length > 0",
+      "replace": "parsed.review_areas.length >= 0",
+      "keywords": [">= 0"],
+      "regression": "Every new record carries a `review_areas` array, empty or not, so every review reads as partial, none is ever a prior, and incremental mode never engages again: each push re-reviews the whole PR."
+    }
+  },
+  {
+    "id": "pr19-partial-hides-findings",
+    "pr": 19,
+    "base": "1dbd348771ba2423983c7207c53fdd6972958f09",
+    "head": "76ca81ac6c687666f86a1b30b4a55493c199a464",
+    "plant": {
+      "file": "tools/review/src/post-review.script.ts",
+      "find": "const reaction = failure ? \"confused\" : importants > 0 ? \"-1\" : partial ? \"+1\" : \"rocket\";",
+      "replace": "const reaction = failure ? \"confused\" : partial ? \"+1\" : importants > 0 ? \"-1\" : \"rocket\";",
+      "keywords": [],
+      "regression": "A partial review that found important issues reacts 👍 instead of 👎 on the requesting comment."
+    }
+  },
+  {
+    "id": "pr20-clean",
+    "pr": 20,
+    "base": "76ca81ac6c687666f86a1b30b4a55493c199a464",
+    "head": "804110d413b5587a0306d3d9091bb9285f5e8aa5",
+    "plant": null
+  }
+]

@@ -58,3 +58,30 @@ it standalone even in a pnpm workspace: the workflow runs a copy of `tools/revie
 `node_modules` links must resolve inside it.
 
 Verify locally with `pnpm --dir tools/review test` and `pnpm --dir tools/review typecheck`.
+
+## Measuring recall
+
+`review-eval.script.ts` scores the review against `eval/cases.json`: merged PRs replayed with one
+regression planted in each, plus a clean PR that counts false positives. Every plant passes its
+PR's own tests and typecheck, so a catch is the reviewers' alone. The cases are this repo's PRs;
+replace them with yours.
+
+```sh
+pnpm --dir tools/review exec tsx src/review-eval.script.ts                      # print the plants, spend nothing
+pnpm --dir tools/review exec tsx src/review-eval.script.ts --run [--pipeline <ref>] [--budget <usd>]
+```
+
+`--run` opens a draft PR per case under the replayed PR's own title and body, with the plant folded
+into its commit (same author, dates and message, minus the `(#N)` that names the original), and
+reviews it from a clone of that branch alone, where no ref holds the unplanted original. Nothing in
+the PR, its branch or the folders around its checkout names the eval, the case or the plant: the
+index files and `results.json` sit in a `review-eval-*` folder of the repo's git directory, which a
+dry run removes and `--run` keeps for its results (delete it once read). The workflow skips drafts,
+though a `@claude review` comment on one still starts a billed review. It runs `/pr-ci-review` on
+the PR locally under the workflow's permission lock, read from the workflow itself, with the repo's
+own grants dropped as CI drops them, but outside CI's sandbox. Then it grades the record, closes the
+PR and deletes its branches; `results.json` is rewritten after each case, and the run ends with
+recall over the planted cases and how many clean cases drew an important finding. `--budget` caps
+the spend (default $10); a case whose run reports no cost is charged its cap (up to $5).
+`--pipeline` picks whose `.claude/` and lock review, so two versions of the protocol score on the
+same cases; that ref's hooks run on your machine unsandboxed, so point it only at a ref you trust.
