@@ -13,7 +13,7 @@ import { type Finding, reviewSummarySchema } from "./review-metrics.schemas";
  * reviewers supply.
  *
  * Without --run it plants each case and prints the planted hunk, which spends
- * nothing. With --run it pushes a pair of `pr-<run>-<n>` branches per case,
+ * nothing. With --run it pushes a pair of `pr-<random>` branches per case,
  * opens a draft PR on them under the replayed PR's own title and body (the
  * workflow reviews a draft only on a `@claude review` comment), runs
  * /pr-ci-review against it locally the way the workflow invokes it, then closes
@@ -310,8 +310,8 @@ function main(): void {
   // NaN would pass every budget check below and cap no case.
   if (!Number.isFinite(remaining)) throw new Error(`--budget takes a USD amount, got ${args[budgetAt + 1]}`);
   const cases = z.array(caseSchema).parse(JSON.parse(readFileSync(CASES_FILE, "utf8")));
-  // The reviewer sees this directory: a neutral name, so it can't tell an eval.
-  const scratch = mkdtempSync(join(tmpdir(), "pr-"));
+  // Holds what names the plants (index files, results): never a clone's parent.
+  const scratch = mkdtempSync(join(tmpdir(), "review-eval-"));
   const planted = cases.map((evalCase) => ({ evalCase, ...plantCommit(evalCase, scratch) }));
 
   for (const { evalCase, sha, line } of planted) {
@@ -338,18 +338,18 @@ function main(): void {
   );
   const lock = lockedPermissions(pipeline);
   const origin = git(["remote", "get-url", "origin"]);
-  // Unique per run, so two runs side by side never push to or delete each
-  // other's branches.
-  const tag = basename(scratch);
   const resultsFile = join(scratch, "results.json");
   const outcomes: Outcome[] = [];
-  for (const [index, { evalCase, sha, line }] of planted.entries()) {
+  for (const { evalCase, sha, line } of planted) {
     if (remaining < MIN_CASE_BUDGET_USD) {
       process.stdout.write(`\nbudget spent; skipping ${evalCase.id} and the cases after it\n`);
       break;
     }
-    const branch = `${tag}-${index + 1}`;
-    const dir = join(scratch, String(index + 1));
+    // The reviewer works in this directory and can list its parent, so the name
+    // is neutral and the parent is not the scratch. Unique, so two runs side by
+    // side never push to or delete each other's branches.
+    const dir = mkdtempSync(join(tmpdir(), "pr-"));
+    const branch = basename(dir);
     let prNumber: string | null = null;
     try {
       git(["push", "-q", "origin", `${evalCase.base}:refs/heads/${branch}-base`, `${sha}:refs/heads/${branch}`]);
