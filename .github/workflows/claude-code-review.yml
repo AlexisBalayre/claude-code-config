@@ -76,17 +76,6 @@ jobs:
       CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
 
     steps:
-      # First, so the requester sees the run start; the step after the poster
-      # swaps it for the verdict. Best-effort: a reaction is feedback, never a
-      # reason to fail or hold up the review.
-      - name: Acknowledge the review request
-        if: github.event_name == 'issue_comment'
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REACTIONS: repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions
-        run: gh api --method POST "$REACTIONS" -f content=eyes >/dev/null
-
       # Full history, not depth-1: `gh pr diff` rejects a path filter, so a scoped
       # slice needs a merge base (`git diff <merge-base>..HEAD -- <path>`). Shallow,
       # that cannot resolve and reviewers fall back to `git diff HEAD~1 HEAD`, which
@@ -368,9 +357,12 @@ jobs:
         run: node node_modules/tsx/dist/cli.mjs src/post-review.script.ts
 
       # The poster picks the reaction; a run it never finished (a failed
-      # preflight, a cancellation, a closed PR) gets confused. The verdict goes
-      # on before the cleanup, so a failed delete never costs it, and then every
-      # other reaction this workflow left goes, the 👀 included.
+      # preflight, a cancellation, a closed PR) gets confused. The Claude app's
+      # own 👀 on any @claude mention already says the request landed, so this
+      # is the run's only reaction. It goes on before the cleanup, so a failed
+      # delete never costs it, and then every other reaction this workflow left
+      # goes: a re-run's earlier verdict. Best-effort: a reaction is feedback,
+      # never a reason to fail the review.
       - name: React with the verdict
         if: always() && github.event_name == 'issue_comment'
         continue-on-error: true
