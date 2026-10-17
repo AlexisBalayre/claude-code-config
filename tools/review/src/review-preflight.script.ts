@@ -1,6 +1,13 @@
 import { execFileSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
-import { decideMode, newestCleanRecord, type PriorRecord, parseReviewRequest, porcelainPaths } from "./preflight.utils";
+import {
+  decideMode,
+  isPartialReview,
+  newestCleanRecord,
+  type PriorRecord,
+  parseReviewRequest,
+  porcelainPaths,
+} from "./preflight.utils";
 
 /**
  * Deterministic review preflight. Asserts the working
@@ -68,8 +75,7 @@ function priorRecords(prNumber: string): PriorRecord[] {
         commit_sha: typeof parsed.commit_sha === "string" ? parsed.commit_sha : null,
         timestamp: typeof parsed.timestamp === "string" ? parsed.timestamp : "",
         is_error: parsed.is_error === true,
-        partial:
-          parsed.review_depth === "quick" || (Array.isArray(parsed.review_areas) && parsed.review_areas.length > 0),
+        partial: isPartialReview(parsed.review_depth, parsed.review_areas),
       });
     } catch {
       warn(`unreadable record ${hit}; skipping it`);
@@ -85,6 +91,7 @@ async function main(): Promise<void> {
   const request = parseReviewRequest(process.env.REVIEW_COMMENT ?? "");
   out("depth", request.depth);
   out("areas", request.areas.join(", "));
+  out("partial", String(isPartialReview(request.depth, request.areas)));
 
   let headSha = headRefOid(prNumber);
   if (git("rev-parse", "HEAD") !== headSha) {

@@ -31,10 +31,11 @@ const IMPORTANT = {
   suggestion: null,
 };
 
-/** Runs a review script as the workflow does, with `gh` stubbed out, and returns what it handed on. */
+/** Runs a review script as the workflow does, with `gh` stubbed to log each call; returns what it handed on. */
 function runScript(script: string, env: Record<string, string>) {
   const dir = mkdtempSync(join(tmpdir(), "review-tooling-"));
-  writeFileSync(join(dir, "gh"), "#!/bin/sh\ncat >/dev/null\necho '{}'\n");
+  const ghLog = join(dir, "gh.log");
+  writeFileSync(join(dir, "gh"), `#!/bin/sh\ncat >> "${ghLog}"\necho '{}'\n`);
   chmodSync(join(dir, "gh"), 0o755);
   const { GITHUB_STEP_SUMMARY: _summary, ...inherited } = process.env;
   spawnSync(join(PACKAGE_DIR, "node_modules/.bin/tsx"), [join(PACKAGE_DIR, "src", script)], {
@@ -61,7 +62,7 @@ function runScript(script: string, env: Record<string, string>) {
       return "";
     }
   };
-  return { output: read("output.txt"), record: read("review-metrics.json") };
+  return { output: read("output.txt"), record: read("review-metrics.json"), ghCalls: read("gh.log") };
 }
 
 describe("the review a `@claude review` comment asked for", () => {
@@ -82,11 +83,25 @@ describe("the review a `@claude review` comment asked for", () => {
 
 describe("the verdict the poster hands to the comment's reaction", () => {
   it.each([
-    ["no important finding", verdict(), "verdict=ready"],
-    ["an important finding", verdict([IMPORTANT]), "verdict=issues"],
-    ["no verdict at all", "", "verdict=not-reviewed"],
-  ])("follows a round with %s", (_label, structuredOutput, expected) => {
-    const { output } = runScript("post-review.script.ts", { REVIEW_STRUCTURED_OUTPUT: structuredOutput });
+    ["no important finding", verdict(), "false", "verdict=ready"],
+    ["no important finding on a partial pass", verdict(), "true", "verdict=partial"],
+    ["an important finding", verdict([IMPORTANT]), "false", "verdict=issues"],
+    ["no verdict at all", "", "false", "verdict=not-reviewed"],
+  ])("follows a round with %s", (_label, structuredOutput, partial, expected) => {
+    const { output } = runScript("post-review.script.ts", {
+      REVIEW_STRUCTURED_OUTPUT: structuredOutput,
+      REVIEW_PARTIAL: partial,
+    });
     expect(output).toContain(expected);
+  });
+});
+
+describe("a partial pass's commit status", () => {
+  it("says the review was partial", () => {
+    const { ghCalls } = runScript("post-review.script.ts", {
+      REVIEW_STRUCTURED_OUTPUT: verdict(),
+      REVIEW_PARTIAL: "true",
+    });
+    expect(ghCalls).toContain('"description":"partial review: no blocking issues"');
   });
 });

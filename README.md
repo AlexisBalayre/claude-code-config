@@ -110,8 +110,9 @@ it, in any order, shape it:
 
 A quick or area-restricted review is partial: the next push is still reviewed against the last
 complete review, so nothing it skipped goes unreviewed. The comment shows the run's state as a
-reaction: 👀 while it runs, then 🚀 (no important findings), 👎 (important findings posted), or
-😕 (not reviewed: the run failed or was cancelled, or the PR had closed).
+reaction: 👀 while it runs, then 🚀 (no important findings), 👍 (no important findings from a
+partial review, whose `claude-review` status also says "partial review"), 👎 (important findings
+posted), or 😕 (not reviewed: the run failed or was cancelled, or the PR had closed).
 
 One upstream rule to expect: the App only mints a token when the workflow file on the PR branch
 is byte-identical to the copy on the default branch, so **a PR that edits

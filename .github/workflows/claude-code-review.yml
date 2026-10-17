@@ -258,15 +258,18 @@ jobs:
           REVIEW_PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
           REVIEW_COMMIT_SHA: ${{ steps.preflight.outputs.sha }}
           REVIEW_MERGE_BASE: ${{ steps.preflight.outputs.merge_base }}
+          REVIEW_PARTIAL: ${{ steps.preflight.outputs.partial }}
           GH_TOKEN: ${{ github.token }}
           REVIEW_POSTED_OUTPUT: ${{ github.workspace }}/posted.json
         run: pnpm --dir tools/review --silent run review:post
 
       # The poster's verdict, mirrored from its commit status: rocket for no
-      # important finding, -1 for important findings, confused for anything
-      # that is not a verdict (a failed, cancelled, or closed-PR run). Every
-      # reaction this workflow left goes first, the 👀 and a re-run's previous
-      # verdict alike, so the comment only ever shows the latest state.
+      # important finding, +1 for the same on a partial (quick or
+      # area-restricted) review, which is no merge signal, -1 for important
+      # findings, confused for anything that is not a verdict (a failed,
+      # cancelled, or closed-PR run). Every reaction this workflow left goes
+      # first, the 👀 and a re-run's previous verdict alike, so the comment
+      # only ever shows the latest state.
       - name: React with the verdict
         if: always() && github.event_name == 'issue_comment'
         continue-on-error: true
@@ -277,6 +280,7 @@ jobs:
         run: |
           case "$VERDICT" in
             ready) content=rocket ;;
+            partial) content=+1 ;;
             issues) content=-1 ;;
             *) content=confused ;;
           esac

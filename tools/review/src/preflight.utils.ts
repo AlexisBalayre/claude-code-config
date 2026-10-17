@@ -47,6 +47,15 @@ export function parseReviewRequest(comment: string): { full: boolean; depth: Rev
   return { full, depth, areas: [...areas] };
 }
 
+/**
+ * Whether a review left part of its head unreviewed: a quick one, or one
+ * restricted to named areas. Typed loosely because it also reads old records,
+ * which carry neither field and were complete.
+ */
+export function isPartialReview(depth: unknown, areas: unknown): boolean {
+  return depth === "quick" || (Array.isArray(areas) && areas.length > 0);
+}
+
 /** Working-tree paths from `git status --porcelain`, rename targets included. */
 export function porcelainPaths(porcelain: string): string[] {
   const paths: string[] = [];

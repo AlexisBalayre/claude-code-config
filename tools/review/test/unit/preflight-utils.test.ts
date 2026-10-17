@@ -1,5 +1,6 @@
 import {
   decideMode,
+  isPartialReview,
   newestCleanRecord,
   type PriorRecord,
   parseReviewRequest,
@@ -105,6 +106,25 @@ describe("decideMode", () => {
 
   it("falls back to full when the delta contains a merge from the base", () => {
     expect(decideMode({ ...base, prior: record(), hasMerges: true })).toEqual({ kind: "full" });
+  });
+});
+
+describe("isPartialReview", () => {
+  it("counts a quick review as partial", () => {
+    expect(isPartialReview("quick", [])).toBe(true);
+  });
+
+  it("counts a review restricted to named areas as partial", () => {
+    expect(isPartialReview("deep", ["security"])).toBe(true);
+  });
+
+  it("counts a standard or deep review of the gated areas as complete", () => {
+    expect(isPartialReview("standard", [])).toBe(false);
+    expect(isPartialReview("deep", [])).toBe(false);
+  });
+
+  it("reads a record from before the request fields as complete", () => {
+    expect(isPartialReview(undefined, undefined)).toBe(false);
   });
 });
 
