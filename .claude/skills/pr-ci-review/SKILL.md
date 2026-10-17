@@ -85,7 +85,7 @@ There is no `requirements` reviewer: this setup deliberately keeps the issue tra
 - **`Depth: quick`**: one instance per area, no size-gated scaling, `maintainability` on sonnet. Without an area list the roster shrinks to `review-correctness` (always) and `review-security` (when its gate holds).
 - **`Depth: deep`**: every area spawns (or every named one), gate or not; instance scaling steps up once (1 -> 2, 2 -> 3, still capped at 3), and `maintainability` runs on opus whatever the diff size.
 
-Validation (§7) is the same at every depth: a quick review posts no `important` a standard one would not have validated. A quick or area-restricted review is **partial**: the record says so, and the next round's preflight never diffs from it, so the areas it skipped get their review on the next full round.
+Validation (§7) is the same at every depth: a quick review posts no `important` a standard one would not have validated. A quick or area-restricted review is **partial**: CI marks it from the `Depth:` and `Areas:` lines (you report nothing extra), and the next round's preflight never diffs from it, so that round covers what this one skipped.
 
 ## 5. Brief and spawn in parallel
 

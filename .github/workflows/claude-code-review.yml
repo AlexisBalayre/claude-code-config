@@ -204,7 +204,7 @@ jobs:
             ${{ steps.preflight.outputs.mode_line }}
             Merge base: ${{ steps.preflight.outputs.merge_base }}
             Depth: ${{ steps.preflight.outputs.depth }}
-            Areas: ${{ steps.preflight.outputs.areas || 'gated' }}
+            Areas: ${{ steps.preflight.outputs.areas }}
           # Background tasks off: recent Claude Code runs a subagent in the
           # background unless the model asks otherwise, and the action keeps the
           # first `result` a run emits and stops reading. With reviewers still
@@ -258,32 +258,27 @@ jobs:
           REVIEW_PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
           REVIEW_COMMIT_SHA: ${{ steps.preflight.outputs.sha }}
           REVIEW_MERGE_BASE: ${{ steps.preflight.outputs.merge_base }}
+          REVIEW_PARTIAL: ${{ steps.preflight.outputs.partial }}
           GH_TOKEN: ${{ github.token }}
           REVIEW_POSTED_OUTPUT: ${{ github.workspace }}/posted.json
         run: pnpm --dir tools/review --silent run review:post
 
-      # The poster's verdict, mirrored from its commit status: rocket for no
-      # important finding, -1 for important findings, confused for anything
-      # that is not a verdict (a failed, cancelled, or closed-PR run). Every
-      # reaction this workflow left goes first, the 👀 and a re-run's previous
-      # verdict alike, so the comment only ever shows the latest state.
+      # The poster picks the reaction; a run it never finished (a failed
+      # preflight, a cancellation, a closed PR) gets confused. The verdict goes
+      # on before the cleanup, so a failed delete never costs it, and then every
+      # other reaction this workflow left goes, the 👀 included.
       - name: React with the verdict
         if: always() && github.event_name == 'issue_comment'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
           REACTIONS: repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions
-          VERDICT: ${{ steps.post.outputs.verdict }}
+          REACTION: ${{ steps.post.outputs.reaction }}
         run: |
-          case "$VERDICT" in
-            ready) content=rocket ;;
-            issues) content=-1 ;;
-            *) content=confused ;;
-          esac
-          for id in $(gh api "$REACTIONS" --jq '.[] | select(.user.login == "github-actions[bot]") | .id'); do
-            gh api --method DELETE "$REACTIONS/$id"
+          id=$(gh api --method POST "$REACTIONS" -f content="${REACTION:-confused}" --jq .id)
+          for old in $(gh api --paginate "$REACTIONS" --jq ".[] | select(.user.login == \"github-actions[bot]\" and .id != $id) | .id"); do
+            gh api --method DELETE "$REACTIONS/$old"
           done
-          gh api --method POST "$REACTIONS" -f content="$content" >/dev/null
 
       - name: Emit review metrics
         # No record for a merged-PR or already-reviewed skip: a review that never
@@ -297,8 +292,7 @@ jobs:
           REVIEW_PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
           REVIEW_COMMIT_SHA: ${{ steps.preflight.outputs.sha }}
           REVIEW_POSTED_INPUT: ${{ github.workspace }}/posted.json
-          REVIEW_DEPTH: ${{ steps.preflight.outputs.depth }}
-          REVIEW_AREAS: ${{ steps.preflight.outputs.areas }}
+          REVIEW_COMMENT: ${{ github.event.comment.body }}
           # pnpm --dir runs the writer in the package dir, so anchor the output to the workspace root where upload-artifact resolves its path
           REVIEW_METRICS_OUTPUT: ${{ github.workspace }}/review-metrics.json
         run: pnpm --dir tools/review --silent run review:metrics

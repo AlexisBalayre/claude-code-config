@@ -1,4 +1,5 @@
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { parseReviewRequest } from "./preflight.utils";
 import { noVerdictReason } from "./review-completeness.utils";
 import {
   type MetricsRecord,
@@ -6,7 +7,6 @@ import {
   metricsRecordSchema,
   type PermissionDenial,
   postedRecordSchema,
-  REVIEW_DEPTHS,
   REVIEWER_AREAS,
   type ReviewSummary,
   reviewSummarySchema,
@@ -244,6 +244,7 @@ function main(): void {
   // step's output: the record keeps what that step reported for the retro.
   const summary = parseSummary(env.REVIEW_STRUCTURED_OUTPUT ?? "");
   const platform = platformMetrics(env.REVIEW_EXECUTION_FILE);
+  const request = parseReviewRequest(env.REVIEW_COMMENT ?? "");
 
   // A failed action step often produces no execution log, so its result cannot
   // report the error; the step outcome folds in through `noVerdictReason`. The
@@ -271,8 +272,8 @@ function main(): void {
     // the orchestrator's report, and full is the population errored runs belong in.
     review_mode: summary?.review_mode ?? "full",
     incremental_from_sha: summary?.incremental_from_sha ?? null,
-    review_depth: REVIEW_DEPTHS.find((depth) => depth === env.REVIEW_DEPTH) ?? "standard",
-    review_areas: REVIEWER_AREAS.filter((area) => (env.REVIEW_AREAS ?? "").split(/[\s,]+/).includes(area)),
+    review_depth: request.depth,
+    review_areas: request.areas,
     prior_importants: summary?.prior_importants ?? null,
     findings: summary?.findings ?? null,
     refuted_findings: summary?.refuted_findings ?? null,
