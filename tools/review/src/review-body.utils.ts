@@ -22,17 +22,23 @@ function isPlainLanguage(info: string): boolean {
   return /^[\w+#.-]*$/.test(language) && !/^suggestion/i.test(language);
 }
 
+// The opening tag of a raw `<pre>`, read as an HTML parser reads it: an
+// attribute name runs to whitespace, `/`, `>` or `=`, quotes included, and a
+// quoted value can hold `>` or `</pre`.
+const PRE_TAG = /<pre(?=[\s/>])(?:[\s/]+|[^\s/>][^\s/>=]*(?:\s*=\s*(?:"[^"]*"?|'[^']*'?|[^\s>]*))?)*/gi;
+const TAG_ATTRIBUTE = /[\s/]+|([^\s/>][^\s/>=]*)(?:\s*=\s*("[^"]*"?|'[^']*'?|[^\s>]*))?/g;
+
 // GitHub turns a block whose language is `suggestion` into a "Commit suggestion"
 // button in a line comment, and a finding's text can quote what a PR or issue
 // author wrote. GitHub decodes the info string first (`&#115;uggestion` counts),
 // opens a fence after any container prefix, and keeps `lang` on a raw `<pre>`,
-// so a fence opener or a `<pre>`'s `lang=` whose language is not a plain token,
+// so a fence opener or a `<pre>`'s `lang` whose language is not a plain token,
 // or starts with `suggestion`, gets `text` as its language. Nothing else changes.
 function inertFences(markdown: string): string {
   return markdown
     .replace(
-      // A footnote label stops at its first unescaped `]`: one way to split a
-      // line of labels, where a lazy match backtracks exponentially.
+      // A label ends at its first unescaped `]`, so a line of labels splits only
+      // one way; a lazy `.*?` would backtrack exponentially on `[^a]:[^a]:...`.
       /^((?:[^\S\r\n]*(?:>|[-+*]|\d{1,9}[.)]|\[\^(?:\\.|[^\]\\\r\n])*\]:))*[^\S\r\n]*)(`{3,}|~{3,})(.*)$/gm,
       (match, prefix: string, fence: string, info: string) =>
         // A backtick in a backtick fence's info string makes it inline code.
@@ -41,13 +47,17 @@ function inertFences(markdown: string): string {
           : `${prefix}${fence}text ${info}`,
     )
     .replace(
-      // To the closing tag, not the first `>`: an HTML parser and a regex can
-      // disagree on which quotes enclose a `>`, never on where the block ends.
-      /<pre\b[\s\S]*?(?=<\/pre|$)/gi,
-      (block) =>
-        block.replace(/(\blang\s*=\s*)("[^"]*"|'[^']*'|[^\s>]*)/gi, (match, attribute: string, value: string) =>
-          isPlainLanguage(value.replace(/^["']|["']$/g, "")) ? match : `${attribute}"text"`,
-        ),
+      PRE_TAG,
+      (tag) =>
+        // Past `<pre`, which the attribute scan would otherwise read as a name.
+        tag.slice(0, 4) +
+        tag
+          .slice(4)
+          .replace(TAG_ATTRIBUTE, (token, name?: string, value?: string) =>
+            name?.toLowerCase() === "lang" && value !== undefined && !isPlainLanguage(value.replace(/^["']|["']$/g, ""))
+              ? `${name}="text"`
+              : token,
+          ),
     );
 }
 
