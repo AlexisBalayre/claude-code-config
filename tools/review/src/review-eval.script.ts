@@ -13,17 +13,17 @@ import { type Finding, reviewSummarySchema } from "./review-metrics.schemas";
  * reviewers supply.
  *
  * Without --run it plants each case and prints the planted hunk, which spends
- * nothing. With --run it pushes a pair of `pr-<random>` branches per case,
+ * nothing. With --run it pushes a `pr-<random>` branch and its `-base` per case,
  * opens a draft PR on them under the replayed PR's own title and body (the
  * workflow reviews a draft only on a `@claude review` comment), runs
  * /pr-ci-review against it locally the way the workflow invokes it, then closes
- * the PR and deletes the branches. Nothing the reviewer can read, branch and
- * working directory included, names the eval, the case or the plant. A case
- * with a `spec` opens it as an issue the PR closes, which is what spawns the
- * spec reviewer, and deletes the issue afterwards; its requirements reach the
- * reviewer through that issue alone. --pipeline <ref> picks whose `.claude/`
- * reviews (default HEAD), so two pipeline versions can be scored on the same
- * cases.
+ * the PR and deletes the branches. Nothing in the PR, its branch or the folders
+ * around its checkout names the eval, the case or the plant: what does stays in
+ * this repo's git directory. A case with a `spec` opens it as an issue the PR
+ * closes, which is what spawns the spec reviewer, and deletes the issue
+ * afterwards; its requirements reach the reviewer through that issue alone.
+ * --pipeline <ref> picks whose `.claude/` reviews (default HEAD), so two
+ * pipeline versions can be scored on the same cases.
  */
 
 const CASES_FILE = new URL("../eval/cases.json", import.meta.url);
@@ -320,8 +320,9 @@ function main(): void {
   // NaN would pass every budget check below and cap no case.
   if (!Number.isFinite(remaining)) throw new Error(`--budget takes a USD amount, got ${args[budgetAt + 1]}`);
   const cases = z.array(caseSchema).parse(JSON.parse(readFileSync(CASES_FILE, "utf8")));
-  // Holds what names the plants (index files, results): never a clone's parent.
-  const scratch = mkdtempSync(join(tmpdir(), "review-eval-"));
+  // Holds what names the plants (index files, results), so it sits where no
+  // clone's surroundings lead: this repo's git directory.
+  const scratch = mkdtempSync(join(git(["rev-parse", "--path-format=absolute", "--git-common-dir"]), "review-eval-"));
   const planted = cases.map((evalCase) => ({ evalCase, ...plantCommit(evalCase, scratch) }));
 
   for (const { evalCase, sha, line } of planted) {
@@ -335,6 +336,7 @@ function main(): void {
     if (evalCase.spec) process.stdout.write(`spec, opened as the issue the PR closes:\n${evalCase.spec}\n`);
   }
   if (!run) {
+    rmSync(scratch, { recursive: true });
     process.stdout.write("\nDry run: nothing pushed, nothing spent. Re-run with --run to review the cases.\n");
     return;
   }
@@ -356,9 +358,9 @@ function main(): void {
       process.stdout.write(`\nbudget spent; skipping ${evalCase.id} and the cases after it\n`);
       break;
     }
-    // The reviewer works in this directory and can list its parent, so the name
-    // is neutral and the parent is not the scratch. Unique, so two runs side by
-    // side never push to or delete each other's branches.
+    // The reviewer works in this directory and can list around it, so the name
+    // is neutral. Unique, so two runs side by side never push to or delete each
+    // other's branches.
     const dir = mkdtempSync(join(tmpdir(), "pr-"));
     const branch = basename(dir);
     let issueNumber: string | null = null;
