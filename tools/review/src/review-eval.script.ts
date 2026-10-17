@@ -97,8 +97,9 @@ function lockedPermissions(pipeline: string): { allow: string[]; deny: string[] 
 /**
  * Rebuilds the case's head commit with the plant folded in, without a checkout:
  * the head's own message, parents, author and dates, minus the ` (#N)` a squash
- * merge appends, which would point the reviewer at the unplanted original. The
- * clean case goes through the same rebuild, so it looks no different.
+ * merge appends, which would point the reviewer at the unplanted original; a
+ * spec case squashes onto its base instead (below). A clean case goes through
+ * the same rebuild, so it looks no different from its planted twin.
  */
 function plantCommit(evalCase: EvalCase, scratch: string): { sha: string; line: number | null } {
   const { plant, head } = evalCase;
