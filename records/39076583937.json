@@ -1,0 +1,160 @@
+{
+  "schema_version": 5,
+  "timestamp": "2026-10-17T22:53:41.732Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "39076583937",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/39076583937",
+  "actor": "AlexisBalayre",
+  "commit_sha": "73ecb413295e74540fe64a8b02d4b88b05e09c5c",
+  "source": "pr",
+  "pr_number": 30,
+  "action": "review",
+  "reviewers_spawned": [
+    "security",
+    "correctness",
+    "maintainability",
+    "conventions",
+    "docs"
+  ],
+  "reviewers_returned": [
+    "security",
+    "correctness",
+    "maintainability",
+    "conventions",
+    "docs"
+  ],
+  "reviewers_skipped": [
+    "context"
+  ],
+  "review_mode": "incremental",
+  "incremental_from_sha": "9ffb2c0859424a099b3dd8e28d6046fb0a1a1113",
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [
+    {
+      "file": "tools/review/src/review-body.utils.ts",
+      "line": "22-24",
+      "status": "resolved"
+    }
+  ],
+  "findings": [
+    {
+      "file": "tools/review/src/review-body.utils.ts",
+      "line": "34-36",
+      "area": "correctness",
+      "confidence": "high",
+      "tag": "important",
+      "description": "inertFences' unanchored regex matches the last run of 3+ backticks (or 3+ tildes) anywhere on a line and replaces it plus everything after it with ```text. Any line where such a run is followed by text that is not a plain token loses the rest of the line. This happens to prose and to code inside fenced blocks in the finding text. It also happens to finding.suggestion, which line 53 passes through inertFences, so a committable suggestion is silently corrupted. The old line-start regex left these lines alone.",
+      "body": "**A mid-line backtick run deletes the rest of its line, including inside a committable suggestion**\n\n```ts\n/(`{3,})([^`\\n]*)$|(~{3,})([^\\n]*)$/gm,\n(match, ticks?: string, tickInfo?: string, tildes?: string, tildeInfo?: string) =>\n  isPlainLanguage(tickInfo ?? tildeInfo ?? \"\") ? match : `${ticks ?? tildes}text`,\n```\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/73ecb413295e74540fe64a8b02d4b88b05e09c5c/tools/review/src/review-body.utils.ts#L34-L36\n\nThe regex is not anchored to the start of the line. Its backtick branch matches the **last** run of 3+ backticks on a line where no further backtick follows before the end of the line. Its tilde branch matches from the first run of 3+ tildes. The replacement throws away the captured info and returns only `` ```text ``, so whenever the rest of that line is not a plain token, the rest of the line is deleted. Traced by hand:\n\n- Prose: `Wrap the fix in a ```ts block before posting` becomes `Wrap the fix in a ```text`.\n- `const fence = \"```\";` becomes `const fence = \"```text`.\n- This file's own line 53: `..., inertFences(finding.suggestion), \"```\");` becomes `..., inertFences(finding.suggestion), \"```text`.\n\nThe worst case is `finding.suggestion`, because line 53 passes it through `inertFences` too:\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/73ecb413295e74540fe64a8b02d4b88b05e09c5c/tools/review/src/review-body.utils.ts#L53\n\nA suggestion that touches code which builds markdown (common in this repo) is posted with its lines cut short, and \"Commit suggestion\" then commits broken code. The previous regex only matched `suggestion` right after a container prefix at the start of a line, so these lines used to pass through unchanged. GitHub doesn't treat a mid-line run as a fence anyway, so rewriting it only destroys content. The inline-code test case `use a ```` ```suggestion ```` fence` passes only because the trailing text is the single word ` fence`. Add ` here` and the output is `use a ```` ```suggestion ````text`.\n\nPossible fix:\n1. Stop running the suggestion through `inertFences`. Open its fence with a backtick run longer than the longest run inside it, so it can't close early and stays verbatim.\n2. For finding text, keep the info string instead of dropping it, e.g. `${ticks ?? tildes}text${info}`, so the language always starts with `text` and no prose is lost. You could also anchor the match to a container prefix that includes footnote labels.",
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-body.utils.ts",
+      "line": "38-42",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "important",
+      "description": "The `<pre lang>` neutraliser only rewrites the first `\\blang\\s*=` it finds after each `<pre`, and `[^>]*?` cannot get past a `>` inside a quoted attribute. So `<pre title=\"lang=ts\" lang=\"suggestion\">`, `<pre data-lang=\"ts\" lang=\"suggestion\">` and `<pre title=\">\" lang=\"suggestion\">` all pass through unchanged. GitHub's HTML parser still sees `lang=\"suggestion\"` on the `<pre>`. Confidence is medium only because whether GitHub's sanitizer keeps `lang` on raw `<pre>` is a GitHub internal; the existing test treats that vector as real.",
+      "body": "**The raw `<pre lang>` pass can still be bypassed**\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/73ecb413295e74540fe64a8b02d4b88b05e09c5c/tools/review/src/review-body.utils.ts#L38-L42\n\n```ts\n.replace(\n  /(<pre\\b[^>]*?\\blang\\s*=\\s*)(\"[^\"]*\"|'[^']*'|[^\\s>]*)/gi,\n```\n\nThe regex matches `<pre` up to the first `lang=` that has a word boundary before it, then checks only that one value. The value branch `[^\\s>]*` can match an empty string, so the match never backtracks to a later `lang`. Under `/g`, the next match needs a new `<pre`. Three inputs get through with the real attribute untouched:\n\n- `<pre data-lang=\"ts\" lang=\"suggestion\">evil();</pre>`: `\\blang` matches inside `data-lang`, `ts` is plain, so the match is kept and the real `lang` is never checked.\n- `<pre title=\"lang=ts\" lang=\"suggestion\">evil();</pre>`: the match lands inside the `title` value. `[^\\s>]*` takes `ts\"`, which strips to `ts` and counts as plain.\n- `<pre title=\">\" lang=\"suggestion\">evil();</pre>`: `[^>]*?` stops at the quoted `>`, so nothing matches.\n\nIn each case an HTML parser still sees `lang=\"suggestion\"` on the `<pre>`. The text reaches `commentBody` through `body`, `description` and `suggestion`. This assumes GitHub's sanitizer keeps `lang` on raw `<pre>`, which is what the `a raw pre block` test already assumes. Confidence is medium for that reason.\n\nOne fix: drop the `<pre` anchor and check every `lang=` in the text. A kept value can only contain `[\\w+#.-]` plus quotes, so no `lang=` can hide inside one, and rewriting a non-plain `lang=` in prose does no harm.",
+      "suggestion": "    .replace(\n      /(\\blang\\s*=\\s*)(\"[^\"]*\"|'[^']*'|[^\\s>]*)/gi,\n      (match, attribute: string, value: string) =>\n        isPlainLanguage(value.replace(/^[\"']|[\"']$/g, \"\")) ? match : `${attribute}\"text\"`,\n    );"
+    },
+    {
+      "file": "tools/review/src/review-body.utils.ts",
+      "line": "27-30",
+      "area": "docs",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "The comment above `inertFences` says that instead of spotting the word, every fence whose language is not a plain token becomes `text`. But `suggestion` is itself a plain token, and `isPlainLanguage` also rejects any language that starts with `suggestion`. So the code does spot the word, and a reader who trusts the comment would think a bare ```suggestion fence passes through. Reword it to \"...whose language is not a plain token, or starts with `suggestion`, becomes `text`.\"",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-body.utils.ts",
+      "line": "33-37",
+      "area": "maintainability",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The two-branch fence regex `(`{3,})([^`\\n]*)$|(~{3,})([^\\n]*)$` forces a five-argument callback with `ticks ?? tildes` and `tickInfo ?? tildeInfo` fallbacks. A single group, `(`{3,}|~{3,})([^\\n]*)$`, plus a check that leaves a backtick fence alone when its info contains a backtick, would remove the paired optional parameters.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/test/unit/review-body-utils.test.ts",
+      "line": "89-94",
+      "area": "maintainability",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The 'leaves as written' cases miss the other new boundaries. No test covers a non-suggestion language that isn't plain (```ts title=x), a `<pre lang>` with a plain language that must stay as it is, or the unquoted and single-quoted `<pre lang=...>` forms. Those forms go through the quote-stripping logic, so they are the likeliest to regress unnoticed.",
+      "body": null,
+      "suggestion": null
+    }
+  ],
+  "refuted_findings": [],
+  "process_issues": [
+    {
+      "component": "platform",
+      "description": "Several subagents had `git -C <repo> diff/show` denied by the Bash permission guard; plain `git diff`/`git show` from the repo root worked, so no coverage was lost."
+    }
+  ],
+  "comments_posted_actual": 2,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 1.7882076000000002,
+  "duration_ms": 241423,
+  "num_turns": 15,
+  "tokens": {
+    "input": 14,
+    "output": 11786,
+    "cache_read": 270936,
+    "cache_creation": 47139,
+    "total": 329875
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 50,
+      "output": 40263,
+      "cache_read": 465822,
+      "cache_creation": 114905,
+      "cost_usd": 1.6145664000000004
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 16,
+      "output": 4733,
+      "cache_read": 78146,
+      "cache_creation": 44260,
+      "cost_usd": 0.17364120000000002
+    }
+  ],
+  "permission_denials": [
+    {
+      "tool": "Bash",
+      "input": "git diff 9ffb2c0..HEAD; git log -1 --format=%B HEAD; git show origin/ci/review-metrics:records/39076060609.json | python3 -c \"import json,sys;d=json.load(sys.stdin);[print(f['file'],f['line'],f['tag']"
+    },
+    {
+      "tool": "Bash",
+      "input": "git -C /home/runner/work/claude-code-config/claude-code-config diff 9ffb2c0859424a099b3dd8e28d6046fb0a1a1113..HEAD"
+    },
+    {
+      "tool": "Bash",
+      "input": "git -C /home/runner/work/claude-code-config/claude-code-config diff 9ffb2c0859424a099b3dd8e28d6046fb0a1a1113..HEAD"
+    },
+    {
+      "tool": "Bash",
+      "input": "git -C /home/runner/work/claude-code-config/claude-code-config show 9ffb2c0859424a099b3dd8e28d6046fb0a1a1113:tools/review/src/review-body.utils.ts; git -C /home/runner/work/claude-code-config/claude-c"
+    },
+    {
+      "tool": "Bash",
+      "input": "git -C /home/runner/work/claude-code-config/claude-code-config show 9ffb2c0859424a099b3dd8e28d6046fb0a1a1113:tools/review/src/review-body.utils.ts"
+    },
+    {
+      "tool": "Bash",
+      "input": "git -C /home/runner/work/claude-code-config/claude-code-config show 73ecb41 -- tools/review/src/review-body.utils.ts"
+    },
+    {
+      "tool": "Bash",
+      "input": "git -C /home/runner/work/claude-code-config/claude-code-config log --oneline -8 -- tools/review/src/review-body.utils.ts; git -C /home/runner/work/claude-code-config/claude-code-config diff main...73e"
+    }
+  ]
+}
