@@ -58,8 +58,8 @@ function headRefOid(prNumber: string): string {
 function priorRecords(prNumber: string): PriorRecord[] {
   let hits: string;
   try {
-    // `:(top)` anchors the pathspec at the repo root: `pnpm --filter` runs this
-    // from the package directory, where a plain `records/` would match nothing.
+    // `:(top)` anchors the pathspec at the repo root: run from the package
+    // directory (tests, a local run), a plain `records/` would match nothing.
     hits = git("grep", "-l", `"pr_number": ${prNumber},`, METRICS_REF, "--", ":(top)records/");
   } catch {
     // git grep exits non-zero on no match and when the ref is absent; either

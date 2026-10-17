@@ -206,8 +206,9 @@ jobs:
           fi
 
       # The Bash sandbox below needs these on Linux, plus the unprivileged user
-      # namespaces Ubuntu 24.04 restricts: the same setup claude-code-action
-      # makes for its own subprocess isolation.
+      # namespaces Ubuntu 24.04 restricts. claude-code-action makes the same
+      # setup only when `allowed_non_write_users` is set, which this workflow
+      # never sets, and without it failIfUnavailable fails every review.
       - name: Install the Bash sandbox
         if: steps.pr-head.outputs.skip != 'true' && steps.preflight.outputs.skip != 'true'
         run: |
@@ -222,23 +223,29 @@ jobs:
 
       # Managed settings are the one rule source no repo file can widen: with
       # allowManagedPermissionRulesOnly, the grants written for local use (the
-      # skill's allowed-tools, .claude/settings.json) stop counting, so `allow`
-      # is everything the model can run, and dontAsk refuses the rest rather
-      # than leave it to a mode default that can be auto mode, whose classifier
-      # approves commands no rule names. Every verb the protocol needs is
-      # listed, and none writes: the poster below is the review's only writer,
-      # so a PR whose diff tells the reviewer to post something has no channel
-      # to do it through. `git fetch` and `git checkout` stay out because the
-      # only checkout the model could want reverts the action's config restore.
-      # `git diff *` keeps its space so it cannot match `git difftool`, which
-      # runs a command, and `git grep` stays out because `-O` runs one (the Grep
-      # tool covers it). `deny` strips the write forms of the allowed verbs:
-      # `--output` makes any git diff, log or show write a file of its choosing,
-      # and gh api's method and field flags make a call a write. The sandbox
-      # confines what an allowed call can still reach: no write outside the
-      # checkout (the runner's $GITHUB_ENV and the tooling copy among them) and
-      # no host but GitHub's API; failIfUnavailable makes a sandbox that cannot
-      # start fail the run, never run it unsandboxed.
+      # skill's allowed-tools, .claude/settings.json) stop counting. `allow`
+      # lists every Bash verb the protocol runs; Read, Glob, Grep and Agent need
+      # no rule inside the checkout. Anything else would prompt, and with nobody
+      # to answer it is refused and lands in the record's permission_denials, so
+      # a verb the skill starts using must be added here. That holds in default
+      # mode, which CLAUDE_CODE_SUBPROCESS_ENV_SCRUB forces, and in dontAsk, the
+      # mode set here for a run without the scrub; auto mode, whose classifier
+      # approves commands no rule names, is off either way. None of the verbs
+      # writes: the poster below is the review's only writer, so a PR whose diff
+      # tells the reviewer to post something has no channel to do it through.
+      # `gh api` stays out because no deny pattern can hold it read-only: gh
+      # bundles short flags (`-if body=x` is a POST). `git fetch` and `git
+      # checkout` stay out because the only checkout the model could want
+      # reverts the action's config restore. `git diff *` keeps its space so it
+      # cannot match `git difftool`, which runs a command, and `git grep` stays
+      # out because `-O` runs one (the Grep tool covers it). `deny` holds the
+      # file tools in every mode, since a --permission-mode flag outranks the
+      # mode set here (the action's tag mode passes acceptEdits), and strips
+      # `--output`, which makes any git diff, log or show write a file of its
+      # choosing. The sandbox confines what an allowed call can still reach: no
+      # write outside the checkout (the runner's $GITHUB_ENV and the tooling
+      # copy among them) and no host but GitHub's API; failIfUnavailable makes a
+      # sandbox that cannot start fail the run, never run it unsandboxed.
       - name: Lock the review's permissions
         if: steps.pr-head.outputs.skip != 'true' && steps.preflight.outputs.skip != 'true'
         run: |
@@ -255,7 +262,6 @@ jobs:
                 "StructuredOutput",
                 "Bash(gh pr diff*)",
                 "Bash(gh pr view*)",
-                "Bash(gh api repos/*)",
                 "Bash(git diff *)",
                 "Bash(git status*)",
                 "Bash(git log*)",
@@ -268,12 +274,7 @@ jobs:
                 "Edit",
                 "Write",
                 "NotebookEdit",
-                "Bash(git *--output*)",
-                "Bash(gh api*-X*)",
-                "Bash(gh api*--method*)",
-                "Bash(gh api*-f*)",
-                "Bash(gh api*-F*)",
-                "Bash(gh api*--input*)"
+                "Bash(git *--output*)"
               ]
             },
             "sandbox": {
@@ -356,7 +357,9 @@ jobs:
           REVIEW_MERGE_BASE: ${{ steps.preflight.outputs.merge_base }}
           REVIEW_PARTIAL: ${{ steps.preflight.outputs.partial }}
           GH_TOKEN: ${{ github.token }}
-          REVIEW_POSTED_OUTPUT: ${{ github.workspace }}/posted.json
+          # Under the runner's temp, never the checkout: a fork can commit
+          # posted.json as a symlink into the tooling copy, and the write follows it.
+          REVIEW_POSTED_OUTPUT: ${{ runner.temp }}/posted.json
         run: node "$REVIEW_TOOLING/node_modules/tsx/dist/cli.mjs" "$REVIEW_TOOLING/src/post-review.script.ts"
 
       # The poster picks the reaction; a run it never finished (a failed
@@ -387,9 +390,9 @@ jobs:
           REVIEW_STEP_OUTCOME: ${{ steps.claude-review.outcome }}
           REVIEW_PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
           REVIEW_COMMIT_SHA: ${{ steps.preflight.outputs.sha }}
-          REVIEW_POSTED_INPUT: ${{ github.workspace }}/posted.json
+          REVIEW_POSTED_INPUT: ${{ runner.temp }}/posted.json
           REVIEW_COMMENT: ${{ github.event.comment.body }}
-          REVIEW_METRICS_OUTPUT: ${{ github.workspace }}/review-metrics.json
+          REVIEW_METRICS_OUTPUT: ${{ runner.temp }}/review-metrics.json
         run: node "$REVIEW_TOOLING/node_modules/tsx/dist/cli.mjs" "$REVIEW_TOOLING/src/review-metrics.script.ts"
 
       - name: Upload review metrics
@@ -397,7 +400,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: review-metrics
-          path: review-metrics.json
+          path: ${{ runner.temp }}/review-metrics.json
           if-no-files-found: warn
 
   # Artifacts expire after 90 days, which would erase the retro's history; the
