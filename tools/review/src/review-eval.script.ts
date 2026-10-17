@@ -424,6 +424,7 @@ function main(): void {
         () =>
           prNumber ? gh("pr", "close", prNumber, "--delete-branch") : git(["push", "-q", "origin", "--delete", branch]),
         () => git(["push", "-q", "origin", "--delete", `${branch}-base`]),
+        () => issueNumber && gh("issue", "close", issueNumber),
         () => issueNumber && gh("issue", "delete", issueNumber, "--yes"),
         () => rmSync(dir, { recursive: true, force: true }),
       ];
