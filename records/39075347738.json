@@ -1,0 +1,95 @@
+{
+  "schema_version": 5,
+  "timestamp": "2026-10-17T22:33:25.611Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "39075347738",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/39075347738",
+  "actor": "AlexisBalayre",
+  "commit_sha": "cc5306c60d53a6d14d8a2ca6237f1a679c2741d9",
+  "source": "pr",
+  "pr_number": 30,
+  "action": "review",
+  "reviewers_spawned": [
+    "correctness",
+    "security",
+    "conventions",
+    "docs"
+  ],
+  "reviewers_returned": [
+    "correctness",
+    "security",
+    "conventions",
+    "docs"
+  ],
+  "reviewers_skipped": [
+    "context",
+    "maintainability"
+  ],
+  "review_mode": "incremental",
+  "incremental_from_sha": "10f1e85717975657bc17bb3200b307ff56d49637",
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [
+    {
+      "file": ".claude/skills/pr-ci-review/SKILL.md",
+      "line": "154",
+      "status": "resolved"
+    }
+  ],
+  "findings": [
+    {
+      "file": ".claude/skills/pr-ci-review/SKILL.md",
+      "line": "154",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "important",
+      "description": "The rewrite of §8 replaced \"A `spec` finding's `suggestion` is always `null`\" with \"A `suggestion` that `review-spec` wrote is always `null`\". That rule now depends on who wrote the suggestion. But the orchestrator writes suggestions too: the checklist (L183) says \"write `body` and `suggestion` for every important\", and §8 is addressed to the orchestrator. With `review-spec` now always returning a null suggestion (review-spec.md L14), the remaining way issue text reaches a committable block is the orchestrator writing one from `review-spec`'s description, which quotes the issue. That covers a `spec`-area finding and one moved into `correctness`/`security` by §6 or a merge. The old wording blocked this for `spec`-area findings. The new wording blocks it for none. The poster (tools/review/src/post-review.script.ts L74-78) renders any non-null suggestion as a committable ```suggestion``` block when the anchor isn't relocated. The fix is to key on the finding's origin instead of on who wrote the suggestion.",
+      "body": "This change ties the null-suggestion rule to who wrote the suggestion, and removes the old area-based rule (\"A `spec` finding's `suggestion` is always `null`\").\n\nThe orchestrator writes `suggestion` too. Two places say so:\n- The checklist, [SKILL.md#L183](https://github.com/AlexisBalayre/claude-code-config/blob/cc5306c60d53a6d14d8a2ca6237f1a679c2741d9/.claude/skills/pr-ci-review/SKILL.md#L183-L183): \"write `body` and `suggestion` for every important\".\n- The §8 bullets, which address the orchestrator directly.\n\n`review-spec` now always returns `null` ([review-spec.md#L14](https://github.com/AlexisBalayre/claude-code-config/blob/cc5306c60d53a6d14d8a2ca6237f1a679c2741d9/.claude/agents/review-spec.md#L14-L14)). One path is left: the orchestrator writes a suggestion from `review-spec`'s description, which quotes issue text that anyone may have written. That path works for a `spec` finding, and for one §6 or a merge moved to `correctness`/`security`.\n\nNothing downstream catches it:\n- `review-validator.md` never looks at `suggestion`.\n- The schema doesn't tie `suggestion` to `area`.\n- `tools/review/src/post-review.script.ts` L74-78 renders any non-null suggestion as a committable ```` ```suggestion ```` block unless it had to move the anchor.\n\nThe old wording blocked this for `spec` findings; the new wording blocks it for none.\n\n[SKILL.md#L154](https://github.com/AlexisBalayre/claude-code-config/blob/cc5306c60d53a6d14d8a2ca6237f1a679c2741d9/.claude/skills/pr-ci-review/SKILL.md#L154-L154)\n\nFix: base the rule on where the finding came from (any finding `review-spec` raised), not on who writes the suggestion.",
+      "suggestion": "- **`suggestion` is committable code, so it must be exactly right.** Only for a small self-contained fix that resolves the finding entirely. The poster renders it as an inert fence rather than a committable block whenever it had to relocate the anchor, since applying it there would rewrite a line the finding never mentioned. A finding `review-spec` raised has a `null` `suggestion`, whoever would write it and whatever area the finding ends up in (§6), a merge included: its fix would rest on issue text, which the validator can only check against that same text (why `--fix` skips a `spec` finding)."
+    },
+    {
+      "file": ".claude/skills/pr-ci-review/SKILL.md",
+      "line": "142",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "Local `--fix` still decides by area alone: \"apply each confirmed finding except a `spec` one\". A `review-spec` finding that §6 moves to `correctness`/`security`, or merges into another reviewer's finding, is still applied automatically. The orchestrator writes that edit from a description quoting issue text, which is the same provenance gap this delta closed for suggestions. The L154 text this delta added justifies itself with \"(why `--fix` skips a `spec` finding)\", so the two rules now use different keys. The impact is limited to a local run with a user present who sees the edit and the post-verify. The fix is to skip any finding `review-spec` raised, not only `spec`-area ones.",
+      "body": null,
+      "suggestion": null
+    }
+  ],
+  "refuted_findings": [],
+  "process_issues": [],
+  "comments_posted_actual": 1,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 1.3017161000000002,
+  "duration_ms": 141767,
+  "num_turns": 12,
+  "tokens": {
+    "input": 14,
+    "output": 9219,
+    "cache_read": 279367,
+    "cache_creation": 43298,
+    "total": 331898
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 40,
+      "output": 22486,
+      "cache_read": 455221,
+      "cache_creation": 107150,
+      "cost_usd": 1.2065682
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 12,
+      "output": 2005,
+      "cache_read": 63357,
+      "cache_creation": 24961,
+      "cost_usd": 0.09514790000000001
+    }
+  ],
+  "permission_denials": []
+}
