@@ -1,0 +1,145 @@
+{
+  "schema_version": 5,
+  "timestamp": "2026-10-17T23:26:06.079Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "39078539149",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/39078539149",
+  "actor": "AlexisBalayre",
+  "commit_sha": "799fa4868ee037b7e7c97d6988bcf43ea516acdb",
+  "source": "pr",
+  "pr_number": 30,
+  "action": "review",
+  "reviewers_spawned": [
+    "correctness",
+    "security",
+    "maintainability",
+    "conventions",
+    "docs"
+  ],
+  "reviewers_returned": [
+    "correctness",
+    "security",
+    "maintainability",
+    "conventions",
+    "docs"
+  ],
+  "reviewers_skipped": [
+    "context"
+  ],
+  "review_mode": "incremental",
+  "incremental_from_sha": "30f8210cf72a9a19d923236340d637c0323d86dd",
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [
+    {
+      "file": "tools/review/src/review-body.utils.ts",
+      "line": "43-51",
+      "status": "resolved"
+    }
+  ],
+  "findings": [
+    {
+      "file": "tools/review/src/review-body.utils.ts",
+      "line": "49-61",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "important",
+      "description": "A `<pre a=\"` that GitHub never reads as a tag (inside a code span, a code block, an HTML comment or another tag's attribute) swallows a later real `<pre lang=\"suggestion\">`, and that tag is posted unchanged.",
+      "body": "**A `<pre` that is only text, with an open quote, hides a later real `<pre lang=\"suggestion\">`**\n\n`PRE_TAG` reads every `<pre` in the body as the start of a real tag. That includes one GitHub never parses as HTML: a code span, a fenced block, an HTML comment, prose with an unclosed quote. From such a `<pre`, `\"[^\"]*\"?` runs to the next `\"` anywhere in the body, across newlines and past a real tag that follows. The global `replace` then picks up after the match, so the real tag is never scanned on its own:\n\n```ts\n    .replace(\n      PRE_TAG,\n      (tag) =>\n        tag.slice(0, 4) +\n        tag\n          .slice(4)\n          .replace(TAG_ATTRIBUTE, ...\n```\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/799fa4868ee037b7e7c97d6988bcf43ea516acdb/tools/review/src/review-body.utils.ts#L49-L61\n\nInput:\n````\n`<pre a=\"`\n<pre lang=\"suggestion\">evil();</pre>\n````\n\n- `PRE_TAG` matches `` <pre a=\"`\\n<pre lang=\"suggestion\" ``.\n- `TAG_ATTRIBUTE` sees the name `a` with the value `` \"`\\n<pre lang=\" ``, then the bare name `suggestion\"`. Neither is `lang`.\n- The scan resumes at `>evil();</pre>`, where no `<pre` is left, so the output equals the input.\n\nGitHub renders line 1 as a code span. Line 2 opens an HTML block (type 1, which can interrupt a paragraph), and `lang=\"suggestion\"` survives on it. `Avoid <pre a=\" in prose.\\n\\n<pre lang=\"suggestion\">…` goes through the same way, as does a fenced block, `<!-- <pre a=\" -->`, or `<div title='<pre a=\"'>` placed before the real tag. At 30f8210 the scoped `\\blang\\s*=` scan ignored quoting and rewrote all of these, so this commit trades the quoted-`</pre` bypass for a new one. (Whether the renderer shows a live suggestion rests on this module's own premise, so confidence is medium.)\n\nFix direction: tokenize from every `<pre(?=[\\s/>])` position, not only the ones an earlier match did not consume. For example, collect the start positions and walk them right to left, running a sticky (`y`) `PRE_TAG` at each one on the current string. Every later tag is then rewritten before an earlier fake tag can absorb it, and rewriting only ever makes text inert, so extra rewrites are safe. Keep the scan linear: a naive rescan at each start of repeated `<pre a=\"` would be quadratic. Please add the input above to the 'makes %s quoted in a finding inert' table.",
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-body.utils.ts",
+      "line": "28-29",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "important",
+      "description": "In a blockquote, when a `<pre` tag spans more than one line, the `>` marker at the start of the next line ends the tag in `PRE_TAG`. GitHub removes that marker before parsing the HTML, so the `lang=\"suggestion\"` after it is posted unchanged.",
+      "body": "**A blockquote's `>` marker ends the tag early for `PRE_TAG`, but not for GitHub**\n\n`PRE_TAG` and `TAG_ATTRIBUTE` treat any `>` outside a quoted value as the end of the tag. On a continuation line in a blockquote, markdown removes the `> ` marker before the HTML reaches the parser:\n\n```ts\nconst PRE_TAG = /<pre(?=[\\s/>])(?:[\\s/]+|[^\\s/>][^\\s/>=]*(?:\\s*=\\s*(?:\"[^\"]*\"?|'[^']*'?|[^\\s>]*))?)*/gi;\nconst TAG_ATTRIBUTE = /[\\s/]+|([^\\s/>][^\\s/>=]*)(?:\\s*=\\s*(\"[^\"]*\"?|'[^']*'?|[^\\s>]*))?/g;\n```\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/799fa4868ee037b7e7c97d6988bcf43ea516acdb/tools/review/src/review-body.utils.ts#L28-L29\n\nInput:\n```\n> <pre\n> lang=\"suggestion\">evil();</pre>\n```\n\n`PRE_TAG` matches `<pre\\n` and stops at the blockquote `>`. `lang=\"suggestion\"` is never scanned, and the output equals the input. cmark-gfm opens a type-1 HTML block in the quote (`<pre` followed by end of line) and removes the marker from line 2, so the HTML it emits is `<pre\\nlang=\"suggestion\">evil();</pre>`. At 30f8210 the scoped scan ran to `</pre` and rewrote this input, so it is a regression. Putting the old scan back alongside the new one would not close it either: `> <pre title=\"</pre\"\\n> lang=suggestion>` gets past both. (Renderer behaviour, so confidence is medium.)\n\nFix direction: in both regexes, count a line break followed by blockquote markers (`\\r?\\n(?:[^\\S\\r\\n]*>)*`) as whitespace. It has to come before the generic `[\\s/]+` alternative and also go inside the `\\s*=\\s*` separator. The cost is that a real `<pre\\n>` outside a blockquote makes the scan read into the next line, which can only over-rewrite. Please add the input above as a test row.",
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-body.utils.ts",
+      "line": "28-29",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "important",
+      "description": "JavaScript's `\\s` matches characters HTML does not count as whitespace (U+00A0, U+000B, U+FEFF, U+2000-U+200A, U+3000 and others). HTML whitespace is only tab, LF, FF, CR and space. In `\\s*=\\s*`, `\\s` accepts NBSP before a quoted value where HTML starts an unquoted value instead, so the regex opens a quote HTML never opens.",
+      "body": "**JS `\\s` is wider than HTML whitespace, so the regex opens a quote HTML never opens**\n\n`PRE_TAG` and `TAG_ATTRIBUTE` use `\\s` wherever the HTML tokenizer skips whitespace. JS `\\s` also covers U+00A0, U+000B, U+FEFF, U+2000–U+200A, U+3000 and others. HTML whitespace is only tab, LF, FF, CR (normalised to LF) and space.\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/799fa4868ee037b7e7c97d6988bcf43ea516acdb/tools/review/src/review-body.utils.ts#L28-L29\n\nInput (with ` ` written as NBSP): `<pre a= \"x lang=suggestion \">evil();</pre>`\n\n- **HTML5:** after `=`, NBSP is not whitespace, so it starts the unquoted value ` \"x`, which ends at the space. `lang=suggestion` is a real attribute, `\"` becomes a junk attribute name, and `>` closes the tag.\n- **Regex:** `\\s*=\\s*` takes the NBSP, then `\"[^\"]*\"?` reads `\"x lang=suggestion \"` as a single quoted value. `TAG_ATTRIBUTE` sees only `a`, so `lang` is posted unchanged.\n\nThe end of an unquoted value (`[^\\s>]*`) fails the same way: `<pre a=b c=\"x lang=suggestion \">`. A NBSP that `\\s` treats as a break between names only over-rewrites, which is harmless. At 30f8210 the `\\blang\\s*=` scan caught both inputs. cmark-gfm opens the type-1 HTML block without checking attribute syntax, so the bytes reach the sanitizer unchanged. Whether `lang` survives there rests on this module's own premise, so confidence is medium.\n\nUse HTML's whitespace set in both regexes, and add the input above as a test row.",
+      "suggestion": "const PRE_TAG = /<pre(?=[\\t\\n\\f\\r />])(?:[\\t\\n\\f\\r /]+|[^\\t\\n\\f\\r />][^\\t\\n\\f\\r />=]*(?:[\\t\\n\\f\\r ]*=[\\t\\n\\f\\r ]*(?:\"[^\"]*\"?|'[^']*'?|[^\\t\\n\\f\\r >]*))?)*/gi;\nconst TAG_ATTRIBUTE = /[\\t\\n\\f\\r /]+|([^\\t\\n\\f\\r />][^\\t\\n\\f\\r />=]*)(?:[\\t\\n\\f\\r ]*=[\\t\\n\\f\\r ]*(\"[^\"]*\"?|'[^']*'?|[^\\t\\n\\f\\r >]*))?/g;"
+    },
+    {
+      "file": "tools/review/src/review-body.utils.ts",
+      "line": "25-30",
+      "area": "maintainability",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "`PRE_TAG` and `TAG_ATTRIBUTE` each spell out the same attribute grammar (the name class, the `\\s*=\\s*` separator, the three value forms), and they must stay in lockstep. If one gains a form the other lacks, `PRE_TAG` ends the tag at a different point from where `TAG_ATTRIBUTE` tokenizes it. Building both from shared source fragments with `new RegExp` would remove the drift risk.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-body.utils.ts",
+      "line": "50-60",
+      "area": "maintainability",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "`tag.slice(0, 4)` / `.slice(4)` hard-code the length of `<pre`, which the regex only implies. Capturing `(<pre)` in `PRE_TAG` and reusing it in the replacer, or running a sticky `TAG_ATTRIBUTE` from `lastIndex = 4`, would remove the coupling.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/test/unit/review-body-utils.test.ts",
+      "line": "126-131",
+      "area": "maintainability",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The footnote-label linear-time test asserts with wall-clock time (`toBeLessThan(100)`), which can flake on a loaded CI runner. The margin is wide (2^28 steps against microseconds), so the risk is low. A one-line WHY naming the exponential-backtracking regression it guards would make a failure easier to read.",
+      "body": null,
+      "suggestion": null
+    }
+  ],
+  "refuted_findings": [],
+  "process_issues": [],
+  "comments_posted_actual": 3,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 2.2935906,
+  "duration_ms": 389542,
+  "num_turns": 17,
+  "tokens": {
+    "input": 14,
+    "output": 14044,
+    "cache_read": 271344,
+    "cache_creation": 52414,
+    "total": 337816
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 42,
+      "output": 59621,
+      "cache_read": 398056,
+      "cache_creation": 143024,
+      "cost_usd": 2.1445612
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 18,
+      "output": 4374,
+      "cache_read": 80017,
+      "cache_creation": 35700,
+      "cost_usd": 0.14902940000000003
+    }
+  ],
+  "permission_denials": [
+    {
+      "tool": "Bash",
+      "input": "git show origin/ci/review-metrics:records/39077860018.json | python3 -c \"import json,sys;d=json.load(sys.stdin);[print(f['tag'],f['file'],f['line'],f['description'][:200]) for f in d['findings']]\"; gi"
+    },
+    {
+      "tool": "Bash",
+      "input": "git -C /home/runner/work/claude-code-config/claude-code-config show 30f8210:tools/review/src/review-body.utils.ts"
+    }
+  ]
+}
