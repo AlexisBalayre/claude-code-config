@@ -224,7 +224,7 @@ function main(): void {
     // The workflow puts this reaction on the `@claude review` comment; a local
     // run has no step to hand it to.
     if (env.GITHUB_OUTPUT) {
-      const reaction = failure ? "confused" : importants > 0 ? "-1" : partial ? "+1" : "rocket";
+      const reaction = failure ? "confused" : partial ? "+1" : importants > 0 ? "-1" : "rocket";
       appendFileSync(env.GITHUB_OUTPUT, `reaction=${reaction}\n`);
     }
     const output = env.REVIEW_POSTED_OUTPUT ?? "posted.json";
