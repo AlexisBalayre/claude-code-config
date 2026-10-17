@@ -84,6 +84,6 @@ opens it as an issue whose title is the PR's, and the PR's body only closes it, 
 squashed under a bare subject, so the requirements reach the reviewer through the issue alone; that
 is what spawns the spec reviewer. The issue is deleted afterwards, which takes admin rights on the
 repo: without them it stays open, and the run prints the failed cleanup. `--budget` caps the
-spend (default $10); a case that dies before reporting its cost is charged its full $5 cap.
+spend (default $10); a case whose run reports no cost is charged its cap (up to $5).
 `--pipeline` picks whose `.claude/` and lock review, so two versions of the protocol score on the
 same cases; that ref's hooks run on your machine unsandboxed, so point it only at a ref you trust.
