@@ -13,7 +13,7 @@ import { type Finding, reviewSummarySchema } from "./review-metrics.schemas";
  * reviewers supply.
  *
  * Without --run it plants each case and prints the planted hunk, which spends
- * nothing. With --run it pushes a pair of `pr/<run>-<n>` branches per case,
+ * nothing. With --run it pushes a pair of `pr-<run>-<n>` branches per case,
  * opens a draft PR on them under the replayed PR's own title and body (the
  * workflow reviews a draft only on a `@claude review` comment), runs
  * /pr-ci-review against it locally the way the workflow invokes it, then closes
@@ -28,7 +28,8 @@ const WORKFLOW_FILE = ".github/workflows/claude-code-review.yml";
 // The workflow's config restore, narrowed to what this repo carries.
 const CONFIG_PATHS = [".claude", ".mcp.json", "CLAUDE.md", "AGENTS.md"];
 // The skill's own allowed-tools grant this locally, where no managed setting
-// makes the lock the only rules; CI drops it. It would swap the config back.
+// makes the lock the only rules; CI drops it. It would put the PR's config back
+// over the base branch's.
 const LOCAL_DENY = ["Bash(gh pr checkout*)"];
 // A finding this close to the plant is about it: reviewers anchor on the line
 // they reason from, which can sit a few lines off the edited one.
@@ -237,7 +238,8 @@ function review(
         ANTHROPIC_DEFAULT_OPUS_MODEL: "claude-opus-5-5",
         ANTHROPIC_DEFAULT_SONNET_MODEL: "claude-sonnet-5-5",
         CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: "1",
-        // As in CI: the shell the model drives never sees the operator's tokens.
+        // As in CI: credential-shaped variables never reach the shell the model
+        // drives. gh still reads its own login.
         CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1",
       },
     },
@@ -308,6 +310,7 @@ function main(): void {
   // NaN would pass every budget check below and cap no case.
   if (!Number.isFinite(remaining)) throw new Error(`--budget takes a USD amount, got ${args[budgetAt + 1]}`);
   const cases = z.array(caseSchema).parse(JSON.parse(readFileSync(CASES_FILE, "utf8")));
+  // The reviewer sees this directory: a neutral name, so it can't tell an eval.
   const scratch = mkdtempSync(join(tmpdir(), "pr-"));
   const planted = cases.map((evalCase) => ({ evalCase, ...plantCommit(evalCase, scratch) }));
 
@@ -337,7 +340,7 @@ function main(): void {
   const origin = git(["remote", "get-url", "origin"]);
   // Unique per run, so two runs side by side never push to or delete each
   // other's branches.
-  const tag = basename(scratch).slice("pr-".length);
+  const tag = basename(scratch);
   const resultsFile = join(scratch, "results.json");
   const outcomes: Outcome[] = [];
   for (const [index, { evalCase, sha, line }] of planted.entries()) {
@@ -345,7 +348,7 @@ function main(): void {
       process.stdout.write(`\nbudget spent; skipping ${evalCase.id} and the cases after it\n`);
       break;
     }
-    const branch = `pr/${tag}-${index + 1}`;
+    const branch = `${tag}-${index + 1}`;
     const dir = join(scratch, String(index + 1));
     let prNumber: string | null = null;
     try {
@@ -410,18 +413,20 @@ function main(): void {
 
   const scored = outcomes.filter((outcome) => outcome.verdict === "hit" || outcome.verdict === "miss");
   const hits = scored.filter((outcome) => outcome.verdict === "hit").length;
-  const clean = outcomes.filter((outcome) => outcome.verdict === "clean" || outcome.verdict === "false-positive");
-  const flagged = clean.filter((outcome) => outcome.verdict === "false-positive").length;
+  const cleanCases = outcomes.filter(
+    (outcome) => outcome.verdict === "clean" || outcome.verdict === "false-positive",
+  );
+  const flagged = cleanCases.filter((outcome) => outcome.verdict === "false-positive").length;
   const errored = outcomes.filter((outcome) => outcome.verdict === "error").length;
   const skipped = planted.length - outcomes.length;
   const spent = outcomes.reduce((sum, outcome) => sum + (outcome.cost_usd ?? 0), 0);
   const tally = [
     `recall ${hits}/${scored.length}`,
-    `${flagged}/${clean.length} clean cases flagged`,
+    `${flagged}/${cleanCases.length} clean cases flagged`,
     ...(errored ? [`${errored} errored`] : []),
     ...(skipped ? [`${skipped} skipped for budget`] : []),
   ].join(", ");
-  process.stdout.write(`\n${tally}, spent $${spent.toFixed(2)}; details in ${resultsFile}\n`);
+  process.stdout.write(`\n${tally}, reported spend $${spent.toFixed(2)}; details in ${resultsFile}\n`);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

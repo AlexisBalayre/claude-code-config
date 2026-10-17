@@ -80,6 +80,6 @@ locally under the workflow's permission lock, read from the workflow itself, wit
 grants dropped as CI drops them, but outside CI's sandbox. Then it grades the record, closes the PR
 and deletes its branches; `results.json` is rewritten after each case, and the run ends with recall
 over the planted cases and how many clean cases drew an important finding. `--budget` caps the
-spend (default $10); a case that dies before reporting its cost is charged its full $5 cap.
+spend (default $10); a case whose run reports no cost is charged its cap (up to $5).
 `--pipeline` picks whose `.claude/` and lock review, so two versions of the protocol score on the
 same cases; that ref's hooks run on your machine unsandboxed, so point it only at a ref you trust.
