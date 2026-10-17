@@ -1,0 +1,156 @@
+{
+  "schema_version": 5,
+  "timestamp": "2026-10-17T18:30:57.335Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "39058033107",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/39058033107",
+  "actor": "AlexisBalayre",
+  "commit_sha": "5878bbd70aebf395b6af35cf3da54261a25adfb3",
+  "source": "pr",
+  "pr_number": 27,
+  "action": "review",
+  "reviewers_spawned": [
+    "correctness",
+    "security",
+    "context",
+    "conventions",
+    "maintainability",
+    "docs"
+  ],
+  "reviewers_returned": [
+    "correctness",
+    "security",
+    "context",
+    "conventions",
+    "maintainability",
+    "docs"
+  ],
+  "reviewers_skipped": [],
+  "review_mode": "incremental",
+  "incremental_from_sha": "927361176e8978b1341f3b43a64aac63dcc5bfb9",
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "108",
+      "status": "resolved"
+    },
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "271-272",
+      "status": "resolved"
+    }
+  ],
+  "findings": [
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "375, 417",
+      "area": "correctness",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "A case that dies without printing a cost is now charged its cap against `remaining`, but the closing tally still sums `cost_usd ?? 0`. One crashed case can make the run print \"N skipped for budget\" next to a \"spent $X\" well below `--budget`. Sum the same `?? cap` charge in the tally, or label the figure as reported spend only.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/README.md",
+      "line": "82-83",
+      "area": "docs",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "The README says \"a case that dies before reporting its cost is charged its full $5 cap\", but the code charges `cap = Math.min(CASE_BUDGET_USD, remaining)`, which is less than $5 once under $5 remains. A case that throws before `review()` is charged nothing. Suggested wording: \"a case whose run reports no cost is charged its cap (up to $5)\".",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "31-33, 240-241",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "LOCAL_DENY only removes `gh pr checkout*` from the skill's `allowed-tools`. The skill's unscoped `Read` (plus `Glob`/`Grep`) still works locally, where CI's `allowManagedPermissionRulesOnly` would void it, so the local reviewer can read e.g. `~/.config/gh/hosts.yml`. Also, the scrub comment \"never sees the operator's tokens\" overstates it, since the workflow notes `GH_TOKEN` survives the scrub. Consider adding a home-directory `Read` deny and narrowing the comment.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "29-30",
+      "area": "docs",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The LOCAL_DENY comment's \"It would swap the config back.\" has no clear referent and doesn't say which config replaces which. Spell it out, e.g. \"`gh pr checkout` would put the PR's config back over the base-branch copy.\"",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "311, 340",
+      "area": "maintainability",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "The `\"pr-\"` prefix is written twice: in `mkdtempSync(join(tmpdir(), \"pr-\"))` and in `basename(scratch).slice(\"pr-\".length)`. If one changes without the other, the tag and branch names go wrong silently. Use one constant, or use `basename(scratch)` whole as the tag.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "118-135",
+      "area": "maintainability",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "`plantCommit` reads the six identity fields by position from `--format=%an%n%ae%n%aI%n%cn%n%ce%n%cI` and maps them to env keys by order. Reordering either side silently swaps author and committer. A small helper that builds the identity env would own that coupling.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "413-414",
+      "area": "maintainability",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "`clean` holds every clean-case outcome, flagged ones included, so the name reads as \"the unflagged ones\" in `${flagged}/${clean.length} clean cases flagged`. Calling it `cleanCases` would read correctly.",
+      "body": null,
+      "suggestion": null
+    }
+  ],
+  "refuted_findings": [],
+  "process_issues": [],
+  "comments_posted_actual": 0,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 2.3821100000000004,
+  "duration_ms": 281601,
+  "num_turns": 13,
+  "tokens": {
+    "input": 12,
+    "output": 10696,
+    "cache_read": 267493,
+    "cache_creation": 73792,
+    "total": 351993
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 38,
+      "output": 43985,
+      "cache_read": 596216,
+      "cache_creation": 165471,
+      "cost_usd": 2.0478262000000003
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 36,
+      "output": 10275,
+      "cache_read": 255309,
+      "cache_creation": 72160,
+      "cost_usd": 0.3342838
+    }
+  ],
+  "permission_denials": [
+    {
+      "tool": "Bash",
+      "input": "cd /home/runner/work/claude-code-config/claude-code-config; for h in 2d3e564c89df4f30a328d3c6a368b06793cf39f4 99c76d657cc275b2dcaebdb3012004bff62b57b0; do git rev-parse $h^@; done; git merge-base --is"
+    }
+  ]
+}
