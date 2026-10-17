@@ -1,0 +1,186 @@
+{
+  "schema_version": 5,
+  "timestamp": "2026-10-17T22:00:49.407Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "39072953590",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/39072953590",
+  "actor": "AlexisBalayre",
+  "commit_sha": "877f643375500fdac8505e030fccd47273384f57",
+  "source": "pr",
+  "pr_number": 30,
+  "action": "review",
+  "reviewers_spawned": [
+    "correctness",
+    "correctness",
+    "security",
+    "security",
+    "context",
+    "conventions",
+    "maintainability",
+    "maintainability",
+    "docs"
+  ],
+  "reviewers_returned": [
+    "correctness",
+    "correctness",
+    "security",
+    "security",
+    "context",
+    "conventions",
+    "maintainability",
+    "maintainability",
+    "docs"
+  ],
+  "reviewers_skipped": [],
+  "review_mode": "full",
+  "incremental_from_sha": null,
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [],
+  "findings": [
+    {
+      "file": ".claude/skills/pr-ci-review/SKILL.md",
+      "line": "60",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "§3 says a same-repo issue counts as a spec source as `#N` \"or a URL into it\", but the CI lock denies `gh issue view*/*`, and every URL contains `/`. A reviewer or validator that runs `gh issue view <URL>` is refused and the read lands in `permission_denials`. §3 should say to pass a same-repo URL on as `#N`. The §7 validator brief has no such hint, unlike review-spec.md L12.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/skills/pr-ci-review/SKILL.md",
+      "line": "142-145",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "On a local `--fix` run with a spec source (`--spec`, or \"fixes #N\" in a commit), review-spec reports every unbuilt requirement as `important`. §8 then says to \"apply each confirmed finding\", which means writing whole features into the working tree. Nothing excludes missing or partial spec findings from auto-fix.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/skills/pr-ci-review/SKILL.md",
+      "line": "42, 58",
+      "area": "correctness",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "By default, `git status --porcelain` collapses a new untracked directory into a single `?? dir/` line. A local change that adds a new package therefore reaches Shape and the briefs as a directory, with no files and no line counts. `git status --porcelain --untracked-files=all` lists each file.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "96-101",
+      "area": "correctness",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "`plantCommit`'s doc comment says every case keeps \"the head's own message, parents\" and that the clean case \"looks no different\". A spec case now squashes onto `[evalCase.base]` under a bare subject with a `Closes #N.` body, while its clean twin `pr20-clean` keeps the merge parents and the original body. The comment is wrong for spec cases, and no clean case runs the spec reviewer, so its false-positive rate goes unmeasured.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-body.utils.ts",
+      "line": "89",
+      "area": "maintainability",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "The PR comment's skipped list now excludes spec (`area !== \"spec\"`), but `reviewersSkipped` in review-metrics.script.ts L186-189 still lists every area absent from the spawn list. So on a PR that closes no issue, the comment omits `spec` while the record's `reviewers_skipped`, which the retro reads, includes it. Deriving \"skipped\" once would keep the two in step.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/skills/pr-ci-review/SKILL.md",
+      "line": "33-34, 50-51, 60",
+      "area": "maintainability",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "Two local-run behaviors unrelated to the spec reviewer ride along: the empty-change stop and the untracked-files inclusion. The untracked-files rule is stated three times (the local change definition, Shape, and the Todo line), so the copies can drift. State it once, in the definition of the change.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/agents/review-spec.md",
+      "line": "12",
+      "area": "maintainability",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The recipe for reading a spec whole (`gh issue view <n> --json title,body,comments`, plus the CI same-repo rule) is written out in review-spec.md L12, SKILL §7's validator brief, SKILL §3 and the workflow lock comment. A change to the command or to the restriction has to edit all of them together. §7 could tell the validator to read the spec the way review-spec does.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "README.md",
+      "line": "50",
+      "area": "docs",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "The `agents/` row still says 12 agents and \"7 `review-*` reviewers + validator\". With review-spec there are 13 agents and 8 `review-*` agents (7 reviewers plus the validator), which matches the PR's own update to .claude/README.md. The PR changed \"six\" to \"seven\" on L38 of this file but missed this row.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/agents/review-spec.md",
+      "line": "12",
+      "area": "docs",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "L12 packs the `-R` local-only rule, the CI refusal and the `--comments`-without-body gotcha into one sentence. The colon makes the `--comments` warning read as a consequence of the CI refusal. Split it into two sentences.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".github/workflows/claude-code-review.yml",
+      "line": "270-271",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "pre-existing",
+      "description": "The new `Bash(gh issue view*/*)` deny keeps reviewers from reading or quoting another repo's issues, but the existing `Bash(gh pr view*)` and `Bash(gh pr diff*)` allows have no matching deny. So a prompt-injected reviewer can still run `gh pr view -R owner/other-repo N --json body,comments` or `gh pr diff <URL into another repo>`, read another repo's PR with the job token, and quote it into a finding (refuted findings are posted too). Adding `Bash(gh pr view*/*)` and `Bash(gh pr diff*/*)` to deny closes this; no protocol call passes a `/` to either command.",
+      "body": null,
+      "suggestion": null
+    }
+  ],
+  "refuted_findings": [],
+  "process_issues": [
+    {
+      "component": "correctness",
+      "description": "The correctness instance on the prompt/workflow surfaces ran one read-only `git grep` despite the CI brief allowing only the listed git subcommands. It changed nothing and found no stale wording."
+    }
+  ],
+  "comments_posted_actual": 0,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 4.192879200000001,
+  "duration_ms": 277105,
+  "num_turns": 17,
+  "tokens": {
+    "input": 12,
+    "output": 15803,
+    "cache_read": 247888,
+    "cache_creation": 56789,
+    "total": 320492
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 126,
+      "output": 76951,
+      "cache_read": 2466060,
+      "cache_creation": 293855,
+      "cost_usd": 3.6723779999999997
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 54,
+      "output": 13787,
+      "cache_read": 433166,
+      "cache_creation": 118356,
+      "cost_usd": 0.5205012
+    }
+  ],
+  "permission_denials": [
+    {
+      "tool": "Grep",
+      "input": "{\"pattern\":\"no `requirements`|deliberately keeps|tracker\",\"path\":\"/home/runner/work/claude-code-config\",\"glob\":\"!**/node_modules/**\",\"output_mode\":\"content\",\"head_limit\":30}"
+    }
+  ]
+}
