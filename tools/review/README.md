@@ -58,3 +58,20 @@ it standalone even in a pnpm workspace: the workflow runs a copy of `tools/revie
 `node_modules` links must resolve inside it.
 
 Verify locally with `pnpm --dir tools/review test` and `pnpm --dir tools/review typecheck`.
+
+## Measuring recall
+
+`review-eval.script.ts` scores the review against `eval/cases.json`: merged PRs replayed with one
+regression planted in each, plus a clean PR that counts false positives. Every plant passes its
+PR's own tests and typecheck, so a catch is the reviewers' alone. The cases are this repo's PRs;
+replace them with yours.
+
+```sh
+pnpm --dir tools/review exec tsx src/review-eval.script.ts                      # print the plants, spend nothing
+pnpm --dir tools/review exec tsx src/review-eval.script.ts --run [--pipeline <ref>] [--budget <usd>]
+```
+
+`--run` opens a draft PR per case (the workflow skips drafts), runs `/pr-ci-review` on it locally
+under the workflow's allow list but outside its sandbox, grades the record, then closes the PR
+and deletes its branches. `--budget` caps the spend (default $10); `--pipeline` picks whose
+`.claude/` reviews, so two versions of the protocol score on the same cases.
