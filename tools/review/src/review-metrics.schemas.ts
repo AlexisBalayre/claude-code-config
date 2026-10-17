@@ -115,6 +115,15 @@ const tokensSchema = z.object({
   total: z.number().int().nullable(),
 });
 
+const modelUsageSchema = z.object({
+  model: z.string(),
+  input: z.number().int().nullable(),
+  output: z.number().int().nullable(),
+  cache_read: z.number().int().nullable(),
+  cache_creation: z.number().int().nullable(),
+  cost_usd: z.number().nullable(),
+});
+
 export const metricsRecordSchema = z.object({
   schema_version: z.number().int(),
   timestamp: z.string(),
@@ -150,7 +159,15 @@ export const metricsRecordSchema = z.object({
   cost_usd: z.number().nullable(),
   duration_ms: z.number().int().nullable(),
   num_turns: z.number().int().nullable(),
-  tokens: tokensSchema.nullable(),
+  tokens: tokensSchema
+    .nullable()
+    .describe("The orchestrator's own turns only: subagent tokens are counted in model_usage, not here."),
+  model_usage: z
+    .array(modelUsageSchema)
+    .nullable()
+    .describe(
+      "The whole run, orchestrator and every subagent, split by model; each entry's cost_usd is its share of cost_usd.",
+    ),
 });
 
 /** The poster's hand-off to the metrics step, written as `posted.json`. */
@@ -163,3 +180,4 @@ export type RefutedFinding = z.infer<typeof refutedFindingSchema>;
 export type ReviewSummary = z.infer<typeof reviewSummarySchema>;
 export type MetricsRecord = z.infer<typeof metricsRecordSchema>;
 export type Tokens = z.infer<typeof tokensSchema>;
+export type ModelUsage = z.infer<typeof modelUsageSchema>;

@@ -2,6 +2,7 @@ import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs
 import { noVerdictReason } from "./review-completeness.utils";
 import {
   type MetricsRecord,
+  type ModelUsage,
   metricsRecordSchema,
   postedRecordSchema,
   REVIEWER_AREAS,
@@ -22,7 +23,7 @@ import {
 // Bump whenever the record's meaning changes (a field added or repurposed, a
 // pipeline change that alters what a field measures): the retro partitions
 // trends by schema_version, so a silent semantic change poisons its baselines.
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 function warn(message: string): void {
   process.stdout.write(`::warning::${message}\n`);
@@ -65,6 +66,7 @@ interface PlatformMetrics {
   duration_ms: number | null;
   num_turns: number | null;
   tokens: Tokens | null;
+  model_usage: ModelUsage[] | null;
 }
 
 const EMPTY_PLATFORM: PlatformMetrics = {
@@ -73,6 +75,7 @@ const EMPTY_PLATFORM: PlatformMetrics = {
   duration_ms: null,
   num_turns: null,
   tokens: null,
+  model_usage: null,
 };
 
 function findResultEntry(parsed: unknown): Record<string, unknown> | null {
@@ -119,12 +122,26 @@ function platformMetrics(executionFile: string | undefined): PlatformMetrics {
     warn("no result entry in execution file; platform metrics unknown");
     return EMPTY_PLATFORM;
   }
+  const byModel = asRecord(result.modelUsage);
   return {
     is_error: result.is_error === true || result.subtype === "error",
     cost_usd: asNumber(result.total_cost_usd),
     duration_ms: asInt(result.duration_ms),
     num_turns: asInt(result.num_turns),
     tokens: tokensFromUsage(asRecord(result.usage)),
+    model_usage: byModel
+      ? Object.entries(byModel).map(([model, raw]) => {
+          const usage = asRecord(raw);
+          return {
+            model,
+            input: asInt(usage?.inputTokens),
+            output: asInt(usage?.outputTokens),
+            cache_read: asInt(usage?.cacheReadInputTokens),
+            cache_creation: asInt(usage?.cacheCreationInputTokens),
+            cost_usd: asNumber(usage?.costUSD),
+          };
+        })
+      : null,
   };
 }
 
@@ -177,7 +194,11 @@ function summaryTable(record: MetricsRecord): string {
     ["By area", areas],
     ["Comments posted", posted],
     ["Cost (USD est.)", record.cost_usd === null ? "-" : record.cost_usd.toFixed(4)],
-    ["Tokens (total)", record.tokens?.total ?? "-"],
+    ...(record.model_usage ?? []).map((m): [string, string] => [
+      `Cost: ${m.model}`,
+      m.cost_usd === null ? "-" : m.cost_usd.toFixed(4),
+    ]),
+    ["Tokens (orchestrator)", record.tokens?.total ?? "-"],
     ["Turns", record.num_turns ?? "-"],
     ["Errored", String(record.is_error)],
   ];
@@ -241,6 +262,7 @@ function main(): void {
     duration_ms: platform.duration_ms,
     num_turns: platform.num_turns,
     tokens: platform.tokens,
+    model_usage: platform.model_usage,
   };
 
   const validated = metricsRecordSchema.parse(record);
