@@ -145,7 +145,7 @@ describe("bodyLines", () => {
   it("names the skipped areas", () => {
     const rendered = bodyLines(summary({ reviewers_spawned: ["correctness", "docs"] }), null, [], 0).join("\n");
     expect(rendered).toContain("Checked correctness, docs.");
-    expect(rendered).toContain("Skipped security, conventions, context, maintainability, spec.");
+    expect(rendered).toContain("Skipped security, conventions, context, maintainability.");
   });
 
   it("counts anchored importants and lists unanchored ones", () => {

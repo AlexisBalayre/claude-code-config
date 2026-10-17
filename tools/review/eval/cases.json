@@ -61,7 +61,7 @@
       "file": "tools/review/src/review-metrics.script.ts",
       "find": "    [\"Permission denials\", record.permission_denials?.length ?? \"-\"],\n",
       "replace": "",
-      "keywords": ["job summary", "summaryTable"],
+      "keywords": ["job summary", "job-summary", "summaryTable", "calls were denied"],
       "regression": "The issue asks for the denial count in the job summary. The PR records the denials but never shows the count, and only a review that reads the issue can tell."
     }
   },
