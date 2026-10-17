@@ -1,0 +1,130 @@
+{
+  "schema_version": 5,
+  "timestamp": "2026-10-17T14:48:03.115Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "39042083797",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/39042083797",
+  "actor": "AlexisBalayre",
+  "commit_sha": "804110d413b5587a0306d3d9091bb9285f5e8aa5",
+  "source": "pr",
+  "pr_number": 20,
+  "action": "review",
+  "reviewers_spawned": [
+    "correctness",
+    "security",
+    "conventions",
+    "maintainability",
+    "docs"
+  ],
+  "reviewers_returned": [
+    "correctness",
+    "security",
+    "conventions",
+    "maintainability",
+    "docs"
+  ],
+  "reviewers_skipped": [
+    "context"
+  ],
+  "review_mode": "full",
+  "incremental_from_sha": null,
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [],
+  "findings": [
+    {
+      "file": "tools/review/test/integration/denied-tool-calls-recorded.test.ts",
+      "line": "27",
+      "area": "correctness",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "The PR adds a 'Permission denials' job-summary row, but this test removes GITHUB_STEP_SUMMARY, so the row (count vs '-') is never checked; spend-split-by-model.test.ts sets GITHUB_STEP_SUMMARY and asserts its rows.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/skills/review-retro/SKILL.md",
+      "line": "25",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The schema-5 guidance names only two causes for a recurring denial (a missing allowlist verb or a brief inviting a forbidden call); it omits a third: PR content steering the reviewer into the call (prompt injection the allowlist correctly blocked), so the retro could propose widening the allowlist for an injected command. Add a clause like \"a denial whose command echoes the reviewed PR's own text is the allowlist working; never widen the allowlist for it\".",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/test/integration/denied-tool-calls-recorded.test.ts",
+      "line": "7-38",
+      "area": "maintainability",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "The VERDICT constant, PACKAGE_DIR, temp execution-file write and spawnSync(tsx, script, REVIEW_* env) harness are copied from spend-split-by-model.test.ts; a shared runMetrics(result) helper under test/integration/ would keep the script's env contract in one place.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-metrics.script.ts",
+      "line": "158",
+      "area": "maintainability",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The 200-character cut is a bare literal in slice(0, 200), repeated in the schema's describe string and the test; a named constant (or .max(200) on the schema) would give the limit one source.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/test/integration/denied-tool-calls-recorded.test.ts",
+      "line": "52",
+      "area": "docs",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "Test title \"are recorded as unknown when the result carries no list\" asserts null, while \"unknown\" is the fallback tool name for a malformed entry; \"are null when the result carries no list\" says what is checked.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/agents/review-correctness.md",
+      "line": "19",
+      "area": "docs",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The paragraph opens with the bare fragment \"Not under CI.\", leaving the reader to infer it qualifies the spike instruction above (review-security.md uses \"Not under CI:\" for the same device); \"Under CI the review is static: ...\" reads directly.",
+      "body": null,
+      "suggestion": null
+    }
+  ],
+  "refuted_findings": [],
+  "process_issues": [],
+  "comments_posted_actual": 0,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 1.1845174,
+  "duration_ms": 137683,
+  "num_turns": 10,
+  "tokens": {
+    "input": 10,
+    "output": 6989,
+    "cache_read": 177122,
+    "cache_creation": 38319,
+    "total": 222440
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 34,
+      "output": 19290,
+      "cache_read": 374976,
+      "cache_creation": 91566,
+      "cost_usd": 1.0337182
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 18,
+      "output": 4367,
+      "cache_read": 87491,
+      "cache_creation": 35838,
+      "cost_usd": 0.15079920000000002
+    }
+  ],
+  "permission_denials": []
+}
