@@ -16,6 +16,8 @@ export const REVIEWER_AREAS = ["correctness", "security", "conventions", "contex
 
 export const reviewerAreaSchema = z.enum(REVIEWER_AREAS);
 
+export const REVIEW_DEPTHS = ["quick", "standard", "deep"] as const;
+
 const tagSchema = z.enum(["important", "nit", "pre-existing"]);
 const confidenceSchema = z.enum(["high", "medium"]);
 
@@ -140,6 +142,14 @@ export const metricsRecordSchema = z.object({
   reviewers_skipped: z.array(reviewerAreaSchema).describe("Derived: the reviewer areas absent from reviewers_spawned."),
   review_mode: reviewModeSchema,
   incremental_from_sha: z.string().nullable(),
+  review_depth: z
+    .enum(REVIEW_DEPTHS)
+    .describe("The depth a `@claude review` comment asked for; standard on every other trigger."),
+  review_areas: z
+    .array(reviewerAreaSchema)
+    .describe(
+      "The areas a `@claude review` comment restricted the review to; empty when the orchestrator gated them. A quick or area-restricted record is a partial review, which the preflight never takes as the prior.",
+    ),
   prior_importants: z.array(priorImportantSchema).nullable(),
   findings: z.array(findingSchema).nullable(),
   refuted_findings: z.array(refutedFindingSchema).nullable(),
@@ -175,6 +185,8 @@ export const postedRecordSchema = z.object({
   comments_posted: z.number().int(),
 });
 
+export type ReviewerArea = z.infer<typeof reviewerAreaSchema>;
+export type ReviewDepth = (typeof REVIEW_DEPTHS)[number];
 export type Finding = z.infer<typeof findingSchema>;
 export type RefutedFinding = z.infer<typeof refutedFindingSchema>;
 export type ReviewSummary = z.infer<typeof reviewSummarySchema>;

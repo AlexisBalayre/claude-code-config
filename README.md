@@ -97,6 +97,22 @@ or narrow that gate in the job's `if:`; on an organization repo `github.reposito
 org name, which matches no user, so replace both of its uses with the logins (or a team check)
 you want to allow.
 
+**Asking by comment.** `@claude review` on a PR runs the review on demand, and the words after
+it, in any order, shape it:
+
+| Comment | Review |
+| :------ | :----- |
+| `@claude review` | the changes since the last complete review, or the whole PR if there is none |
+| `@claude review full` | the whole PR diff |
+| `@claude review quick` | correctness, plus security when a trust boundary is touched, one instance each |
+| `@claude review deep` | every area, one more instance per scaled area, maintainability and the orchestrator raised |
+| `@claude review security docs` | only the named areas: `correctness`, `security`, `context`, `conventions`, `maintainability`, `docs` |
+
+A quick or area-restricted review is partial: the next push is still reviewed against the last
+complete review, so nothing it skipped goes unreviewed. The comment shows the run's state as a
+reaction: 👀 while it runs, then 🚀 (no important findings), 👎 (important findings posted), or
+😕 (not reviewed: the run failed or was cancelled, or the PR had closed).
+
 One upstream rule to expect: the App only mints a token when the workflow file on the PR branch
 is byte-identical to the copy on the default branch, so **a PR that edits
 `claude-code-review.yml` cannot be reviewed until it merges** (the run 401s, and the poster

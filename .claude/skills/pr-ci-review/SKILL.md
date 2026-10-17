@@ -33,6 +33,7 @@ The governing rule is **spend only where it buys recall**. Deterministic tooling
 - **source = pr** when the invocation carries a `pr` token, a prose `Pull request: #N` reference, or a `--json-schema`. The CI harness invokes `/pr-ci-review` with the PR named in prose and a schema, so that path resolves here. `pr 123` or `#123` targets that PR; a bare `pr` targets the current branch's PR (`gh pr view`). A `--json-schema` makes **action = record**; otherwise **action = report**.
 - **source = local** only when none of the above is present: the working tree is the subject. Default **action = report**; `--fix` -> **action = fix**.
 - **mode**: a CI invocation carries a `Mode:` line and a `Merge base:` line, both resolved by the deterministic preflight step before you started; consume them, never re-derive them. `Mode: incremental from <sha> (prior record: records/<id>.json on origin/ci/review-metrics)` makes **mode = incremental** with that SHA as the delta base and that record as the prior review; `Mode: full` (or no Mode line) is a full review. Local runs are always **full**: a working tree has no prior record to diff against.
+- **depth + areas**: a CI invocation also carries a `Depth:` line (`quick`, `standard`, or `deep`) and an `Areas:` line (reviewer areas, or `gated`), which the preflight parsed from the `@claude review` comment that asked for the run; consume them like the Mode line. `Depth: standard` with `Areas: gated` (and every invocation without these lines, local runs included) is the protocol below unchanged; anything else changes §4's roster and dials as it says there.
 - Reject `--fix` with `pr`: state the error and stop. There is no local action that writes to a PR; a local `pr <n>` invocation without a schema reports in the session and posts nothing.
 
 Define **the change** once and reuse it everywhere below:
@@ -77,6 +78,14 @@ There is no `requirements` reviewer: this setup deliberately keeps the issue tra
 **Model dials (asymmetric by stakes).** `correctness` and `security` always run on opus, never downgraded: a miss there is expensive. `maintainability` runs on sonnet for a normal diff and on **opus** once the diff is large (override the model at spawn time). `conventions` and `docs` run on sonnet.
 
 **Instance scaling.** Default every area to **one** instance. Scale only `correctness` / `security` / `maintainability`, and only past a size gate: **> ~400 changed lines OR > ~8 files spanning >= 2 top-level areas** -> 2 instances; a markedly larger diff -> 3; **hard cap 3**. Send each instance in a complementary direction (by subsystem, layer, or risk concentration), never overlapping. Other areas stay single-instance. This is parallel breadth, not repeated passes: review the changed surface well once, do not loop.
+
+**Requested depth and areas (§1).** A person asked for this shape, so it overrides the gates above exactly where it says, and nowhere else:
+
+- **`Areas: <list>`**: spawn exactly the named areas, each whether or not its gate holds, and no other. The depth still sets their instances and models.
+- **`Depth: quick`**: one instance per area, no size-gated scaling, `maintainability` on sonnet. Without an area list the roster shrinks to `review-correctness` (always) and `review-security` (when its gate holds).
+- **`Depth: deep`**: every area spawns (or every named one), gate or not; instance scaling steps up once (1 -> 2, 2 -> 3, still capped at 3), and `maintainability` runs on opus whatever the diff size.
+
+Validation (§7) is the same at every depth: a quick review posts no `important` a standard one would not have validated. A quick or area-restricted review is **partial**: the record says so, and the next round's preflight never diffs from it, so the areas it skipped get their review on the next full round.
 
 ## 5. Brief and spawn in parallel
 
@@ -158,10 +167,10 @@ There is no `comments_posted` field to report: you do not post, so the count is 
 
 ## Todo List
 
-- [ ] Parse arguments into source + action, and read the mode from the invocation's `Mode:` line; reject invalid combinations.
+- [ ] Parse arguments into source + action, and read the mode, depth, and areas from the invocation's `Mode:`, `Depth:`, and `Areas:` lines; reject invalid combinations.
 - [ ] Gate the run: config-restore awareness under CI, freshness for a local pr, pre-flight lint/typecheck/test suite for local source.
 - [ ] Steer: read the change shape and intent yourself; on incremental, read the prior record's importants.
-- [ ] Gate and spawn only the touched areas, tiered and instance-capped, all in one message.
+- [ ] Gate and spawn only the touched areas (or the requested ones), tiered and instance-capped, all in one message.
 - [ ] Block until every spawned instance has reported (§5); only those go in `reviewers_returned`.
 - [ ] Consolidate inline: dedup and assign one area citation-first.
 - [ ] Validate importants only (none for report; before editing for fix; per-finding for record/CI).

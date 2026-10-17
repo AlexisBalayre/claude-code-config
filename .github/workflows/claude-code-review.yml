@@ -52,7 +52,9 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-      issues: read
+      # For the reactions on a `@claude review` comment, nothing else: a PR
+      # comment's reactions live on the issues API.
+      issues: write
       id-token: write
       # For the poster's claude-review commit status, nothing else.
       statuses: write
@@ -60,6 +62,17 @@ jobs:
       skip: ${{ (steps.pr-head.outputs.skip == 'true' || steps.preflight.outputs.skip == 'true') && 'true' || 'false' }}
 
     steps:
+      # First, so the requester sees the run start; the step after the poster
+      # swaps it for the verdict. Best-effort: a reaction is feedback, never a
+      # reason to fail or hold up the review.
+      - name: Acknowledge the review request
+        if: github.event_name == 'issue_comment'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REACTIONS: repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions
+        run: gh api --method POST "$REACTIONS" -f content=eyes >/dev/null
+
       # Full history, not depth-1: `gh pr diff` rejects a path filter, so a scoped
       # slice needs a merge base (`git diff <merge-base>..HEAD -- <path>`). Shallow,
       # that cannot resolve and reviewers fall back to `git diff HEAD~1 HEAD`, which
@@ -121,8 +134,9 @@ jobs:
       # base, and the full/incremental mode decision, all run as a plain step so
       # a failure is a red step the poster turns into a "not reviewed" verdict,
       # never a model stalled at a permission prompt. It also skips the run when
-      # the head SHA already has a non-errored record (a synchronize retrigger
-      # with nothing new), except on an explicit `@claude review`.
+      # the head SHA already has a non-errored, complete record (a synchronize
+      # retrigger with nothing new), except on an explicit `@claude review`,
+      # whose words it parses into the depth and areas the model is handed.
       # The merge base is resolved here, while the checkout is still complete:
       # claude-code-action restores the PR's config paths from the base branch
       # with a `--depth=1` fetch, which grafts `origin/<base>` parentless. From
@@ -136,7 +150,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REVIEW_PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
           REVIEW_TRIGGER: ${{ github.event_name == 'issue_comment' && 'comment' || github.event.action }}
-          REVIEW_FORCE_FULL: ${{ github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude review full') }}
+          # Through env, never inline in a script: the comment is free text.
+          REVIEW_COMMENT: ${{ github.event.comment.body }}
         run: pnpm --dir tools/review --silent run review:preflight
 
       - name: Generate review schema
@@ -188,6 +203,8 @@ jobs:
             Pull request: #${{ github.event.pull_request.number || github.event.issue.number }} in ${{ github.repository }}
             ${{ steps.preflight.outputs.mode_line }}
             Merge base: ${{ steps.preflight.outputs.merge_base }}
+            Depth: ${{ steps.preflight.outputs.depth }}
+            Areas: ${{ steps.preflight.outputs.areas || 'gated' }}
           # Background tasks off: recent Claude Code runs a subagent in the
           # background unless the model asks otherwise, and the action keeps the
           # first `result` a run emits and stops reading. With reviewers still
@@ -204,8 +221,9 @@ jobs:
           # Orchestrator model only: the reviewers take their tiers from their
           # manifests through the aliases the env above pins. The orchestrator
           # runs Opus at its default effort because its spawn and triage
-          # decisions decide what the review covers; the opus-tier reviewers ask
-          # for high in their manifests. Posted precision is still gated by the
+          # decisions decide what the review covers, raised to high when a
+          # comment asks for a deep review; the opus-tier reviewers ask for high
+          # in their manifests. Posted precision is still gated by the
           # per-important opus validators.
           # Every verb the protocol needs is listed: unlisted ones fall through to
           # a permission prompt that nobody is here to answer, and the run halts
@@ -221,6 +239,7 @@ jobs:
           # exists to disarm.
           claude_args: |
             --model "claude-opus-5-5"
+            ${{ steps.preflight.outputs.depth == 'deep' && '--effort high' || '' }}
             --allowedTools "Agent,Skill,Read,Glob,Grep,Bash(gh pr diff*),Bash(gh pr view*),Bash(gh api repos/*),Bash(git diff*),Bash(git status*),Bash(git log*),Bash(git show*),Bash(git rev-parse*),Bash(git rev-list*),Bash(git merge-base*),Bash(git grep*)"
             --json-schema '${{ steps.gen-schema.outputs.schema }}'
 
@@ -231,6 +250,7 @@ jobs:
       # this step fails red when it cannot post, so its silence is never
       # mistaken for a clean bill.
       - name: Post review
+        id: post
         if: always() && steps.pr-head.outputs.skip != 'true' && steps.preflight.outputs.skip != 'true'
         env:
           REVIEW_STRUCTURED_OUTPUT: ${{ steps.claude-review.outputs.structured_output }}
@@ -241,6 +261,29 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REVIEW_POSTED_OUTPUT: ${{ github.workspace }}/posted.json
         run: pnpm --dir tools/review --silent run review:post
+
+      # The poster's verdict, mirrored from its commit status: rocket for no
+      # important finding, -1 for important findings, confused for anything
+      # that is not a verdict (a failed, cancelled, or closed-PR run). Every
+      # reaction this workflow left goes first, the 👀 and a re-run's previous
+      # verdict alike, so the comment only ever shows the latest state.
+      - name: React with the verdict
+        if: always() && github.event_name == 'issue_comment'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REACTIONS: repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions
+          VERDICT: ${{ steps.post.outputs.verdict }}
+        run: |
+          case "$VERDICT" in
+            ready) content=rocket ;;
+            issues) content=-1 ;;
+            *) content=confused ;;
+          esac
+          for id in $(gh api "$REACTIONS" --jq '.[] | select(.user.login == "github-actions[bot]") | .id'); do
+            gh api --method DELETE "$REACTIONS/$id"
+          done
+          gh api --method POST "$REACTIONS" -f content="$content" >/dev/null
 
       - name: Emit review metrics
         # No record for a merged-PR or already-reviewed skip: a review that never
@@ -254,6 +297,8 @@ jobs:
           REVIEW_PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
           REVIEW_COMMIT_SHA: ${{ steps.preflight.outputs.sha }}
           REVIEW_POSTED_INPUT: ${{ github.workspace }}/posted.json
+          REVIEW_DEPTH: ${{ steps.preflight.outputs.depth }}
+          REVIEW_AREAS: ${{ steps.preflight.outputs.areas }}
           # pnpm --dir runs the writer in the package dir, so anchor the output to the workspace root where upload-artifact resolves its path
           REVIEW_METRICS_OUTPUT: ${{ github.workspace }}/review-metrics.json
         run: pnpm --dir tools/review --silent run review:metrics

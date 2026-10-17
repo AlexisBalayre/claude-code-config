@@ -5,6 +5,7 @@ import {
   type ModelUsage,
   metricsRecordSchema,
   postedRecordSchema,
+  REVIEW_DEPTHS,
   REVIEWER_AREAS,
   type ReviewSummary,
   reviewSummarySchema,
@@ -23,7 +24,7 @@ import {
 // Bump whenever the record's meaning changes (a field added or repurposed, a
 // pipeline change that alters what a field measures): the retro partitions
 // trends by schema_version, so a silent semantic change poisons its baselines.
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 function warn(message: string): void {
   process.stdout.write(`::warning::${message}\n`);
@@ -187,6 +188,8 @@ function summaryTable(record: MetricsRecord): string {
       : record.review_mode;
   const rows: [string, string | number][] = [
     ["Mode", mode],
+    ["Depth", record.review_depth],
+    ["Areas", record.review_areas.join(", ") || "gated"],
     ["Reviewers returned", `${record.reviewers_returned.length} of ${record.reviewers_spawned.length}`],
     ["Findings", findings.length],
     ["Refuted (validation)", (record.refuted_findings ?? []).length],
@@ -251,6 +254,8 @@ function main(): void {
     // the orchestrator's report, and full is the population errored runs belong in.
     review_mode: summary?.review_mode ?? "full",
     incremental_from_sha: summary?.incremental_from_sha ?? null,
+    review_depth: REVIEW_DEPTHS.find((depth) => depth === env.REVIEW_DEPTH) ?? "standard",
+    review_areas: REVIEWER_AREAS.filter((area) => (env.REVIEW_AREAS ?? "").split(/[\s,]+/).includes(area)),
     prior_importants: summary?.prior_importants ?? null,
     findings: summary?.findings ?? null,
     refuted_findings: summary?.refuted_findings ?? null,
