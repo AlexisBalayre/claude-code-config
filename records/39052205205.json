@@ -1,0 +1,277 @@
+{
+  "schema_version": 5,
+  "timestamp": "2026-10-17T17:14:21.819Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "39052205205",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/39052205205",
+  "actor": "AlexisBalayre",
+  "commit_sha": "927361176e8978b1341f3b43a64aac63dcc5bfb9",
+  "source": "pr",
+  "pr_number": 27,
+  "action": "review",
+  "reviewers_spawned": [
+    "correctness",
+    "correctness",
+    "security",
+    "context",
+    "conventions",
+    "maintainability",
+    "docs"
+  ],
+  "reviewers_returned": [
+    "correctness",
+    "correctness",
+    "security",
+    "context",
+    "conventions",
+    "maintainability",
+    "docs"
+  ],
+  "reviewers_skipped": [],
+  "review_mode": "full",
+  "incremental_from_sha": null,
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [],
+  "findings": [
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "108",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "important",
+      "description": "All four planted cases are squash commits on main, and `plantCommit` reuses each one's message verbatim, `(#15)`-style suffix included. The reviewer's lock allows `gh pr view*`, `gh pr diff*`, `git show*` and `git log*`, so the reviewer can follow that pointer to the original commit or PR and diff it against HEAD, which prints exactly the plant.",
+      "body": "**Each planted commit points to its own unplanted twin, which the reviewer is allowed to read**\n\nEvery planted case's `head` is a squash-merge commit on `main`, for example `2d3e564 feat(review): run the CI review orchestrator on Opus 5.5 (#15)`. `plantCommit` rebuilds it with the same message and parent:\n\n```ts\nconst sha = git([\"commit-tree\", tree, ...parents], { input: git([\"log\", \"-1\", \"--format=%B\", head]) });\n```\n\nThe draft PR's only commit therefore reads `... (#15)`, which hands the reviewer the original PR's number. The workflow lock this script passes through (`Bash(gh pr diff*)`, `Bash(git diff *)`, `Bash(git log*)`, `Bash(git show*)`) allows every way to follow it:\n- `gh pr diff 15` next to `gh pr diff <n>`\n- `git diff 2d3e564 HEAD`, which prints exactly the plant, since the worktree shares the operator repo's objects and refs\n\nThe skill's steering stage reads commit messages for intent, so a normal run sees this pointer. A hit reached this way inflates recall, which breaks the PR's own invariant: \"Nothing the reviewer can read names the case or the plant: not the PR, its branches, its commits\".\n\nThere is also a second tell. The clean case (`pr20`) keeps its original commit and dates, while the planted ones are re-committed with today's date and the runner's identity.\n\nStripping the trailing ` (#N)` closes the direct lookup. `git log origin/main` still lists the original head next to its same-titled sibling, though, so a full fix also needs a worktree whose refs don't include `main`, or explicit acceptance of that residual risk.\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/927361176e8978b1341f3b43a64aac63dcc5bfb9/tools/review/src/review-eval.script.ts#L105-L108",
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "271-272",
+      "area": "correctness",
+      "confidence": "high",
+      "tag": "important",
+      "description": "A malformed --budget value parses to NaN, which disables the run-level budget guard and passes --max-budget-usd NaN to every review.",
+      "body": "**A malformed `--budget` silently turns off the spend cap.**\n\n```ts\nconst budgetAt = args.indexOf(\"--budget\");\nlet remaining = budgetAt === -1 ? DEFAULT_BUDGET_USD : Number(args[budgetAt + 1]);\n```\n\nThe value is never checked. These inputs all give `NaN`:\n- `--budget '$20'` (a natural way to write it, since the README says \"default $10\")\n- `--budget 20usd`\n- a trailing `--budget` with no value (`Number(undefined)`)\n\nFrom there:\n- `remaining < 1` (L306) is always `false` for `NaN`, so the guard never skips a case.\n- `remaining -= cost` keeps it `NaN` for the rest of the run.\n- `Math.min(CASE_BUDGET_USD, remaining)` is `NaN`, so every case gets `--max-budget-usd NaN` (`budget.toFixed(2)` at L191).\n\nIf the CLI rejects `NaN`, every case still pushes, opens and closes a draft PR and then records an error. If it treats `NaN` as no cap, every case runs unbounded. Either way, the one control `--budget` exists for goes silent instead of failing at startup.\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/927361176e8978b1341f3b43a64aac63dcc5bfb9/tools/review/src/review-eval.script.ts#L271-L272",
+      "suggestion": "  const budgetAt = args.indexOf(\"--budget\");\n  let remaining = budgetAt === -1 ? DEFAULT_BUDGET_USD : Number(args[budgetAt + 1]);\n  if (!Number.isFinite(remaining)) throw new Error(`--budget takes a USD amount, got ${args[budgetAt + 1]}`);"
+    },
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "202-207",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The local `claude -p` run inherits the operator's full environment without CI's `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: \"1\"`. An allowed `gh pr view --jq '$ENV.GH_TOKEN'` can therefore print credentials in an unsandboxed session that reads attacker-writable PR comments. Add the scrub to the spawn env to match CI.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "129-134",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "\"only the lock passed on the command line grants anything\" overstates it. Without managed `allowManagedPermissionRulesOnly`, the pr-ci-review skill's own `allowed-tools` still apply locally, so `Bash(gh pr checkout*)` and an unscoped `Read` remain, and CI refuses both. Strip the skill's `allowed-tools` in `checkout()` or correct the comment.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "122-126",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "Hits are credited by location alone. On cases whose own PR hunk surrounds the plant (pr19: post-review lines 210-231 vs plant 227; pr15: workflow lines 176-209 vs plant 182), any important on the PR's real, unplanted changes in that window counts as a hit and inflates recall. pr19 has no keywords to cross-check.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "375-380",
+      "area": "correctness",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "Budget-skipped cases never enter outcomes, so results.json and the final 'recall X/Y' line omit them. The clean case's false-positive verdict is never tallied either, although the README says that case 'counts false positives'.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "108",
+      "area": "correctness",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "`commit-tree` runs without `GIT_AUTHOR_*`/`GIT_COMMITTER_*` taken from `head`. Each planted head commit therefore gets today's date and the runner's identity while its parent is weeks old, so `git log --format=fuller` shows the last commit was rebuilt, which the clean case does not show.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "172-209, 355-372",
+      "area": "correctness",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "`spawnSync(\"claude\", ...)` has no `timeout` and the script installs no SIGINT handler. A hung run blocks forever, and Ctrl-C kills node without running `finally`, leaving the draft PR open, both `eval/*` branches pushed and the worktree registered.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "314, 359",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "`git push` creates `refs/remotes/origin/eval/<tag>-N` locally, and `gh pr close --delete-branch` deletes only the remote branch. The tracking ref to each planted commit stays: later cases' reviewers can see it via `git log --all`, and refs pile up across runs.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "274, 302, 310-311",
+      "area": "correctness",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "The reviewer's working directory is `$TMPDIR/review-eval-XXXXXX/N`, and `gh pr view` reports branches `eval/<tag>-N` / `eval/<tag>-N-base`. Neither names the case, but both tell the reviewer the PR is an eval, which can change its behavior.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "217, 339",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "When claude prints no parsable JSON (crash, killed), `cost` is `null` and `remaining -= outcome.cost_usd ?? 0` charges nothing, though up to `CASE_BUDGET_USD` may have been spent. Charge the case cap when the cost is unknown so `--budget` stays a real ceiling.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "28",
+      "area": "correctness",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "`CONFIG_PATHS` claims to be what this repo carries, but it omits the tracked `.mcp.json`, which the action also restores (SKILL.md §2 lists it). A replayed PR touching it would leave the head's copy in the tree with no `.claude-pr/.mcp.json`.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "142",
+      "area": "context",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "`git archive <pipeline> .claude CLAUDE.md AGENTS.md` fails with a pathspec error when the `--pipeline` ref lacks one of those paths, so every case errors. CI handles an absent base `AGENTS.md` with `rm -f` (workflow L205-210).",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "163-171, 178, 202-207",
+      "area": "maintainability",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "The prompt template, the model ids (`claude-opus-5-5`, `claude-sonnet-5-5`) and `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS` are still hand-copied from the workflow, and only the lock is read from it. When CI bumps the model, a `--pipeline` comparison silently keeps scoring the old one.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "117-121",
+      "area": "maintainability",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "`onPlant` takes a hand-built `Pick<Finding, ...> & { body?: string | null }` only to accept both `Finding` and `RefutedFinding`, and the same shape is repeated in `describe` at L241. `Finding | RefutedFinding` would state the contract directly.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "306",
+      "area": "conventions",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "`if (remaining < 1)` leaves a bare budget threshold, while the two sibling budget values are named constants (`CASE_BUDGET_USD`, `DEFAULT_BUDGET_USD`). core.md §Structure says \"No hardcoded values\".",
+      "body": null,
+      "suggestion": null
+    }
+  ],
+  "refuted_findings": [],
+  "process_issues": [],
+  "comments_posted_actual": 2,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 4.355424500000001,
+  "duration_ms": 506521,
+  "num_turns": 14,
+  "tokens": {
+    "input": 10,
+    "output": 16611,
+    "cache_read": 193626,
+    "cache_creation": 53473,
+    "total": 263720
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 132,
+      "output": 93274,
+      "cache_read": 2679666,
+      "cache_creation": 272962,
+      "cost_usd": 3.9271701999999995
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 36,
+      "output": 11733,
+      "cache_read": 354274,
+      "cache_creation": 95999,
+      "cost_usd": 0.42825430000000003
+    }
+  ],
+  "permission_denials": [
+    {
+      "tool": "Bash",
+      "input": "git -C /home/runner/work/claude-code-config/claude-code-config diff 549021d4633c67921f4b14e6ce2abd92535f5d67..HEAD --stat"
+    },
+    {
+      "tool": "Bash",
+      "input": "git ls-tree --name-only HEAD | head -40"
+    },
+    {
+      "tool": "Bash",
+      "input": "for f in tools/review/test/integration/comment-requested-review.test.ts tools/review/test/unit/preflight-utils.test.ts; do echo \"== $f\"; git show 1dbd348771ba2423983c7207c53fdd6972958f09:$f | grep -n "
+    },
+    {
+      "tool": "Bash",
+      "input": "git -C /home/runner/work/claude-code-config/claude-code-config show HEAD:.claude/hooks/quality-checks.sh; git -C /home/runner/work/claude-code-config/claude-code-config show HEAD:.claude/project.env"
+    },
+    {
+      "tool": "Bash",
+      "input": "git -C /home/runner/work/claude-code-config/claude-code-config diff 549021d4633c67921f4b14e6ce2abd92535f5d67..HEAD -- tools/review/README.md"
+    },
+    {
+      "tool": "Bash",
+      "input": "cd /home/runner/work/claude-code-config/claude-code-config; for s in 2d3e564c89df4f30a328d3c6a368b06793cf39f4 99c76d657cc275b2dcaebdb3012004bff62b57b0 1dbd348771ba2423983c7207c53fdd6972958f09 76ca81ac"
+    },
+    {
+      "tool": "Bash",
+      "input": "git -C /home/runner/work/claude-code-config/claude-code-config log --no-walk --format='%H %P | %s' 2d3e564c89df4f30a328d3c6a368b06793cf39f4 99c76d657cc275b2dcaebdb3012004bff62b57b0 1dbd348771ba2423983"
+    },
+    {
+      "tool": "Bash",
+      "input": "git -C /home/runner/work/claude-code-config/claude-code-config log -1 --format='%H %P | %s' 2d3e564c89df4f30a328d3c6a368b06793cf39f4"
+    },
+    {
+      "tool": "Bash",
+      "input": "git -C /home/runner/work/claude-code-config/claude-code-config log -1 --format='%H %P | %s' 99c76d657cc275b2dcaebdb3012004bff62b57b0"
+    },
+    {
+      "tool": "Bash",
+      "input": "git -C /home/runner/work/claude-code-config/claude-code-config log -1 --format='%H %P | %s' 1dbd348771ba2423983c7207c53fdd6972958f09"
+    },
+    {
+      "tool": "Bash",
+      "input": "git -C /home/runner/work/claude-code-config/claude-code-config log -1 --format='%H %P | %s' 76ca81ac6c687666f86a1b30b4a55493c199a464"
+    }
+  ]
+}
