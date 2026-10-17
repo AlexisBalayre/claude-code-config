@@ -16,6 +16,26 @@ export function findingLine(finding: Listed): string {
   return `- ${location} (${finding.area}): ${finding.body ?? finding.description}`;
 }
 
+// GitHub turns any suggestion fence in a line comment into a "Commit suggestion"
+// button, and a finding's text can quote what a PR or issue author wrote, so
+// only the fence commentBody opens itself stays committable.
+function inertFences(markdown: string): string {
+  return markdown.replace(/^([ \t>*+\-\d.)]*)(`{3,}|~{3,})[ \t]*suggestion/gim, "$1$2text");
+}
+
+export function commentBody(finding: Finding, relocatedFrom: number | null): string {
+  const parts: string[] = [];
+  if (relocatedFrom !== null) parts.push(`Re: \`${finding.file}:${relocatedFrom}\``, "");
+  parts.push(inertFences(finding.body ?? finding.description));
+  if (finding.suggestion !== null) {
+    // A committable suggestion rewrites the line it is attached to, so on a
+    // relocated anchor it would replace code the finding never mentioned. Same
+    // text, inert fence.
+    parts.push("", relocatedFrom === null ? "```suggestion" : "```", inertFences(finding.suggestion), "```");
+  }
+  return parts.join("\n");
+}
+
 function refutedLine(finding: RefutedFinding): string {
   return `${findingLine(finding)}\n  - refuted: ${finding.refutation}`;
 }

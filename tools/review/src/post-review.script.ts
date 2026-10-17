@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { appendFileSync, writeFileSync } from "node:fs";
 import { commentableLines, resolveAnchor, trueLine } from "./diff-anchor.utils";
-import { bodyLines } from "./review-body.utils";
+import { bodyLines, commentBody } from "./review-body.utils";
 import { noVerdictReason } from "./review-completeness.utils";
 import { type Finding, postedRecordSchema, type ReviewSummary, reviewSummarySchema } from "./review-metrics.schemas";
 
@@ -65,19 +65,6 @@ function fileDiff(mergeBase: string, file: string): string {
     warn(`could not diff ${file}; its findings go in the review body`);
     return "";
   }
-}
-
-function commentBody(finding: Finding, relocatedFrom: number | null): string {
-  const parts: string[] = [];
-  if (relocatedFrom !== null) parts.push(`Re: \`${finding.file}:${relocatedFrom}\``, "");
-  parts.push(finding.body ?? finding.description);
-  if (finding.suggestion !== null) {
-    // A committable suggestion rewrites the line it is attached to, so on a
-    // relocated anchor it would replace code the finding never mentioned. Same
-    // text, inert fence.
-    parts.push("", relocatedFrom === null ? "```suggestion" : "```", finding.suggestion, "```");
-  }
-  return parts.join("\n");
 }
 
 function prepare(summary: ReviewSummary, mergeBase: string) {

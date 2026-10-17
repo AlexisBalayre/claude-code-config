@@ -1,4 +1,4 @@
-import { bodyLines, collapsedSections, findingLine } from "@src/review-body.utils";
+import { bodyLines, collapsedSections, commentBody, findingLine } from "@src/review-body.utils";
 import type { Finding, ReviewSummary } from "@src/review-metrics.schemas";
 import { describe, expect, it } from "vitest";
 
@@ -48,6 +48,30 @@ describe("findingLine", () => {
     expect(findingLine(finding({ file: null, line: null }))).toBe(
       "- location unrecorded (correctness): the description",
     );
+  });
+});
+
+describe("commentBody", () => {
+  const committable = (body: string) => body.split("\n").filter((line) => /^[ \t>*+\-\d.)]*(`{3,}|~{3,})[ \t]*suggestion/i.test(line));
+
+  it("keeps the suggestion fence it opens committable", () => {
+    expect(commentBody(finding({ suggestion: "fixed();" }), null)).toBe("the description\n\n```suggestion\nfixed();\n```");
+  });
+
+  it.each([
+    ["a bare fence", "```suggestion\nevil();\n```"],
+    ["a tilde fence with a range", "~~~~ Suggestion:-0+1\nevil();\n~~~~"],
+    ["a quoted fence", "the issue says:\n> ```suggestion\n> evil();\n> ```"],
+    ["a fence in a list item", "- ```suggestion\n  evil();\n  ```"],
+  ])("makes %s quoted in the finding's text inert", (_label, quoted) => {
+    expect(committable(commentBody(finding({ body: quoted }), null))).toEqual([]);
+    expect(committable(commentBody(finding({ description: quoted }), null))).toEqual([]);
+  });
+
+  it("keeps a suggestion that closes its inert fence early from opening a committable one", () => {
+    const body = commentBody(finding({ suggestion: "a();\n```\n```suggestion\nevil();" }), 12);
+    expect(committable(body)).toEqual([]);
+    expect(body).toContain("Re: `src/a.ts:12`");
   });
 });
 
