@@ -1,0 +1,259 @@
+{
+  "schema_version": 5,
+  "timestamp": "2026-10-17T17:06:58.919Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "39051848966",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/39051848966",
+  "actor": "AlexisBalayre",
+  "commit_sha": "aa2c75dce5217dc6eb80c1e0ff5b5ba377859c01",
+  "source": "pr",
+  "pr_number": 29,
+  "action": "review",
+  "reviewers_spawned": [
+    "correctness",
+    "correctness",
+    "security",
+    "security",
+    "maintainability",
+    "maintainability",
+    "context",
+    "conventions",
+    "docs"
+  ],
+  "reviewers_returned": [
+    "correctness",
+    "correctness",
+    "security",
+    "security",
+    "maintainability",
+    "maintainability",
+    "context",
+    "conventions",
+    "docs"
+  ],
+  "reviewers_skipped": [],
+  "review_mode": "full",
+  "incremental_from_sha": null,
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [],
+  "findings": [
+    {
+      "file": ".claude/skills/wizard/template.sh",
+      "line": "99-105",
+      "area": "correctness",
+      "confidence": "high",
+      "tag": "important",
+      "description": "An unquoted or quoted `.env` value followed by a trailing ` # comment` comes back from `_existing` with the comment still attached. Pressing Enter to keep it then makes `write_env` re-quote the whole thing, so the comment becomes part of the stored value. Before this PR the value went through unchanged and the line was rewritten byte for byte.",
+      "body": "**Pressing Enter to keep a value on re-run corrupts values that have an inline comment**\n\n`_existing` only decodes a value that is fully wrapped in quotes. Anything else comes back as the raw text after `=`, including a trailing comment, trailing blanks, or quotes followed by a comment:\n\n```bash\nvalue=\"${line#*=}\"\nif [[ \"$value\" == \\'*\\' ]]; then value=\"${value:1:${#value}-2}\"; value=\"${value//\"$sq\"/$q}\"\nelif [[ \"$value\" == \\\"*\\\" ]]; then\n```\n\nBefore this PR that was harmless. The base `write_env` wrote the raw text back as `KEY=<raw>`, so the line came out unchanged. Now `write_env` wraps the value in single quotes (`printf \"%s='%s'\\n\" ...`), and when `ask`/`ask_secret` take the Enter-keeps-current path, whatever `_existing` didn't strip becomes part of the value:\n\n- `STRIPE_SECRET_KEY=sk_test_abc # test mode` becomes `STRIPE_SECRET_KEY='sk_test_abc # test mode'`\n- `KEY='v' # note` becomes `KEY=''\\''v'\\'' # note'`, so the stored value is `'v' # note`, quotes and all\n\nShell `source` and dotenv readers used to see `sk_test_abc`. After one re-run they see the comment as part of the secret. Inline comments are common in a `.env` copied from `.env.example`, and re-running is a supported flow (\"remembers values already saved\").\n\nThe fix: when a value can't be decoded safely, ask again, the way the double-quoted branch already does.\n\n<https://github.com/AlexisBalayre/claude-code-config/blob/aa2c75dce5217dc6eb80c1e0ff5b5ba377859c01/.claude/skills/wizard/template.sh#L99-L105>",
+      "suggestion": "  if [[ \"$value\" == \\'*\\' ]]; then value=\"${value:1:${#value}-2}\"; value=\"${value//\"$sq\"/$q}\"\n  elif [[ \"$value\" == \\\"*\\\" ]]; then\n    value=\"${value:1:${#value}-2}\"\n    [[ \"$value\" == *[\\\\\\$\\\"]* ]] && return 1   # escapes, $ or \": can't decode safely; ask again\n  elif [[ \"$value\" == *[[:space:]]#* || \"$value\" == *[[:space:]] ]]; then\n    return 1   # inline comment or trailing blanks: re-quoting would bake them into the value\n  fi"
+    },
+    {
+      "file": ".claude/skills/implement-spec/SKILL.md",
+      "line": "25-38",
+      "area": "correctness",
+      "confidence": "high",
+      "tag": "important",
+      "description": "The workflow never tells implementers to commit or anyone to push the integration branch after the PR is opened. Step 8 then marks the PR ready, and CI reviews whatever head is on the remote.",
+      "body": "**Nothing commits the ticket work or pushes the integration branch, so CI reviews a stale head**\n\nThe skill depends on git state it never asks anyone to create:\n\n- **No commit.** Step 4's implementer bullets say to confirm the worktree base, call `tdd` to build the ticket, and merge the integration tip into the ticket branch. None of them says commit, and `tdd` has no commit step. (`implement` does say to commit, at line 17, but `implement-spec` calls `tdd` directly.) Read literally, the merger in step 5 has nothing to merge.\n- **No push after the PR opens.** The only push in the flow is inside `pr-description` (`git rev-parse ... @{u} 2>/dev/null || git push -u origin ...`). It runs once, when step 3 opens the draft after the first merge, and is skipped later because the branch then has an upstream. Steps 5-7 merge and fix only locally.\n- **Step 8 reviews the remote.** \"Mark the draft PR ready for review, which starts the CI review ... `gh pr checks <number> --watch`\" runs `claude-code-review.yml` on `ready_for_review` against the remote head, which holds only the first ticket. Step 8's own fix pass is never pushed either, so the review loop can't close.\n\nNo hook or AGENTS.md rule commits or pushes automatically.\n\nThe fix needs edits in several places: add \"commits its work\" to the step 4 implementer bullets, end step 5 with \"then push the integration branch\", and push before `gh pr ready` and after each fix pass in step 8.\n\n<https://github.com/AlexisBalayre/claude-code-config/blob/aa2c75dce5217dc6eb80c1e0ff5b5ba377859c01/.claude/skills/implement-spec/SKILL.md#L25-L38>",
+      "suggestion": null
+    },
+    {
+      "file": ".claude/skills/implement-spec/SKILL.md",
+      "line": "25",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "important",
+      "description": "Step 3 says to open a draft PR by calling `pr-description`, but that skill's own workflow creates a non-draft PR and asks the user to confirm first.",
+      "body": "**Calling `pr-description` opens a non-draft PR, so every later push runs a billed review**\n\nStep 3 says: \"Open a draft PR ... call the Skill tool with `pr-description` for its body. The CI review skips drafts...\"\n\n`pr-description` has no draft mode and no body-only mode. Calling the Skill tool loads its whole workflow, and its own frontmatter says to use it \"when another skill opens a PR\". Its step 4 runs `gh pr create --base <trunk> --title \"<drafted title>\" --body-file <tmp>`, with no `--draft`, and asks for a \"quick confirm before running ... unless told to just do it\". \"for its body\" is a hint, not an override, so an agent that follows the loaded skill to the end opens a non-draft PR.\n\n`claude-code-review.yml` triggers on `[opened, ready_for_review, synchronize]` whenever `draft == false`. A non-draft integration PR therefore gets a billed review when it opens and another on every merge pushed in steps 5-6, which breaks the line's own claim that the review \"runs once step 8 marks the PR ready\".\n\n<https://github.com/AlexisBalayre/claude-code-config/blob/aa2c75dce5217dc6eb80c1e0ff5b5ba377859c01/.claude/skills/implement-spec/SKILL.md#L25>",
+      "suggestion": "3. Create the integration branch with `scripts/worktree-create.sh <spec-slug>`. After the first merge in step 5 (a branch with no commits ahead of the trunk can't open one), push it and open a **draft** PR (`gh pr create --draft --base <trunk> --title <title> --body-file <tmp>`, without stopping to confirm), marked as closing the spec and tickets: call the Skill tool with `pr-description` for its title and body only. The CI review skips drafts, so it runs once step 8 marks the PR ready."
+    },
+    {
+      "file": ".claude/skills/wizard/template.sh",
+      "line": "148",
+      "area": "security",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "If `.env` already exists, the new `cat \"$tmp\" > \"$ENV_FILE\"` keeps its current mode. A `.env` that is 0644 therefore stays world-readable after secrets are written into it. The base version did not do this: its `mv` of the `mktemp` file (always 0600) replaced `.env`, so after any `write_env` the file ended up 0600.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/skills/implement-spec/SKILL.md",
+      "line": "29",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "Implementers run in the background, yet each one calls `tdd`, and `tdd` forbids writing any test until the user confirms the seams. A background subagent cannot ask the user.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/skills/wizard/template.sh",
+      "line": "145-149",
+      "area": "correctness",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "`cat \"$tmp\" > \"$ENV_FILE\"` truncates `.env` before it writes. A failed write (disk full) or Ctrl-C at that moment leaves `.env` truncated, which the old atomic `mv` couldn't do. Then `set -e` exits, or the script is killed with no trap, before `rm -f \"$tmp\"`, leaving a full copy of `.env`, secrets included, in `$TMPDIR`.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/skills/wizard/template.sh",
+      "line": "147",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "`printf \"%s='%s'\\n\" \"$key\" \"${value//\\'/$sq}\"` encodes `it's` as `'it'\\''s'`. That is correct for shell `source`, but node dotenv reads it as `it'\\''s` and python-dotenv can't parse the line. Before, the value was written unquoted as `KEY=it's` and both libraries read it correctly. Apostrophes in keys and URLs are rare.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/skills/implement-spec/SKILL.md",
+      "line": "40",
+      "area": "correctness",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "From the main checkout (on `main`), `git branch -d` fails as \"not fully merged\", because ticket branches have no upstream and are merged only into the integration branch. Ticket worktrees also sit nested at `.worktrees/<spec>/.worktrees/<ticket>`, because `worktree-create.sh` roots at `git rev-parse --show-toplevel`. Run both cleanup commands with `git -C .worktrees/<spec-slug>`.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/skills/implement-spec/SKILL.md",
+      "line": "25, 38",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "\"Marked as closing the spec and tickets\" contradicts `pr-description`'s rule that the spec gets the non-closing `Part of PROJ-YYYY`. Step 8 also resolves tickets right after the CI review, before the PR merges, even though the PR's `Closes` lines already close them on merge.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/skills/implement-spec/SKILL.md",
+      "line": "32-34",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "With \"maximum concurrency\", two implementers finishing together start two merger subagents in the same integration worktree, and the second hits `index.lock` or a merge already in progress. Say mergers run one at a time.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/skills/implement-spec/SKILL.md",
+      "line": "38",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "Step 8 has an implementer fix \"every issue\" the CI review raises, with no human check and no rule on whose comments count. On a public repo, a third-party PR comment made to look like a finding could reach an agent that has pre-allowed `Edit`, `git push` and `gh api`. Limit the input to the CI bot's review on the head SHA, or show the findings to the user first.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/skills/retro/SKILL.md",
+      "line": "18",
+      "area": "docs",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "\"`LINT_CMD`, `TYPECHECK_CMD` and `TEST_CMD` … which the `Stop` hook and `scripts/pre-commit` run\" suggests the Stop hook runs tests. `quality-checks.sh` runs only format, lint and typecheck; `TEST_CMD` runs only in `scripts/pre-commit`.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/skills/implement/SKILL.md",
+      "line": "9",
+      "area": "docs",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The new no-tracker clause fetches the ticket \"from its file under `docs/plans/`\", but `docs/plans/` is local-only (blocked by `scripts/pre-commit`). From a `.worktrees/<name>` checkout a relative read finds nothing. `implement-spec` already says to use the absolute path into the main checkout; `implement` should say the same.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/skills/implement-spec/SKILL.md",
+      "line": "38",
+      "area": "docs",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "Step 8's \"resolve each ticket the way the issue tracker closes work\" doesn't say what to do with no tracker (`docs/plans/<feature-slug>/issues/`). Point it at the `Status: resolved` line that `wayfinder` uses for local tickets.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/skills/implement-spec/SKILL.md",
+      "line": "36",
+      "area": "maintainability",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "Step 7's review gate (\"every acceptance criterion met, nothing built beyond them\") copies `implement/SKILL.md` line 15 almost word for word. The copies will drift if `implement` tightens its gate; pointing at `implement`'s gate would remove the duplicate.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/skills/wizard/template.sh",
+      "line": "98",
+      "area": "maintainability",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The `'\\''` escape is defined twice, as `sq` in `_existing` (decode) and again in `write_env` (encode). They are two halves of one format, kept in sync only by convention, and only the decode side carries the bash-3.2 `$q` workaround.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/skills/wizard/template.sh",
+      "line": "101-104",
+      "area": "maintainability",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "`_existing`'s double-quoted branch decodes a format `write_env` never writes; it exists only for hand-edited `.env` files. That gives the reader a second decode path with its own bail-out. If upstream doesn't have it, it is a local divergence to re-apply on every refresh.",
+      "body": null,
+      "suggestion": null
+    }
+  ],
+  "refuted_findings": [],
+  "process_issues": [],
+  "comments_posted_actual": 3,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 4.3018149999999995,
+  "duration_ms": 357124,
+  "num_turns": 19,
+  "tokens": {
+    "input": 12,
+    "output": 23008,
+    "cache_read": 267538,
+    "cache_creation": 66651,
+    "total": 357209
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 118,
+      "output": 91828,
+      "cache_read": 1408775,
+      "cache_creation": 278831,
+      "cost_usd": 3.712894999999999
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 58,
+      "output": 14691,
+      "cache_read": 577795,
+      "cache_creation": 130534,
+      "cost_usd": 0.58892
+    }
+  ],
+  "permission_denials": [
+    {
+      "tool": "Bash",
+      "input": "git -C /home/runner/work/claude-code-config/claude-code-config diff 549021d4633c67921f4b14e6ce2abd92535f5d67..HEAD -- .claude/skills/wizard/template.sh"
+    },
+    {
+      "tool": "Bash",
+      "input": "git -C /home/runner/work/claude-code-config/claude-code-config diff 549021d4633c67921f4b14e6ce2abd92535f5d67 aa2c75dce5217dc6eb80c1e0ff5b5ba377859c01 -- .claude/skills/wizard/template.sh"
+    },
+    {
+      "tool": "Bash",
+      "input": "git -C /home/runner/work/claude-code-config/claude-code-config show 549021d4633c67921f4b14e6ce2abd92535f5d67:.claude/skills/wizard/template.sh | sed -n '130,160p'"
+    }
+  ]
+}
