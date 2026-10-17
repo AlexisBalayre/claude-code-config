@@ -1,0 +1,131 @@
+{
+  "schema_version": 5,
+  "timestamp": "2026-10-17T23:05:53.056Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "39077169380",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/39077169380",
+  "actor": "AlexisBalayre",
+  "commit_sha": "93db30929a425c67b344c6d9dfb016f5f3f3073e",
+  "source": "pr",
+  "pr_number": 30,
+  "action": "review",
+  "reviewers_spawned": [
+    "correctness",
+    "security",
+    "maintainability",
+    "conventions",
+    "docs"
+  ],
+  "reviewers_returned": [
+    "correctness",
+    "security",
+    "maintainability",
+    "conventions",
+    "docs"
+  ],
+  "reviewers_skipped": [
+    "context"
+  ],
+  "review_mode": "incremental",
+  "incremental_from_sha": "73ecb413295e74540fe64a8b02d4b88b05e09c5c",
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [
+    {
+      "file": "tools/review/src/review-body.utils.ts",
+      "line": "34-36",
+      "status": "resolved"
+    },
+    {
+      "file": "tools/review/src/review-body.utils.ts",
+      "line": "38-42",
+      "status": "resolved"
+    }
+  ],
+  "findings": [
+    {
+      "file": "tools/review/src/review-body.utils.ts",
+      "line": "38-40",
+      "area": "correctness",
+      "confidence": "high",
+      "tag": "important",
+      "description": "The `lang=` replacement no longer requires a `<pre` tag, so any `lang=` in a finding body or description has its value replaced. Code such as `f(lang=code)`, `const lang = detect(text)`, `lang == x` or `LANG=$LC_ALL` is posted with `\"text\"` in place of the real value.",
+      "body": "**The `lang=` pass now rewrites ordinary code and prose, not just `<pre>` tags**\n\n```ts\n    .replace(/(\\blang\\s*=\\s*)(\"[^\"]*\"|'[^']*'|[^\\s>]*)/gi, (match, attribute: string, value: string) =>\n      isPlainLanguage(value.replace(/^[\"']|[\"']$/g, \"\")) ? match : `${attribute}\"text\"`,\n    );\n```\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/93db30929a425c67b344c6d9dfb016f5f3f3073e/tools/review/src/review-body.utils.ts#L38-L40\n\nThis delta dropped the `<pre\\b[^>]*?` anchor to close the `data-lang` / `title=\"lang=ts\"` / `title=\">\"` bypasses. Now every `lang=` in the body or description is checked. The unquoted branch `[^\\s>]*` reads up to the next whitespace, so ordinary code fails `isPlainLanguage` and is silently rewritten. Traced by hand:\n\n- `render(lang=code)` becomes `render(lang=\"text\"`, and `code)` is lost.\n- `const lang = detect(text);` becomes `const lang = \"text\"`.\n- `if (lang === \"suggestion\")` becomes `if (lang =\"text\" \"suggestion\")`.\n- `LANG=$LC_ALL` becomes `LANG=\"text\"`.\n\nThis also happens inside fenced code and inline code in the finding, which is where findings quote code. The reader sees code the PR does not contain, and nothing marks the change. It also contradicts the new comment at line 30: \"Nothing else on the line changes.\" It is the same kind of damage last round's fence finding raised, now for any i18n or locale code.\n\n`lang` only matters inside a raw `<pre ...>` tag. You can scope the scan to each tag's text and still check every `lang=` in it. If the outer match skips quoted values as whole units, all current test rows keep passing: `data-lang`, `title=\"lang=ts\"`, `title=\">\"`, `<PRE LANG=suggestion>`, and the plain `<pre lang=ts>` forms.",
+      "suggestion": "    .replace(/<pre\\b(?:\"[^\"]*\"|'[^']*'|[^>])*/gi, (tag) =>\n      tag.replace(/(\\blang\\s*=\\s*)(\"[^\"]*\"|'[^']*'|[^\\s>]*)/gi, (match, attribute: string, value: string) =>\n        isPlainLanguage(value.replace(/^[\"']|[\"']$/g, \"\")) ? match : `${attribute}\"text\"`,\n      ),\n    );"
+    },
+    {
+      "file": "tools/review/src/review-body.utils.ts",
+      "line": "34",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "important",
+      "description": "The footnote part of the container prefix, `\\[\\^.*?\\]:`, sits inside a `*` loop, and `.*?` can run past `]:` into the next label. A line of k back-to-back labels such as `[^]:` (or `[^1]: [^2]: …`) can then be grouped about 2^(k-1) ways. With no fence at the end of the line, V8 tries every grouping before it fails. About 40 labels (roughly 160 characters) at the start of any line in an important finding's body hangs `commentBody`. It is called from `prepare()` in post-review.script.ts, before the `try`/`finally`, so nothing is posted and the poster's status and reaction never run.",
+      "body": "**The new fence regex can backtrack exponentially and hang the poster**\n\n```ts\n      /^((?:[^\\S\\r\\n]*(?:>|[-+*]|\\d{1,9}[.)]|\\[\\^.*?\\]:))*[^\\S\\r\\n]*)(`{3,}|~{3,})(.*)$/gm,\n```\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/93db30929a425c67b344c6d9dfb016f5f3f3073e/tools/review/src/review-body.utils.ts#L34\n\n`\\[\\^.*?\\]:` repeats inside `(?:…)*`, and its lazy `.*?` matches `]`, `:` and `[`, so it can reach past one `]:` to the next. Take a line of k labels with no fence after them, for example `[^]:` repeated 40 times followed by `x`. Each loop iteration can end at any later label, which gives about 2^k ways to split the line. Every split fails, because no backtick or tilde follows. V8's default irregexp engine has no memoisation, so it tries all of them and `commentBody` never returns.\n\n`inertFences` runs on the body (or description) of every anchored important finding. `commentBody` is called from `prepare()` in `post-review.script.ts`, before the `try`/`finally`. A hang therefore means no review, no commit status and no reaction, and the job sits until the workflow times out. Finding bodies quote PR content, so a PR author can plant the line.\n\nConfidence is medium. The exponential structure is certain, but whether a reviewer would quote such a line into an important finding's body is not.\n\nFix: make the label stop at the first unescaped `]`. Each iteration then matches exactly one way, and the `[^1]: ```suggestion` and nested-container test rows still pass.",
+      "suggestion": "      /^((?:[^\\S\\r\\n]*(?:>|[-+*]|\\d{1,9}[.)]|\\[\\^(?:\\\\.|[^\\]\\\\\\r\\n])*\\]:))*[^\\S\\r\\n]*)(`{3,}|~{3,})(.*)$/gm,"
+    },
+    {
+      "file": "tools/review/src/review-body.utils.ts",
+      "line": "34-36",
+      "area": "correctness",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "Under CommonMark, a backtick fence whose info string contains a backtick does not open a fence, but the anchored regex still rewrites it. A line starting with an inline code span such as \"```` ```suggestion ```` is what they wrote\" or \"```foo``` is wrong\" is posted as \"````text  ```suggestion ````...\" or \"```text foo```...\", so `text ` appears inside the rendered inline code. Returning `match` unchanged when `fence[0] === \"`\"` and `info` contains a backtick would fix it.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-body.utils.ts",
+      "line": "46-55",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The suggestion no longer goes through `inertFences`, and the comment at lines 48-49 says its code \"can never close the fence early\". That only holds if the bot's opener actually opens a fence. A body that ends with an unclosed plain-language fence, `<pre>` or `<!--` swallows the opener. A ``` line in the suggestion then closes that block, and a ```suggestion line inside the suggestion becomes live. This is lost defence in depth: it needs a suggestion opener inside the suggestion text itself.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/test/unit/review-body-utils.test.ts",
+      "line": "114-123",
+      "area": "maintainability",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "No 'leaves as written' row covers a non-plain `lang=` outside a `<pre>` tag (for example `const lang = detect(text)` or `--lang=ts,js`). That case is what the now-unanchored `lang=` pass silently rewrites. One row would pin whichever behaviour is intended.",
+      "body": null,
+      "suggestion": null
+    }
+  ],
+  "refuted_findings": [],
+  "process_issues": [],
+  "comments_posted_actual": 2,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 2.4962403,
+  "duration_ms": 422452,
+  "num_turns": 13,
+  "tokens": {
+    "input": 14,
+    "output": 10967,
+    "cache_read": 312995,
+    "cache_creation": 49119,
+    "total": 373095
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 40,
+      "output": 68487,
+      "cache_read": 473536,
+      "cache_creation": 144922,
+      "cost_usd": 2.3365742
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 16,
+      "output": 4433,
+      "cache_read": 68708,
+      "cache_creation": 40625,
+      "cost_usd": 0.1596661
+    }
+  ],
+  "permission_denials": []
+}
