@@ -23,7 +23,7 @@ import {
 // Bump whenever the record's meaning changes (a field added or repurposed, a
 // pipeline change that alters what a field measures): the retro partitions
 // trends by schema_version, so a silent semantic change poisons its baselines.
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 2;
 
 function warn(message: string): void {
   process.stdout.write(`::warning::${message}\n`);
