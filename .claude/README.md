@@ -33,7 +33,7 @@ What a session pays for this config, in approximate tokens (bytes / 4), so addit
 |---|---|---|
 | `CLAUDE.md` + `AGENTS.md` | every session | ~1.0k |
 | Descriptions of the model-invocable skills | every session | ~0.7k |
-| Descriptions of all 13 agents | every session | ~0.7k |
+| Descriptions of all 13 agents | every session | ~0.8k |
 | `docs/conventions/core.md` | first source file touched | ~0.8k as shipped, grows when adapted |
 | `testing.md` / each area doc | first file touched in that area | ~0.4k as shipped; aim for ≤3k each |
 
