@@ -1,5 +1,6 @@
 import {
   decideMode,
+  isPartialReview,
   newestCleanRecord,
   type PriorRecord,
   parseReviewRequest,
@@ -108,40 +109,54 @@ describe("decideMode", () => {
   });
 });
 
+describe("isPartialReview", () => {
+  it("counts a quick review as partial", () => {
+    expect(isPartialReview("quick", [])).toBe(true);
+  });
+
+  it("counts a review restricted to named areas as partial", () => {
+    expect(isPartialReview("deep", ["security"])).toBe(true);
+  });
+
+  it("counts a standard or deep review of the gated areas as complete", () => {
+    expect(isPartialReview("standard", [])).toBe(false);
+    expect(isPartialReview("deep", [])).toBe(false);
+  });
+
+  it("reads a record from before the request fields as complete", () => {
+    expect(isPartialReview(undefined, undefined)).toBe(false);
+  });
+});
+
 describe("parseReviewRequest", () => {
-  it("asks for a standard review of the gated areas by default", () => {
-    expect(parseReviewRequest("@claude review")).toEqual({ full: false, depth: "standard", areas: [] });
-  });
+  const standard = { full: false, depth: "standard", areas: [] };
 
-  it("reads full, a depth, and areas in any order", () => {
-    expect(parseReviewRequest("@claude review security deep full docs")).toEqual({
-      full: true,
-      depth: "deep",
-      areas: ["security", "docs"],
-    });
-  });
-
-  it("ignores case and commas between words", () => {
-    expect(parseReviewRequest("@Claude Review Quick Correctness,Security")).toEqual({
-      full: false,
-      depth: "quick",
-      areas: ["correctness", "security"],
-    });
-  });
-
-  it("stops at the first word that is not a keyword", () => {
-    expect(parseReviewRequest("@claude review, thanks for the security fix")).toEqual({
-      full: false,
-      depth: "standard",
-      areas: [],
-    });
-  });
-
-  it("reads only the trigger's own line", () => {
-    expect(parseReviewRequest("@claude review\nsecurity looks fine to me")).toEqual({
-      full: false,
-      depth: "standard",
-      areas: [],
-    });
+  it.each([
+    ["asks for a standard review of the gated areas by default", "@claude review", standard],
+    [
+      "reads full, a depth, and areas in any order",
+      "@claude review security deep full docs",
+      { full: true, depth: "deep", areas: ["security", "docs"] },
+    ],
+    ["ignores case", "@Claude Review Quick Correctness", { ...standard, depth: "quick", areas: ["correctness"] }],
+    [
+      "splits words on commas",
+      "@claude review correctness,security",
+      { ...standard, areas: ["correctness", "security"] },
+    ],
+    ["reads a keyword before a full stop", "@claude review full.", { ...standard, full: true }],
+    ["reads a keyword in a code span", "`@claude review full`", { ...standard, full: true }],
+    ["reads a keyword in bold", "**@claude review deep**", { ...standard, depth: "deep" }],
+    ["reads a keyword after a colon", "@claude review: quick", { ...standard, depth: "quick" }],
+    ["stops at the first word that is not a keyword", "@claude review, thanks for the security fix", standard],
+    ["keeps a hyphenated word whole", "@claude review security-related changes", standard],
+    ["reads only the trigger's own line", "@claude review\nsecurity looks fine to me", standard],
+    [
+      "skips a trigger quoted from an earlier comment",
+      "> @claude review security\n\n@claude review deep",
+      { ...standard, depth: "deep" },
+    ],
+  ])("%s", (_label, comment, expected) => {
+    expect(parseReviewRequest(comment)).toEqual(expected);
   });
 });

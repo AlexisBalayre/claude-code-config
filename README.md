@@ -97,21 +97,25 @@ or narrow that gate in the job's `if:`; on an organization repo `github.reposito
 org name, which matches no user, so replace both of its uses with the logins (or a team check)
 you want to allow.
 
-**Asking by comment.** `@claude review` on a PR runs the review on demand, and the words after
-it, in any order, shape it:
+**Asking by comment.** `@claude review` on a PR runs the review on demand, and the words right
+after it on the same line, in any order, shape it. The first word that is not one of them ends
+the request, so `@claude review, thanks` is a plain review.
 
 | Comment | Review |
 | :------ | :----- |
-| `@claude review` | the changes since the last complete review, or the whole PR if there is none |
+| `@claude review` | the changes since the last complete review; the whole PR when there is none, when it reviewed this same head, or after a rebase or a merge from the base |
 | `@claude review full` | the whole PR diff |
 | `@claude review quick` | correctness, plus security when a trust boundary is touched, one instance each |
-| `@claude review deep` | every area, one more instance per scaled area, maintainability and the orchestrator raised |
+| `@claude review deep` | every area, gate or not; one more instance of each size-scaled area (up to 3); maintainability on Opus; the orchestrator at high effort |
 | `@claude review security docs` | only the named areas: `correctness`, `security`, `context`, `conventions`, `maintainability`, `docs` |
 
-A quick or area-restricted review is partial: the next push is still reviewed against the last
-complete review, so nothing it skipped goes unreviewed. The comment shows the run's state as a
-reaction: 👀 while it runs, then 🚀 (no important findings), 👎 (important findings posted), or
-😕 (not reviewed: the run failed or was cancelled, or the PR had closed).
+A quick or area-restricted review is partial: the next review diffs from the last complete one,
+so what it skipped is covered then; comment `@claude review` for a complete pass now. The comment
+shows the run's state as a reaction: 👀 while it runs, then 🚀 (no important findings), 👍 (no
+important findings from a partial review, whose `claude-review` status also says "partial
+review"), 👎 (important findings posted), or 😕 (not reviewed: the run failed or was cancelled,
+or the PR had closed). A request that waits behind a running review can be displaced by a later
+push to the PR; it then never starts and gets no reaction, so comment again.
 
 One upstream rule to expect: the App only mints a token when the workflow file on the PR branch
 is byte-identical to the copy on the default branch, so **a PR that edits
