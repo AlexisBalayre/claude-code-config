@@ -72,11 +72,14 @@ pnpm --dir tools/review exec tsx src/review-eval.script.ts --run [--pipeline <re
 ```
 
 `--run` opens a draft PR per case under the replayed PR's own title and body, with the plant
-folded into its commit: nothing the reviewer reads names the case or the plant. The workflow
-skips drafts, though a `@claude review` comment on one still starts a billed review. It runs
-`/pr-ci-review` on the PR locally under the workflow's permission lock, read from the workflow
-itself, with the repo's own grants dropped as CI drops them, but outside CI's sandbox. Then it
-grades the record, closes the PR and deletes its branches; `results.json` is rewritten after each
-case. `--budget` caps the spend (default $10). `--pipeline` picks whose `.claude/` and lock review,
-so two versions of the protocol score on the same cases; that ref's hooks run on your machine
-unsandboxed, so point it only at a ref you trust.
+folded into its commit (same author, dates and message, minus the `(#N)` that names the original),
+and reviews it from a clone of that branch alone, where no ref holds the unplanted original:
+nothing the reviewer reads names the eval, the case or the plant. The workflow skips drafts, though
+a `@claude review` comment on one still starts a billed review. It runs `/pr-ci-review` on the PR
+locally under the workflow's permission lock, read from the workflow itself, with the repo's own
+grants dropped as CI drops them, but outside CI's sandbox. Then it grades the record, closes the PR
+and deletes its branches; `results.json` is rewritten after each case, and the run ends with recall
+over the planted cases and how many clean cases drew an important finding. `--budget` caps the
+spend (default $10); a case that dies before reporting its cost is charged its full $5 cap.
+`--pipeline` picks whose `.claude/` and lock review, so two versions of the protocol score on the
+same cases; that ref's hooks run on your machine unsandboxed, so point it only at a ref you trust.
