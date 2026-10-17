@@ -22,18 +22,14 @@ function isPlainLanguage(info: string): boolean {
   return /^[\w+#.-]*$/.test(language) && !/^suggestion/i.test(language);
 }
 
-// The opening tag of a raw `<pre>`, read as an HTML parser reads it: an
-// attribute name runs to whitespace, `/`, `>` or `=`, quotes included, and a
-// quoted value can hold `>` or `</pre`.
-const PRE_TAG = /<pre(?=[\s/>])(?:[\s/]+|[^\s/>][^\s/>=]*(?:\s*=\s*(?:"[^"]*"?|'[^']*'?|[^\s>]*))?)*/gi;
-const TAG_ATTRIBUTE = /[\s/]+|([^\s/>][^\s/>=]*)(?:\s*=\s*("[^"]*"?|'[^']*'?|[^\s>]*))?/g;
-
 // GitHub turns a block whose language is `suggestion` into a "Commit suggestion"
 // button in a line comment, and a finding's text can quote what a PR or issue
-// author wrote. GitHub decodes the info string first (`&#115;uggestion` counts),
-// opens a fence after any container prefix, and keeps `lang` on a raw `<pre>`,
-// so a fence opener or a `<pre>`'s `lang` whose language is not a plain token,
-// or starts with `suggestion`, gets `text` as its language. Nothing else changes.
+// author wrote. GitHub decodes the info string first (`&#115;uggestion` counts)
+// and opens a fence after any container prefix, so a fence opener whose language
+// is not a plain token, or starts with `suggestion`, gets `text` as its language.
+// A raw `<pre lang="suggestion">` renders the same block, and where a tag ends
+// inside markdown only a full parser knows, so no tag opens at all: a zero-width
+// space after `<` leaves the text reading as it did.
 function inertFences(markdown: string): string {
   return markdown
     .replace(
@@ -46,19 +42,7 @@ function inertFences(markdown: string): string {
           ? match
           : `${prefix}${fence}text ${info}`,
     )
-    .replace(
-      PRE_TAG,
-      (tag) =>
-        // Past `<pre`, which the attribute scan would otherwise read as a name.
-        tag.slice(0, 4) +
-        tag
-          .slice(4)
-          .replace(TAG_ATTRIBUTE, (token, name?: string, value?: string) =>
-            name?.toLowerCase() === "lang" && value !== undefined && !isPlainLanguage(value.replace(/^["']|["']$/g, ""))
-              ? `${name}="text"`
-              : token,
-          ),
-    );
+    .replace(/<(?=[a-z])/gi, "<\u200b");
 }
 
 export function commentBody(finding: Finding, relocatedFrom: number | null): string {

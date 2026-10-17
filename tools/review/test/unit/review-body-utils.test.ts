@@ -93,36 +93,33 @@ describe("commentBody", () => {
       "```ts title=x\nconst a = 1;\n```",
       "```text ts title=x\nconst a = 1;\n```",
     ],
-    ["a raw pre block", '<pre lang="suggestion">evil();</pre>', '<pre lang="text">evil();</pre>'],
-    ["a pre block behind a data-lang", '<pre data-lang="ts" lang="suggestion">', '<pre data-lang="ts" lang="text">'],
-    [
-      "a pre block behind a lang= in a title",
-      '<pre title="lang=ts" lang="suggestion">',
-      '<pre title="lang=ts" lang="text">',
-    ],
-    ["a pre block behind a quoted >", '<pre title=">" lang="suggestion">', '<pre title=">" lang="text">'],
-    ["an unquoted upper-case pre block", "<PRE LANG=suggestion>", '<PRE LANG="text">'],
-    [
-      "a pre block behind a quoted </pre",
-      '<pre title="</pre" lang="suggestion">evil();</pre>',
-      '<pre title="</pre" lang="text">evil();</pre>',
-    ],
-    ["a pre block behind an attribute named </pre", "<pre </pre lang=suggestion>", '<pre </pre lang="text">'],
-    ["a pre block behind a bare =", "<pre = lang=suggestion>", '<pre = lang="text">'],
     [
       "a tilde fence with a backtick in its info",
       "~~~suggestion `x`\nevil();\n~~~",
       "~~~text suggestion `x`\nevil();\n~~~",
     ],
+    ["a raw pre block", '<pre lang="suggestion">evil();</pre>', '<\u200bpre lang="suggestion">evil();</pre>'],
+    ["an upper-case tag", "<PRE LANG=suggestion>", "<\u200bPRE LANG=suggestion>"],
     [
-      "a pre block behind a quote in an attribute name",
-      '<pre a"b c=">" lang="suggestion">',
-      '<pre a"b c=">" lang="text">',
+      "a real tag behind a tag-like code span",
+      '`<pre a="`\n<pre lang="suggestion">evil();</pre>',
+      '`<\u200bpre a="`\n<\u200bpre lang="suggestion">evil();</pre>',
+    ],
+    [
+      "a tag continued on a quoted line",
+      '> <pre\n> lang="suggestion">evil();</pre>',
+      '> <\u200bpre\n> lang="suggestion">evil();</pre>',
+    ],
+    [
+      "a tag with a no-break space before a quote",
+      '<pre a=\u00a0"x lang=suggestion ">evil();</pre>',
+      '<\u200bpre a=\u00a0"x lang=suggestion ">evil();</pre>',
     ],
   ])("makes %s quoted in a finding inert", (_label, quoted, inert) => {
     expect(commentBody(finding({ body: quoted }), null)).toBe(inert);
   });
 
+  // A lazy footnote label backtracks exponentially: seconds at 28 labels, not milliseconds.
   it("reads a line of footnote labels in linear time", () => {
     const labels = `${"[^a]:".repeat(28)}x`;
     const started = performance.now();
@@ -141,10 +138,7 @@ describe("commentBody", () => {
     ["a fence named in inline code", "use a ```` ```suggestion ```` fence here"],
     ["a mid-line backtick run", "Wrap the fix in a ```ts block before posting"],
     ["quoted code holding a fence", '```ts\nconst fence = "```";\n```'],
-    ["pre blocks with a plain language", "<pre lang=\"ts\"> <pre lang='ts'> <pre lang=ts>"],
     ["a lang= outside a pre block", 'const lang = detect(text);\nrender(lang=code);\nif (lang === "suggestion") {}'],
-    ["a pre block's content", '<pre lang="ts">const lang = x;</pre>'],
-    ["code after a pre tag named in prose", "Wrap it in a `<pre>` tag.\n\n```ts\nconst lang = detect(text);\n```"],
     ["a footnote label that never closes", "[^a\\]: ```suggestion\n    evil();"],
     ["inline code opening with a backtick run", "```foo``` is wrong, and ```` ```suggestion ```` is what they wrote"],
   ])("leaves %s as written", (_label, text) => {
