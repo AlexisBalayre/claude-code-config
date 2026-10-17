@@ -6,6 +6,8 @@ disable-model-invocation: true
 
 Implement the work described by the user in the spec or tickets.
 
+If the user passes a ticket reference, fetch it from the configured tracker (or its file under `docs/plans/` when there is no tracker, by absolute path into the main checkout: `docs/plans/` is never committed, so a worktree has none) and state its title before starting. If the reference is ambiguous, ask.
+
 Call the Skill tool with "tdd" where possible, at pre-agreed seams.
 
 Run typechecking regularly (`TYPECHECK_CMD`), single test files regularly, and the full test suite (`TEST_CMD`) once at the end. Both commands live in `.claude/project.env`; an empty key means that check is off.
