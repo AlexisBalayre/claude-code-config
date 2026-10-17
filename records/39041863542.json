@@ -1,0 +1,139 @@
+{
+  "schema_version": 5,
+  "timestamp": "2026-10-17T14:45:12.626Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "39041863542",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/39041863542",
+  "actor": "AlexisBalayre",
+  "commit_sha": "60d7554b4ccbbd6c38427eb9e9c1fd030bcc0565",
+  "source": "pr",
+  "pr_number": 20,
+  "action": "review",
+  "reviewers_spawned": [
+    "correctness",
+    "security",
+    "context",
+    "conventions",
+    "maintainability",
+    "docs"
+  ],
+  "reviewers_returned": [
+    "correctness",
+    "security",
+    "context",
+    "conventions",
+    "maintainability",
+    "docs"
+  ],
+  "reviewers_skipped": [],
+  "review_mode": "full",
+  "incremental_from_sha": null,
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [],
+  "findings": [
+    {
+      "file": "tools/review/test/integration/denied-tool-calls-recorded.test.ts",
+      "line": "52",
+      "area": "conventions",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "Test name says denials 'are recorded as unknown when the result carries no list' but the assertion is `toBeNull()`. `docs/conventions/testing.md` L11 says 'name tests by the behaviour they pin down'. Rename it, e.g. 'are recorded as null when the result carries no list'. The 'unknown' fallback is the separate per-entry `tool_name` default, which no test covers.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/README.md",
+      "line": "33",
+      "area": "docs",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The cell says \"the tool calls the allowlist refused\". The schema `.describe()` and the review-retro sentence both say \"the run's permission rules refused\". `permission_denials` in the result covers any permission refusal, not only allowlist misses. Suggested wording: \"the tool calls the permission rules refused\".",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/test/integration/denied-tool-calls-recorded.test.ts",
+      "line": "19-39",
+      "area": "maintainability",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "`recordFor` is the fourth copy of the mkdtemp + execution-file + `spawnSync(tsx, review-metrics.script.ts)` harness already in `spend-split-by-model.test.ts` (`runMetrics`) and siblings; a shared `test/integration/run-metrics.ts` helper would stop the next field adding a fifth.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-metrics.script.ts",
+      "line": "158",
+      "area": "maintainability",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The 200-character cap is a bare literal in `text.slice(0, 200)` and is repeated in the schema `.describe(\"...cut to 200 characters.\")` and the test's `toHaveLength(200)`; a named constant would keep the three in step.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-preflight.script.ts",
+      "line": "56-73",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "pre-existing",
+      "description": "priorRecords matches records by grepping the raw text for `\"pr_number\": N,` and never checks that the parsed `pr_number` equals N, so any free text in a record containing that string makes it a prior for PR N. Model-written finding and process-issue text already allowed this. The new `permission_denials[].input` adds another way in: a denied command quoting that string is stored as `\\\"pr_number\\\": N,`, which still contains the pattern. Adding `parsed.pr_number === Number(prNumber)` to the loop closes it.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".github/workflows/claude-code-review.yml",
+      "line": "243",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "pre-existing",
+      "description": "The allowlist entry `Bash(gh api repos/*)` matches by prefix, so it also lets through write calls like `gh api repos/O/R/issues/N/comments -f body=...` or `gh api -X PUT repos/O/R/contents/...`. Those would run with the action's write token. That contradicts the \"allowlist has no write verbs\" guarantee in the workflow comment and `tools/review/README.md`. A pattern limited to GET, or a scoped `gh api` wrapper, would close it.",
+      "body": null,
+      "suggestion": null
+    }
+  ],
+  "refuted_findings": [],
+  "process_issues": [],
+  "comments_posted_actual": 0,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 1.5495718000000005,
+  "duration_ms": 158374,
+  "num_turns": 12,
+  "tokens": {
+    "input": 12,
+    "output": 9575,
+    "cache_read": 224229,
+    "cache_creation": 42066,
+    "total": 275882
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 42,
+      "output": 24956,
+      "cache_read": 538661,
+      "cache_creation": 112919,
+      "cost_usd": 1.2978132000000002
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 30,
+      "output": 6643,
+      "cache_read": 153268,
+      "cache_creation": 61846,
+      "cost_usd": 0.2517586
+    }
+  ],
+  "permission_denials": [
+    {
+      "tool": "Bash",
+      "input": "cd /home/runner/work/claude-code-config/claude-code-config/tools/review/test/integration && sed -n 1,60p spend-split-by-model.test.ts; grep -n \"spawnSync\\|mkdtemp\" *.ts; ls ../unit ../; grep -rn \"slic"
+    },
+    {
+      "tool": "Bash",
+      "input": "sed -n '/## Threat model/,/^## [^T]/p' /home/runner/work/claude-code-config/claude-code-config/tools/review/README.md; git -C /home/runner/work/claude-code-config/claude-code-config grep -n \"gh api\" -"
+    }
+  ]
+}
