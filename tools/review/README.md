@@ -71,9 +71,16 @@ pnpm --dir tools/review exec tsx src/review-eval.script.ts                      
 pnpm --dir tools/review exec tsx src/review-eval.script.ts --run [--pipeline <ref>] [--budget <usd>]
 ```
 
-`--run` opens a draft PR per case (the workflow skips drafts), runs `/pr-ci-review` on it locally
-under the workflow's allow list but outside its sandbox, grades the record, then closes the PR
-and deletes its branches. A case with a `spec` also opens it as an issue the PR closes, which is
-what spawns the spec reviewer, and deletes the issue afterwards (deleting takes admin rights on the
-repo). `--budget` caps the spend (default $10); `--pipeline` picks whose
-`.claude/` reviews, so two versions of the protocol score on the same cases.
+`--run` opens a draft PR per case under the replayed PR's own title and body, with the plant
+folded into its commit: nothing the reviewer reads names the case or the plant. The workflow
+skips drafts, though a `@claude review` comment on one still starts a billed review. It runs
+`/pr-ci-review` on the PR locally under the workflow's permission lock, read from the workflow
+itself, with the repo's own grants dropped as CI drops them, but outside CI's sandbox. Then it
+grades the record, closes the PR and deletes its branches; `results.json` is rewritten after each
+case. A case with a `spec` opens it as an issue whose title is the PR's, and the PR's body only
+closes it, with its commits squashed under a bare subject, so the requirements reach the reviewer
+through the issue alone; that is what spawns the spec reviewer. The issue is deleted afterwards,
+which takes admin rights on the repo: without them it stays open, and the run prints the failed
+cleanup. `--budget` caps the spend (default $10). `--pipeline` picks whose `.claude/` and lock review,
+so two versions of the protocol score on the same cases; that ref's hooks run on your machine
+unsandboxed, so point it only at a ref you trust.

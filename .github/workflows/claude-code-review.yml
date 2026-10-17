@@ -61,11 +61,13 @@ jobs:
     outputs:
       skip: ${{ (steps.pr-head.outputs.skip == 'true' || steps.preflight.outputs.skip == 'true') && 'true' || 'false' }}
     env:
-      # Where "Set the review tooling aside" copies it, and the tsconfig tsx must
-      # use: left to itself, tsx reads the working directory's, which is the PR
-      # head's from the checkout on, and its `paths` could remap an import.
+      # Where "Set the review tooling aside" copies it, and the working directory
+      # of every script step: node and tsx read the working directory's
+      # package.json and tsconfig before the script runs, and from the checkout
+      # on the checkout is the PR head. A package.json naming tsx's own dist
+      # directory with an `exports` map swaps tsx's preload for the PR's code,
+      # and the scrub-mode stub (an empty one) stops node outright.
       REVIEW_TOOLING: ${{ github.workspace }}/../review-tooling
-      TSX_TSCONFIG_PATH: ${{ github.workspace }}/../review-tooling/tsconfig.json
       # Strips credential-shaped variables (the Claude OAuth token, this job's
       # token) from the shell the model drives: `gh --jq '$ENV.X'` prints any
       # variable, and the record it could land in is posted to the PR. GH_TOKEN
@@ -173,13 +175,15 @@ jobs:
           REVIEW_TRIGGER: ${{ github.event_name == 'issue_comment' && 'comment' || github.event.action }}
           # Through env, never inline in a script: the comment is free text.
           REVIEW_COMMENT: ${{ github.event.comment.body }}
-        run: node "$REVIEW_TOOLING/node_modules/tsx/dist/cli.mjs" "$REVIEW_TOOLING/src/review-preflight.script.ts"
+        working-directory: ${{ env.REVIEW_TOOLING }}
+        run: node node_modules/tsx/dist/cli.mjs src/review-preflight.script.ts
 
       - name: Generate review schema
         if: steps.pr-head.outputs.skip != 'true' && steps.preflight.outputs.skip != 'true'
         id: gen-schema
+        working-directory: ${{ env.REVIEW_TOOLING }}
         run: |
-          schema=$(node "$REVIEW_TOOLING/node_modules/tsx/dist/cli.mjs" "$REVIEW_TOOLING/src/print-schema.script.ts")
+          schema=$(node node_modules/tsx/dist/cli.mjs src/print-schema.script.ts)
           # Escape single quotes so the schema embeds safely in the single-quoted
           # --json-schema token below, whatever its descriptions contain.
           schema=${schema//\'/\'\\\'\'}
@@ -361,7 +365,8 @@ jobs:
           # Under the runner's temp, never the checkout: a fork can commit
           # posted.json as a symlink into the tooling copy, and the write follows it.
           REVIEW_POSTED_OUTPUT: ${{ runner.temp }}/posted.json
-        run: node "$REVIEW_TOOLING/node_modules/tsx/dist/cli.mjs" "$REVIEW_TOOLING/src/post-review.script.ts"
+        working-directory: ${{ env.REVIEW_TOOLING }}
+        run: node node_modules/tsx/dist/cli.mjs src/post-review.script.ts
 
       # The poster picks the reaction; a run it never finished (a failed
       # preflight, a cancellation, a closed PR) gets confused. The verdict goes
@@ -394,7 +399,8 @@ jobs:
           REVIEW_POSTED_INPUT: ${{ runner.temp }}/posted.json
           REVIEW_COMMENT: ${{ github.event.comment.body }}
           REVIEW_METRICS_OUTPUT: ${{ runner.temp }}/review-metrics.json
-        run: node "$REVIEW_TOOLING/node_modules/tsx/dist/cli.mjs" "$REVIEW_TOOLING/src/review-metrics.script.ts"
+        working-directory: ${{ env.REVIEW_TOOLING }}
+        run: node node_modules/tsx/dist/cli.mjs src/review-metrics.script.ts
 
       - name: Upload review metrics
         if: always() && steps.pr-head.outputs.skip != 'true' && steps.preflight.outputs.skip != 'true'
