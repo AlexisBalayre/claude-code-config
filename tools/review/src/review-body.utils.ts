@@ -18,27 +18,25 @@ export function findingLine(finding: Listed): string {
 }
 
 function isPlainLanguage(info: string): boolean {
-  const language = info.replace(/^[ \t]+|[ \t\r]+$/g, "");
+  const language = info.trim();
   return /^[\w+#.-]*$/.test(language) && !/^suggestion/i.test(language);
 }
 
 // GitHub turns a block whose language is `suggestion` into a "Commit suggestion"
 // button in a line comment, and a finding's text can quote what a PR or issue
-// author wrote. GitHub decodes and trims a fence's info string before reading
-// it, and a fence can follow any container prefix, so rather than spot the word,
-// every fence (and raw `<pre lang>`) whose language is not a plain token becomes
-// `text`. Only the fence commentBody opens itself stays committable.
+// author wrote. GitHub decodes the info string first (`&#115;uggestion` counts),
+// opens a fence after any container prefix, and keeps `lang` on a raw `<pre>`,
+// so a fence opener or a `lang=` whose language is not a plain token, or starts
+// with `suggestion`, gets `text` as its language. Nothing else on the line changes.
 function inertFences(markdown: string): string {
   return markdown
     .replace(
-      /(`{3,})([^`\n]*)$|(~{3,})([^\n]*)$/gm,
-      (match, ticks?: string, tickInfo?: string, tildes?: string, tildeInfo?: string) =>
-        isPlainLanguage(tickInfo ?? tildeInfo ?? "") ? match : `${ticks ?? tildes}text`,
+      /^((?:[^\S\r\n]*(?:>|[-+*]|\d{1,9}[.)]|\[\^.*?\]:))*[^\S\r\n]*)(`{3,}|~{3,})(.*)$/gm,
+      (match, prefix: string, fence: string, info: string) =>
+        isPlainLanguage(info) ? match : `${prefix}${fence}text ${info}`,
     )
-    .replace(
-      /(<pre\b[^>]*?\blang\s*=\s*)("[^"]*"|'[^']*'|[^\s>]*)/gi,
-      (match, attribute: string, value: string) =>
-        isPlainLanguage(value.replace(/^["']|["']$/g, "")) ? match : `${attribute}"text"`,
+    .replace(/(\blang\s*=\s*)("[^"]*"|'[^']*'|[^\s>]*)/gi, (match, attribute: string, value: string) =>
+      isPlainLanguage(value.replace(/^["']|["']$/g, "")) ? match : `${attribute}"text"`,
     );
 }
 
@@ -47,10 +45,14 @@ export function commentBody(finding: Finding, relocatedFrom: number | null): str
   if (relocatedFrom !== null) parts.push(`Re: \`${finding.file}:${relocatedFrom}\``, "");
   parts.push(inertFences(finding.body ?? finding.description));
   if (finding.suggestion !== null) {
+    // Longer than any backtick run in the suggestion, so its code can never
+    // close the fence early and is posted exactly as written.
+    const runs = finding.suggestion.match(/`+/g) ?? [];
+    const fence = "`".repeat(Math.max(3, ...runs.map((run) => run.length + 1)));
     // A committable suggestion rewrites the line it is attached to, so on a
     // relocated anchor it would replace code the finding never mentioned. Same
     // text, inert fence.
-    parts.push("", relocatedFrom === null ? "```suggestion" : "```", inertFences(finding.suggestion), "```");
+    parts.push("", relocatedFrom === null ? `${fence}suggestion` : fence, finding.suggestion, fence);
   }
   return parts.join("\n");
 }

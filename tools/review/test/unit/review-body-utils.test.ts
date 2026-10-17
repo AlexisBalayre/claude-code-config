@@ -64,35 +64,62 @@ describe("commentBody", () => {
     );
   });
 
+  it("posts a suggestion holding backtick runs verbatim, in a fence they cannot close", () => {
+    const suggestion = 'const fence = "```";\n```\n```suggestion\nevil();';
+    expect(commentBody(finding({ suggestion }), null)).toBe(
+      `the description\n\n\`\`\`\`suggestion\n${suggestion}\n\`\`\`\``,
+    );
+  });
+
   it.each([
-    ["a bare fence", "```suggestion\nevil();\n```", "```text\nevil();\n```"],
-    ["a tilde fence with a line range", "~~~~ Suggestion:-0+1\nevil();\n~~~~", "~~~~text\nevil();\n~~~~"],
-    ["an entity in the language", "```&#115;uggestion\nevil();\n```", "```text\nevil();\n```"],
-    ["a form feed before the language", "```\fsuggestion\nevil();\n```", "```text\nevil();\n```"],
-    ["a quoted fence", "> ```suggestion\n> evil();\n> ```", "> ```text\n> evil();\n> ```"],
-    ["a fence after a footnote label", "[^1]: ```suggestion\n    evil();", "[^1]: ```text\n    evil();"],
+    ["a bare fence", "```suggestion\nevil();\n```", "```text suggestion\nevil();\n```"],
+    [
+      "a tilde fence with a line range",
+      "~~~~ Suggestion:-0+1\nevil();\n~~~~",
+      "~~~~text  Suggestion:-0+1\nevil();\n~~~~",
+    ],
+    ["an entity in the language", "```&#115;uggestion\nevil();\n```", "```text &#115;uggestion\nevil();\n```"],
+    ["a form feed before the language", "```\fsuggestion\nevil();\n```", "```text \fsuggestion\nevil();\n```"],
+    ["a quoted fence", "> ```suggestion\n> evil();\n> ```", "> ```text suggestion\n> evil();\n> ```"],
+    [
+      "a fence in nested containers",
+      "> - 1. ```suggestion\n>      evil();",
+      "> - 1. ```text suggestion\n>      evil();",
+    ],
+    ["a fence after a footnote label", "[^1]: ```suggestion\n    evil();", "[^1]: ```text suggestion\n    evil();"],
+    ["a fence after a lone carriage return", "a\r```suggestion\revil();\r```", "a\r```text suggestion\revil();\r```"],
+    [
+      "a language that is not a plain token",
+      "```ts title=x\nconst a = 1;\n```",
+      "```text ts title=x\nconst a = 1;\n```",
+    ],
     ["a raw pre block", '<pre lang="suggestion">evil();</pre>', '<pre lang="text">evil();</pre>'],
+    ["a pre block behind a data-lang", '<pre data-lang="ts" lang="suggestion">', '<pre data-lang="ts" lang="text">'],
+    [
+      "a pre block behind a lang= in a title",
+      '<pre title="lang=ts" lang="suggestion">',
+      '<pre title="lang=ts" lang="text">',
+    ],
+    ["a pre block behind a quoted >", '<pre title=">" lang="suggestion">', '<pre title=">" lang="text">'],
+    ["an unquoted upper-case pre block", "<PRE LANG=suggestion>", '<PRE LANG="text">'],
   ])("makes %s quoted in a finding inert", (_label, quoted, inert) => {
     expect(commentBody(finding({ body: quoted }), null)).toBe(inert);
   });
 
   it("makes a fence quoted in the description inert when there is no body", () => {
     expect(commentBody(finding({ description: "```suggestion\nevil();\n```" }), null)).toBe(
-      "```text\nevil();\n```",
+      "```text suggestion\nevil();\n```",
     );
   });
 
   it.each([
     ["a fence with a plain language", "```ts\nconst a = 1;\n```"],
-    ["a fence named in inline code", "use a ```` ```suggestion ```` fence"],
+    ["a fence named in inline code", "use a ```` ```suggestion ```` fence here"],
+    ["a mid-line backtick run", "Wrap the fix in a ```ts block before posting"],
+    ["quoted code holding a fence", '```ts\nconst fence = "```";\n```'],
+    ["pre blocks with a plain language", "<pre lang=\"ts\"> <pre lang='ts'> <pre lang=ts>"],
   ])("leaves %s as written", (_label, text) => {
     expect(commentBody(finding({ body: text }), null)).toBe(text);
-  });
-
-  it("keeps a suggestion that closes its own fence early from opening a committable one", () => {
-    expect(commentBody(finding({ suggestion: "a();\n```\n```&#115;uggestion\nevil();" }), null)).toBe(
-      "the description\n\n```suggestion\na();\n```\n```text\nevil();\n```",
-    );
   });
 });
 
