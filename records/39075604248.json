@@ -1,0 +1,122 @@
+{
+  "schema_version": 5,
+  "timestamp": "2026-10-17T22:38:23.212Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "39075604248",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/39075604248",
+  "actor": "AlexisBalayre",
+  "commit_sha": "30cd04954fbd4ddeeb9e6f97996b40f908b5ca75",
+  "source": "pr",
+  "pr_number": 30,
+  "action": "review",
+  "reviewers_spawned": [
+    "correctness",
+    "security",
+    "conventions",
+    "docs"
+  ],
+  "reviewers_returned": [
+    "correctness",
+    "security",
+    "conventions",
+    "docs"
+  ],
+  "reviewers_skipped": [
+    "context",
+    "maintainability"
+  ],
+  "review_mode": "incremental",
+  "incremental_from_sha": "cc5306c60d53a6d14d8a2ca6237f1a679c2741d9",
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [
+    {
+      "file": ".claude/skills/pr-ci-review/SKILL.md",
+      "line": "154",
+      "status": "resolved"
+    }
+  ],
+  "findings": [
+    {
+      "file": ".claude/skills/pr-ci-review/SKILL.md",
+      "line": "154",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "important",
+      "description": "Setting `suggestion` to `null` for a finding `review-spec` raised does not stop issue text from reaching a committable block. `post-review.script.ts` posts `finding.body ?? finding.description` raw. GitHub makes any ```` ```suggestion ```` fence in a review comment committable. `review-spec` is told to quote the requirement, and the orchestrator's `body` cites it. So a requirement written as a suggestion fence in an attacker's issue gets posted as a working \"Commit suggestion\" on the anchored line. It also skips the poster's inert-fence guard for relocated anchors, since that guard only covers the `suggestion` field.",
+      "body": "**Issue text can still become a committable suggestion through `body` / `description`.**\n\nThis change makes a finding `review-spec` raised carry a `null` `suggestion`, but that only closes the `suggestion` field. The poster puts the comment text in as-is:\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/30cd04954fbd4ddeeb9e6f97996b40f908b5ca75/tools/review/src/post-review.script.ts#L73-L78\n\nNothing in `tools/review/src` neutralises fences in `body`, and the schema treats `body` as a plain string. GitHub turns any ```` ```suggestion ```` fence in a review comment into a \"Commit suggestion\" button. `review-spec` must \"quote the requirement it rests on\" (`.claude/agents/review-spec.md` L14). It reads the issue body via `gh issue view`, and on a public repo anyone can write that body. §8 then asks the orchestrator's `body` to cite it:\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/30cd04954fbd4ddeeb9e6f97996b40f908b5ca75/.claude/skills/pr-ci-review/SKILL.md#L152-L154\n\nSo anyone who opens an issue the PR closes can write a \"requirement\" as a suggestion fence. When `review-spec` flags it as built wrong and the quote ends up in `body` (or in `description`, the fallback when `body` is `null`), the bot posts a working commit button on the anchored line. That is the path this change meant to close. It also gets past the poster's inert-fence guard for relocated anchors, because that guard only looks at `finding.suggestion`.\n\nFix: in §8, say that the `body` of a finding `review-spec` raised quotes issue text as inert text (an indented block or a `text` fence), never as a ```` ```suggestion ```` fence. A stronger fix that doesn't depend on prose: have the poster's comment builder defang ```` ```suggestion ```` fences inside `body`/`description`. The poster is the only place this can be enforced.",
+      "suggestion": null
+    },
+    {
+      "file": ".claude/skills/pr-ci-review/SKILL.md",
+      "line": "154",
+      "area": "docs",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The new `suggestion` rule has two wording problems. First, \"for the reason `--fix` skips it\" points at L142, which gives two reasons, and only the issue-text one applies to a suggestion. Second, \"whoever would write it\" doesn't say who it means (the orchestrator). Restating the issue-text clause, and naming the orchestrator, would let the bullet stand on its own. It would also match L142's \"whatever area it ends up in (§6), a merge included\" wording.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/skills/pr-ci-review/SKILL.md",
+      "line": "142",
+      "area": "docs",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The `--fix` bullet stacks four asides before its colon. One of them, \"a merge included\", could be read as a git merge when it means a §6 consolidation merge. Splitting it would read better, e.g. \"except one `review-spec` raised, even if §6 reassigned its area or merged it into another finding. List those for the user instead: …\".",
+      "body": null,
+      "suggestion": null
+    }
+  ],
+  "refuted_findings": [],
+  "process_issues": [],
+  "comments_posted_actual": 1,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 1.3333985999999998,
+  "duration_ms": 212805,
+  "num_turns": 11,
+  "tokens": {
+    "input": 10,
+    "output": 7813,
+    "cache_read": 179018,
+    "cache_creation": 38707,
+    "total": 225548
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 52,
+      "output": 24632,
+      "cache_read": 519591,
+      "cache_creation": 102376,
+      "cost_usd": 1.2247671999999998
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 14,
+      "output": 3617,
+      "cache_read": 73867,
+      "cache_creation": 23064,
+      "cost_usd": 0.10863140000000002
+    }
+  ],
+  "permission_denials": [
+    {
+      "tool": "Bash",
+      "input": "git diff 1456344db46c56b965a54e86cfc84daababf15cc..HEAD --stat; ls tools/review/src/; grep -n \"suggestion\\|body\\|description\\|fence\\|\\`\\`\\`\" tools/review/src/post-review.script.ts | head -80"
+    },
+    {
+      "tool": "Bash",
+      "input": "git -C /home/runner/work/claude-code-config/claude-code-config diff 1456344db46c56b965a54e86cfc84daababf15cc..HEAD --stat"
+    },
+    {
+      "tool": "Bash",
+      "input": "git -C /home/runner/work/claude-code-config/claude-code-config diff --stat 1456344db46c56b965a54e86cfc84daababf15cc..HEAD"
+    },
+    {
+      "tool": "Bash",
+      "input": "git -C /home/runner/work/claude-code-config/claude-code-config diff 1456344db46c56b965a54e86cfc84daababf15cc..HEAD -- tools/review/src/post-review.script.ts tools/review/src/review-metrics.schemas.ts"
+    }
+  ]
+}
