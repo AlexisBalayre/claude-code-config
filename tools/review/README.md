@@ -73,5 +73,7 @@ pnpm --dir tools/review exec tsx src/review-eval.script.ts --run [--pipeline <re
 
 `--run` opens a draft PR per case (the workflow skips drafts), runs `/pr-ci-review` on it locally
 under the workflow's allow list but outside its sandbox, grades the record, then closes the PR
-and deletes its branches. `--budget` caps the spend (default $10); `--pipeline` picks whose
+and deletes its branches. A case with a `spec` also opens it as an issue the PR closes, which is
+what spawns the spec reviewer, and deletes the issue afterwards (deleting takes admin rights on the
+repo). `--budget` caps the spend (default $10); `--pipeline` picks whose
 `.claude/` reviews, so two versions of the protocol score on the same cases.

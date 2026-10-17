@@ -262,6 +262,7 @@ jobs:
                 "StructuredOutput",
                 "Bash(gh pr diff*)",
                 "Bash(gh pr view*)",
+                "Bash(gh issue view*)",
                 "Bash(git diff *)",
                 "Bash(git status*)",
                 "Bash(git log*)",

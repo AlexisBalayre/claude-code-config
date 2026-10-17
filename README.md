@@ -35,7 +35,7 @@ around one stack. This one is built on three different bets:
   the loop) enforce formatting, the convention spot-check, file naming, generated-file protection
   and the never-commit-to-`main` rule. An agent cannot talk its way past a hook.
 - **The PR review is a pipeline, not a prompt.** A deterministic preflight resolves the head and
-  the full-vs-incremental mode, six gated reviewers report, a validator refutes weak findings, and
+  the full-vs-incremental mode, seven gated reviewers report, a validator refutes weak findings, and
   a poster script writes the result. The model has no write channel to your PR, which is both the
   injection defense and the reason a dead run still posts "not reviewed".
 
@@ -108,7 +108,7 @@ the request, so `@claude review, thanks` is a plain review.
 | `@claude review full` | the whole PR diff |
 | `@claude review quick` | correctness, plus security when a trust boundary is touched, one instance each |
 | `@claude review deep` | every area, gate or not; one more instance of each size-scaled area (up to 3); maintainability on Opus; the orchestrator at high effort |
-| `@claude review security docs` | only the named areas: `correctness`, `security`, `context`, `conventions`, `maintainability`, `docs` |
+| `@claude review security docs` | only the named areas: `correctness`, `security`, `context`, `conventions`, `maintainability`, `docs`, `spec` (which still needs a linked issue) |
 
 A quick or area-restricted review is partial: the next review diffs from the last complete one,
 so what it skipped is covered then; comment `@claude review` for a complete pass now. The comment

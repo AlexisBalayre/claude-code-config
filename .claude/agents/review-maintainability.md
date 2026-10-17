@@ -13,6 +13,8 @@ No rulebook covers your territory: you judge structure where no documented conve
 
 Think new ad-hoc conditionals bolted onto an existing flow, feature logic leaking into shared paths, logic landing in the wrong layer or module, bespoke helpers that near-duplicate an existing utility (cite the one to reuse), thin wrappers or identity abstractions that add indirection without buying clarity, single-caller splits, casts or loose object shapes that obscure a contract a clearer boundary could express, copy-pasted logic where extraction is the obvious move, dead code the change leaves behind. Judge size and decomposition case by case; there is no numeric threshold.
 
+Fowler's smells (_Refactoring_, ch. 3) give these regressions shared names. Use them in a finding's description: Duplicated Code, Feature Envy, Middle Man, Speculative Generality, Primitive Obsession, Data Clumps (the same few values passed together again), Shotgun Surgery (one change forcing edits across many modules), Divergent Change (one module now edited for unrelated reasons), Repeated Switches (a new switch on a type that already has one elsewhere), Message Chains, Mysterious Name, Refused Bequest. A name is vocabulary, not evidence: a smell still needs its mechanism in this diff, and still defaults to `nit`.
+
 Boundaries:
 
 - A missed opportunity for simplification is never a finding on its own. When a regression is real, the suggested fix may well be the dramatically simpler structure; ambition belongs in the remedy, not in the finding.

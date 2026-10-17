@@ -16,7 +16,8 @@ import { type Finding, reviewSummarySchema } from "./review-metrics.schemas";
  * nothing. With --run it pushes `eval/<id>` branches, opens a draft PR per case
  * (the workflow never reviews a draft), runs /pr-ci-review against it locally
  * the way the workflow invokes it, then closes the PRs and deletes the
- * branches. --pipeline <ref> picks whose `.claude/` reviews (default HEAD), so
+ * branches. A case with a `spec` also opens it as an issue the PR closes, which
+ * is what spawns the spec reviewer, and deletes the issue afterwards. --pipeline <ref> picks whose `.claude/` reviews (default HEAD), so
  * two pipeline versions can be scored on the same cases.
  */
 
@@ -32,6 +33,7 @@ const ALLOWED = [
   "StructuredOutput",
   "Bash(gh pr diff*)",
   "Bash(gh pr view*)",
+  "Bash(gh issue view*)",
   "Bash(git diff *)",
   "Bash(git status*)",
   "Bash(git log*)",
@@ -65,6 +67,7 @@ const caseSchema = z.object({
   pr: z.number().int(),
   base: z.string(),
   head: z.string(),
+  spec: z.string().optional(),
   plant: z
     .object({
       file: z.string(),
@@ -266,6 +269,7 @@ function main(): void {
     }
     process.stdout.write(`${evalCase.plant.file}:${line}  ${evalCase.plant.regression}\n`);
     process.stdout.write(`${git(["diff", "--unified=1", evalCase.head, sha])}\n`);
+    if (evalCase.spec) process.stdout.write(`spec, opened as the issue the PR closes:\n${evalCase.spec}\n`);
   }
   if (!run) {
     process.stdout.write("\nDry run: nothing pushed, nothing spent. Re-run with --run to review the cases.\n");
@@ -287,10 +291,15 @@ function main(): void {
       break;
     }
     const branch = `eval/${evalCase.id}`;
+    let issueNumber: string | null = null;
     let prNumber: string | null = null;
     let dir: string | null = null;
     try {
       git(["push", "-q", "origin", `${evalCase.base}:refs/heads/${branch}-base`, `${sha}:refs/heads/${branch}`]);
+      if (evalCase.spec) {
+        const issue = gh("issue", "create", "--title", `eval: ${evalCase.id} spec (do not act)`, "--body", evalCase.spec);
+        issueNumber = issue.slice(issue.lastIndexOf("/") + 1);
+      }
       const url = gh(
         "pr",
         "create",
@@ -302,7 +311,7 @@ function main(): void {
         "--title",
         `eval: ${evalCase.id} (do not merge)`,
         "--body",
-        `Review eval case replaying #${evalCase.pr}. Opened and closed by review-eval.script.ts.`,
+        `${issueNumber ? `Closes #${issueNumber}.\n\n` : ""}Review eval case replaying #${evalCase.pr}. Opened and closed by review-eval.script.ts.`,
       );
       prNumber = url.slice(url.lastIndexOf("/") + 1);
       dir = checkout(sha, pipeline, scratch, evalCase.id);
@@ -319,6 +328,7 @@ function main(): void {
       if (prNumber) gh("pr", "close", prNumber, "--delete-branch");
       else git(["push", "-q", "origin", "--delete", branch]);
       git(["push", "-q", "origin", "--delete", `${branch}-base`]);
+      if (issueNumber) gh("issue", "delete", issueNumber, "--yes");
       if (dir) git(["worktree", "remove", "--force", dir]);
     }
   }
