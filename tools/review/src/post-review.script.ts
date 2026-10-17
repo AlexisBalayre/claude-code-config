@@ -210,8 +210,8 @@ function main(): void {
   } finally {
     const importants = anchored.length + unanchored.length;
     const failure = noVerdict ?? (reviewPosted ? null : "the review could not be posted");
-    // A quick or area-restricted pass is no merge signal: it says so on the
-    // status, and the comment gets 👍 where a complete review would get 🚀.
+    // A quick or area-restricted pass is no merge signal, so the status and the
+    // reaction both say it was partial.
     const partial = env.REVIEW_PARTIAL === "true";
     const outcome = importants > 0 ? `${importants} important finding(s)` : "no blocking issues";
     const sha = env.REVIEW_COMMIT_SHA ?? "";
@@ -221,11 +221,11 @@ function main(): void {
     } else {
       warn("no commit sha; skipping the claude-review status");
     }
-    // The workflow mirrors this onto the `@claude review` comment as a reaction;
-    // a local run has no step to hand it to.
+    // The workflow puts this reaction on the `@claude review` comment; a local
+    // run has no step to hand it to.
     if (env.GITHUB_OUTPUT) {
-      const verdict = failure ? "not-reviewed" : importants > 0 ? "issues" : partial ? "partial" : "ready";
-      appendFileSync(env.GITHUB_OUTPUT, `verdict=${verdict}\n`);
+      const reaction = failure ? "confused" : importants > 0 ? "-1" : partial ? "+1" : "rocket";
+      appendFileSync(env.GITHUB_OUTPUT, `reaction=${reaction}\n`);
     }
     const output = env.REVIEW_POSTED_OUTPUT ?? "posted.json";
     writeFileSync(output, `${JSON.stringify(postedRecordSchema.parse({ comments_posted: posted }), null, 2)}\n`);

@@ -69,8 +69,7 @@ describe("the review a `@claude review` comment asked for", () => {
   it("is recorded with the run", () => {
     const { record } = runScript("review-metrics.script.ts", {
       REVIEW_STRUCTURED_OUTPUT: verdict(),
-      REVIEW_DEPTH: "quick",
-      REVIEW_AREAS: "security, docs",
+      REVIEW_COMMENT: "@claude review quick security docs",
     });
     expect(JSON.parse(record)).toMatchObject({ review_depth: "quick", review_areas: ["security", "docs"] });
   });
@@ -81,12 +80,12 @@ describe("the review a `@claude review` comment asked for", () => {
   });
 });
 
-describe("the verdict the poster hands to the comment's reaction", () => {
+describe("the reaction the poster hands to the comment", () => {
   it.each([
-    ["no important finding", verdict(), "false", "verdict=ready"],
-    ["no important finding on a partial pass", verdict(), "true", "verdict=partial"],
-    ["an important finding", verdict([IMPORTANT]), "false", "verdict=issues"],
-    ["no verdict at all", "", "false", "verdict=not-reviewed"],
+    ["no important finding", verdict(), "false", "reaction=rocket"],
+    ["no important finding on a partial pass", verdict(), "true", "reaction=+1"],
+    ["an important finding", verdict([IMPORTANT]), "false", "reaction=-1"],
+    ["no verdict at all", "", "false", "reaction=confused"],
   ])("follows a round with %s", (_label, structuredOutput, partial, expected) => {
     const { output } = runScript("post-review.script.ts", {
       REVIEW_STRUCTURED_OUTPUT: structuredOutput,

@@ -90,7 +90,7 @@ async function main(): Promise<void> {
   const trigger = process.env.REVIEW_TRIGGER ?? "";
   const request = parseReviewRequest(process.env.REVIEW_COMMENT ?? "");
   out("depth", request.depth);
-  out("areas", request.areas.join(", "));
+  out("areas", request.areas.join(", ") || "gated");
   out("partial", String(isPartialReview(request.depth, request.areas)));
 
   let headSha = headRefOid(prNumber);

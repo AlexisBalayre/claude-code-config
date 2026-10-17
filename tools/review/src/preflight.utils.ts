@@ -23,15 +23,21 @@ export interface PriorRecord {
  * What a `@claude review` comment asks for: the words after the trigger on its
  * line, in any order, up to the first that is not a keyword, so prose after
  * the trigger (`@claude review, thanks!`) never reads as part of the request.
- * `areas` is empty when the comment named none, leaving the orchestrator to
- * gate them.
+ * Words split on anything but letters and hyphens, so punctuation or markdown
+ * around a keyword (`full.`, a code span, bold) never hides it, and a quote of
+ * an earlier comment never stands in for this one's trigger. `areas` is empty
+ * when the comment named none, leaving the orchestrator to gate them.
  */
 export function parseReviewRequest(comment: string): { full: boolean; depth: ReviewDepth; areas: ReviewerArea[] } {
+  const unquoted = comment
+    .split("\n")
+    .filter((line) => !line.trimStart().startsWith(">"))
+    .join("\n");
   const words =
     /@claude review\b(.*)/i
-      .exec(comment)?.[1]
-      ?.toLowerCase()
-      .split(/[\s,]+/)
+      .exec(unquoted)?.[1]
+      .toLowerCase()
+      .split(/[^a-z-]+/)
       .filter(Boolean) ?? [];
   let full = false;
   let depth: ReviewDepth = "standard";
@@ -53,7 +59,7 @@ export function parseReviewRequest(comment: string): { full: boolean; depth: Rev
  * which carry neither field and were complete.
  */
 export function isPartialReview(depth: unknown, areas: unknown): boolean {
-  return depth === "quick" || (Array.isArray(areas) && areas.length > 0);
+  return depth === ("quick" satisfies ReviewDepth) || (Array.isArray(areas) && areas.length > 0);
 }
 
 /** Working-tree paths from `git status --porcelain`, rename targets included. */
