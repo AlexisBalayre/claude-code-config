@@ -4,6 +4,7 @@ import {
   type MetricsRecord,
   type ModelUsage,
   metricsRecordSchema,
+  type PermissionDenial,
   postedRecordSchema,
   REVIEW_DEPTHS,
   REVIEWER_AREAS,
@@ -24,7 +25,7 @@ import {
 // Bump whenever the record's meaning changes (a field added or repurposed, a
 // pipeline change that alters what a field measures): the retro partitions
 // trends by schema_version, so a silent semantic change poisons its baselines.
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 
 function warn(message: string): void {
   process.stdout.write(`::warning::${message}\n`);
@@ -68,6 +69,7 @@ interface PlatformMetrics {
   num_turns: number | null;
   tokens: Tokens | null;
   model_usage: ModelUsage[] | null;
+  permission_denials: PermissionDenial[] | null;
 }
 
 const EMPTY_PLATFORM: PlatformMetrics = {
@@ -77,6 +79,7 @@ const EMPTY_PLATFORM: PlatformMetrics = {
   num_turns: null,
   tokens: null,
   model_usage: null,
+  permission_denials: null,
 };
 
 function findResultEntry(parsed: unknown): Record<string, unknown> | null {
@@ -143,6 +146,19 @@ function platformMetrics(executionFile: string | undefined): PlatformMetrics {
           };
         })
       : null,
+    permission_denials: Array.isArray(result.permission_denials)
+      ? result.permission_denials.map((raw) => {
+          const denial = asRecord(raw);
+          const input = asRecord(denial?.tool_input);
+          const text = typeof input?.command === "string" ? input.command : JSON.stringify(input ?? {});
+          return {
+            tool: typeof denial?.tool_name === "string" ? denial.tool_name : "unknown",
+            // The record is published on a branch, and a denied Write would
+            // otherwise carry a whole file into it.
+            input: text.slice(0, 200),
+          };
+        })
+      : null,
   };
 }
 
@@ -202,6 +218,7 @@ function summaryTable(record: MetricsRecord): string {
       m.cost_usd === null ? "-" : m.cost_usd.toFixed(4),
     ]),
     ["Tokens (orchestrator)", record.tokens?.total ?? "-"],
+    ["Permission denials", record.permission_denials?.length ?? "-"],
     ["Turns", record.num_turns ?? "-"],
     ["Errored", String(record.is_error)],
   ];
@@ -268,6 +285,7 @@ function main(): void {
     num_turns: platform.num_turns,
     tokens: platform.tokens,
     model_usage: platform.model_usage,
+    permission_denials: platform.permission_denials,
   };
 
   const validated = metricsRecordSchema.parse(record);
