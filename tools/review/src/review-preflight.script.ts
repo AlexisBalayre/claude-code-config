@@ -69,7 +69,7 @@ function priorRecords(prNumber: string): PriorRecord[] {
         timestamp: typeof parsed.timestamp === "string" ? parsed.timestamp : "",
         is_error: parsed.is_error === true,
         partial:
-          parsed.review_depth === "quick" || (Array.isArray(parsed.review_areas) && parsed.review_areas.length > 0),
+          parsed.review_depth === "quick" || (Array.isArray(parsed.review_areas) && parsed.review_areas.length >= 0),
       });
     } catch {
       warn(`unreadable record ${hit}; skipping it`);
