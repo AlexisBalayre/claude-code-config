@@ -23,8 +23,11 @@ function warn(message: string): void {
   process.stdout.write(`::warning::${message}\n`);
 }
 
+// The workflow runs this from the tooling copy, never the PR checkout, so git
+// and gh are pointed back at the checkout; unset (tests, a local run), they
+// inherit the working directory.
 function gh(args: string[], input?: string): string {
-  return execFileSync("gh", args, { encoding: "utf8", input });
+  return execFileSync("gh", args, { encoding: "utf8", input, cwd: process.env.GITHUB_WORKSPACE });
 }
 
 function parseSummary(raw: string): ReviewSummary | null {
@@ -54,7 +57,10 @@ function fileDiff(mergeBase: string, file: string): string {
     // quietly send every finding to the summary instead of the diff.
     // Two-dot from the resolved merge base, never three-dot from `origin/main`,
     // which the action's depth-1 base fetch grafts parentless.
-    return execFileSync("git", ["diff", `${mergeBase}..HEAD`, "--unified=0", "--", `:/${file}`], { encoding: "utf8" });
+    return execFileSync("git", ["diff", `${mergeBase}..HEAD`, "--unified=0", "--", `:/${file}`], {
+      encoding: "utf8",
+      cwd: process.env.GITHUB_WORKSPACE,
+    });
   } catch {
     warn(`could not diff ${file}; its findings go in the review body`);
     return "";
