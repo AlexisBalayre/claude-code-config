@@ -117,6 +117,11 @@ const tokensSchema = z.object({
   total: z.number().int().nullable(),
 });
 
+const permissionDenialSchema = z.object({
+  tool: z.string(),
+  input: z.string().describe("The denied call's command (Bash) or its JSON input, cut to 200 characters."),
+});
+
 const modelUsageSchema = z.object({
   model: z.string(),
   input: z.number().int().nullable(),
@@ -178,6 +183,12 @@ export const metricsRecordSchema = z.object({
     .describe(
       "The whole run, orchestrator and every subagent, split by model; each entry's cost_usd is its share of cost_usd.",
     ),
+  permission_denials: z
+    .array(permissionDenialSchema)
+    .nullable()
+    .describe(
+      "Tool calls the run's permission rules refused, as the result reports them; null when the result carries no list.",
+    ),
 });
 
 /** The poster's hand-off to the metrics step, written as `posted.json`. */
@@ -193,3 +204,4 @@ export type ReviewSummary = z.infer<typeof reviewSummarySchema>;
 export type MetricsRecord = z.infer<typeof metricsRecordSchema>;
 export type Tokens = z.infer<typeof tokensSchema>;
 export type ModelUsage = z.infer<typeof modelUsageSchema>;
+export type PermissionDenial = z.infer<typeof permissionDenialSchema>;
