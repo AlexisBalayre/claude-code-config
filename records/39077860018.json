@@ -1,0 +1,149 @@
+{
+  "schema_version": 5,
+  "timestamp": "2026-10-17T23:14:59.586Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "39077860018",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/39077860018",
+  "actor": "AlexisBalayre",
+  "commit_sha": "30f8210cf72a9a19d923236340d637c0323d86dd",
+  "source": "pr",
+  "pr_number": 30,
+  "action": "review",
+  "reviewers_spawned": [
+    "correctness",
+    "security",
+    "maintainability",
+    "conventions",
+    "docs"
+  ],
+  "reviewers_returned": [
+    "correctness",
+    "security",
+    "maintainability",
+    "conventions",
+    "docs"
+  ],
+  "reviewers_skipped": [
+    "context"
+  ],
+  "review_mode": "incremental",
+  "incremental_from_sha": "93db30929a425c67b344c6d9dfb016f5f3f3073e",
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [
+    {
+      "file": "tools/review/src/review-body.utils.ts",
+      "line": "38-40",
+      "status": "unresolved"
+    },
+    {
+      "file": "tools/review/src/review-body.utils.ts",
+      "line": "34",
+      "status": "resolved"
+    }
+  ],
+  "findings": [
+    {
+      "file": "tools/review/src/review-body.utils.ts",
+      "line": "43-51",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "important",
+      "description": "Scoping the lang= rewrite to /<pre\\b[\\s\\S]*?(?=<\\/pre|$)/gi lets a quoted `</pre` inside an attribute value end the scanned block before the real lang=. So `<pre title=\"</pre\" lang=\"suggestion\">evil();</pre>` is posted unchanged. Before this commit the lang= regex ran over the whole body and rewrote it. The new code comment's premise (a regex and an HTML parser 'never [disagree] on where the block ends') is wrong: an attribute value can hold `</pre` just as it can hold `>`.",
+      "body": "**Quoted `</pre` in an attribute ends the scan early, so `lang=\"suggestion\"` posts live**\n\nThe new scope ends the block at the first `</pre`, wherever it appears:\n\n```ts\n      /<pre\\b[\\s\\S]*?(?=<\\/pre|$)/gi,\n      (block) =>\n        block.replace(/(\\blang\\s*=\\s*)(\"[^\"]*\"|'[^']*'|[^\\s>]*)/gi, ...\n```\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/30f8210cf72a9a19d923236340d637c0323d86dd/tools/review/src/review-body.utils.ts#L43-L51\n\nTake `<pre title=\"</pre\" lang=\"suggestion\">evil();</pre>`. The block regex matches only `<pre title=\"` and stops at the `</pre` inside the quoted title. The next search for `<pre\\b` resumes at `</pre\" lang=…`, and every remaining `<` is followed by `/`, so nothing else matches and `lang=\"suggestion\"` is posted unchanged. An HTML tokenizer reads `</pre` as plain text inside the quoted `title` value and keeps `lang=\"suggestion\"` on the element, which makes it the same as the live cases this module's own tests rewrite (`<pre lang=\"suggestion\">evil();</pre>` and `<pre title=\">\" lang=\"suggestion\">`). At 93db309 the global `lang=` pass caught this input, so this is a regression. An attribute-name variant such as `<pre </pre lang=suggestion>` gets through the same way. (Whether GitHub's renderer then shows a live suggestion is renderer behaviour, so confidence is medium.)\n\nThe comment on lines 44-45 says a parser and a regex \"never [disagree] on where the block ends\". That fails for the same reason it gives for `>`: a quoted attribute value can hold `</pre`.\n\nTwo ways to fix it:\n- **Find the end of the opening tag the way HTML5 does.** An attribute name is a run of characters other than whitespace, `/`, `>` and `=` (quotes included, which covers the existing `a\"b` row). A value is a quoted run or an unquoted run. Rewrite `lang` only among those attributes. This also stops the rewrite reaching the content of a `<pre>` and the text after an unclosed `<pre` (see the related nit).\n- **Rewrite every `lang=` after the first `<pre`** (`/<pre\\b[\\s\\S]*/gi`). This is simpler and linear. It also rewrites ordinary `lang=` code that follows a closed `<pre>`.\n\nEither way, please add `<pre title=\"</pre\" lang=\"suggestion\">` to the 'makes %s quoted in a finding inert' table.",
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-body.utils.ts",
+      "line": "46",
+      "area": "correctness",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "Without the `m` flag, `$` means end of string. So any `<pre` with no later `</pre` (for example `` `<pre>` `` named in prose or inline code) scopes the rest of the body, and every `lang =` in quoted code after it is rewritten as before. Take the body ``Wrap the output in a `<pre>` tag.\\n\\n```ts\\nconst lang = detect(text);\\n``` ``. Here `\\b` matches between `e` and `>`, nothing closes the block, and the inner value branch `[^\\s>]*` takes `detect(text);`, which is not a plain token. The posted line becomes `const lang = \"text\"`. `if (lang === \"suggestion\")` likewise becomes `lang =\"text\" \"suggestion\"`, because the value branch matches `==`. Content between `>` and `</pre` of a closed block is also rewritten: `<pre lang=\"ts\">const lang = x;</pre>` becomes `const lang = \"text\"`. Reviews of HTML, JSX or markdown-rendering code (and of this tool) mention `<pre` routinely, so the residual case is reachable. The new test row \"a lang= outside a pre block\" only covers bodies with no `<pre` at all.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/test/unit/review-body-utils.test.ts",
+      "line": "89",
+      "area": "maintainability",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The commit says it fixes exponential backtracking in the footnote-label part of the prefix regex (line 36), but no test guards it. The only footnote row is a single well-formed `[^1]:` label, which the old lazy `\\[\\^.*?\\]:` also handled quickly. The escaped-bracket behaviour the new `(?:\\\\.|[^\\]\\\\\\r\\n])*` adds is also untested. For example, `[^a\\]: ```suggestion` should now be left alone, since CommonMark treats it as an unterminated label. A guard would be a row with a long run of footnote-like labels and no fence, asserting unchanged output inside a short timeout; dropping the fix would then fail CI rather than hang a review run.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/test/unit/review-body-utils.test.ts",
+      "line": null,
+      "area": "maintainability",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The backtick exemption is guarded by `fence.startsWith(\"`\")`, so a tilde fence with a backtick in its info must still be made inert. No test checks that a tilde fence such as `~~~suggestion` followed by a backtick is still neutralised; that row is the only thing that would catch the `startsWith` guard being dropped.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-body.utils.ts",
+      "line": "34-35",
+      "area": "docs",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The comment \"A footnote label stops at its first unescaped `]`: one way to split a line of labels, where a lazy match backtracks exponentially.\" is cryptic: \"one way to split\" reads as if the code offers one option, and \"where\" stands in for \"whereas\". Suggested: \"A label ends at its first unescaped `]`, so a line of labels splits only one way; the old lazy `.*?` backtracked exponentially on `[^a]:[^a]:...`.\"",
+      "body": null,
+      "suggestion": null
+    }
+  ],
+  "refuted_findings": [],
+  "process_issues": [
+    {
+      "component": "platform",
+      "description": "Several reviewers' and the validator's first `git -C <path> diff` call hit an approval prompt; each re-ran it as plain `git diff` from the working directory, so no coverage was lost."
+    }
+  ],
+  "comments_posted_actual": 1,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 2.0344263000000002,
+  "duration_ms": 338739,
+  "num_turns": 11,
+  "tokens": {
+    "input": 10,
+    "output": 11176,
+    "cache_read": 190061,
+    "cache_creation": 46723,
+    "total": 247970
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 36,
+      "output": 54321,
+      "cache_read": 329079,
+      "cache_creation": 121115,
+      "cost_usd": 1.8981238
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 14,
+      "output": 3707,
+      "cache_read": 55160,
+      "cache_creation": 35269,
+      "cost_usd": 0.13630250000000002
+    }
+  ],
+  "permission_denials": [
+    {
+      "tool": "Bash",
+      "input": "git -C /home/runner/work/claude-code-config/claude-code-config diff 93db30929a425c67b344c6d9dfb016f5f3f3073e..HEAD"
+    },
+    {
+      "tool": "Bash",
+      "input": "git -C /home/runner/work/claude-code-config/claude-code-config diff 93db30929a425c67b344c6d9dfb016f5f3f3073e..HEAD"
+    },
+    {
+      "tool": "Bash",
+      "input": "git -C /home/runner/work/claude-code-config/claude-code-config diff 93db30929a425c67b344c6d9dfb016f5f3f3073e..HEAD -- tools/review/src/review-body.utils.ts"
+    }
+  ]
+}
