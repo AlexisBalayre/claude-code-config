@@ -1,0 +1,110 @@
+{
+  "schema_version": 5,
+  "timestamp": "2026-10-17T22:29:25.287Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "39075009856",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/39075009856",
+  "actor": "AlexisBalayre",
+  "commit_sha": "10f1e85717975657bc17bb3200b307ff56d49637",
+  "source": "pr",
+  "pr_number": 30,
+  "action": "review",
+  "reviewers_spawned": [
+    "correctness",
+    "security",
+    "conventions",
+    "docs"
+  ],
+  "reviewers_returned": [
+    "correctness",
+    "security",
+    "conventions",
+    "docs"
+  ],
+  "reviewers_skipped": [
+    "context",
+    "maintainability"
+  ],
+  "review_mode": "incremental",
+  "incremental_from_sha": "2240c6ad63bbc5bd94dffa5787086967520a667c",
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [
+    {
+      "file": ".claude/skills/pr-ci-review/SKILL.md",
+      "line": "154",
+      "status": "resolved"
+    },
+    {
+      "file": ".claude/agents/review-spec.md",
+      "line": "12",
+      "status": "resolved"
+    }
+  ],
+  "findings": [
+    {
+      "file": ".claude/skills/pr-ci-review/SKILL.md",
+      "line": "154",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "important",
+      "description": "The \"spec `suggestion` is always null\" guard is tied to the finding's final area, not to the reviewer that wrote it. The new §6 rule (\"a defect the code alone proves stays `correctness` or `security`\"), and dedup's \"merge into one finding\", can move a `review-spec` finding into `correctness` or `security` while keeping its suggestion. Nothing in the schema, the validator or the poster removes it, so a suggestion written after reading attacker-authored issue text can still be posted as a committable suggestion.",
+      "body": "The spec-suggestion guard is tied to the final area, so issue text can still reach a committable suggestion.\n\n§8 now nulls \"a `spec` finding's `suggestion`\" ([SKILL.md#L154](https://github.com/AlexisBalayre/claude-code-config/blob/10f1e85717975657bc17bb3200b307ff56d49637/.claude/skills/pr-ci-review/SKILL.md#L154-L154)). This same delta also adds a §6 rule that takes a `review-spec` finding out of `spec` whenever the code alone proves the defect ([SKILL.md#L123](https://github.com/AlexisBalayre/claude-code-config/blob/10f1e85717975657bc17bb3200b307ff56d49637/.claude/skills/pr-ci-review/SKILL.md#L123-L123)). Dedup (L122) merges findings without saying whose `suggestion` survives.\n\nThe spec reviewer is still told it may return a `suggestion` (L102), and `review-spec.md` never forbids one. After that, nothing enforces the rule:\n- In `tools/review/src/review-metrics.schemas.ts`, `suggestion` is a plain nullable string with no link to `area`, and the record doesn't say which reviewer wrote a finding.\n- `review-validator.md` never looks at suggestions.\n- `tools/review/src/post-review.script.ts` L74-78 renders any non-null suggestion as a committable ```` ```suggestion ```` block when the anchor wasn't moved.\n\n**How it's reached:** someone files an issue on this public repo, and a PR says `closes #N`. `review-spec` reads the attacker's issue body. It returns a real defect the code alone proves, carrying a crafted `suggestion`. §6 files the finding as `correctness`, and the opus validator confirms the defect without checking the replacement code. The poster then publishes it as a one-click commit.\n\nFix: tie the rule to the reviewer that wrote the suggestion, not the area the finding ends up in. Also say it at the source in `review-spec.md` (\"your `suggestion` is always `null`\").",
+      "suggestion": "- **`suggestion` is committable code, so it must be exactly right.** Only for a small self-contained fix that resolves the finding entirely. The poster renders it as an inert fence rather than a committable block whenever it had to relocate the anchor, since applying it there would rewrite a line the finding never mentioned. A `suggestion` that `review-spec` wrote is always `null`, whatever area the finding consolidates under (§6), merges included: its fix would rest on issue text, which the validator can only check against that same text (why `--fix` skips it)."
+    },
+    {
+      "file": ".claude/skills/pr-ci-review/SKILL.md",
+      "line": "60",
+      "area": "docs",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "§3's rewritten parenthetical is hard to parse: \"which you pass on as its bare number, the only form `gh` takes under CI (§5), since the shell reads an unquoted `#12` as a comment\" nests a parenthesis inside a comma-spliced aside, and the `since` clause reads as the reason a bare number is the only form, when that reason is the §5 lock. Suggested: \"which you pass on as its bare number (the only form `gh` takes under CI, §5; an unquoted `#12` is a shell comment)\".",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/skills/pr-ci-review/SKILL.md",
+      "line": "123",
+      "area": "docs",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "§6's new clause (\"a defect the code alone proves stays `correctness` or `security`\") is followed by the old sentence \"Otherwise a real defect is `correctness` or `security`\", which now repeats it. Drop the old sentence, or reword it as the default case (\"Any other real defect...\").",
+      "body": null,
+      "suggestion": null
+    }
+  ],
+  "refuted_findings": [],
+  "process_issues": [],
+  "comments_posted_actual": 1,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 1.5639377999999997,
+  "duration_ms": 193323,
+  "num_turns": 10,
+  "tokens": {
+    "input": 10,
+    "output": 9306,
+    "cache_read": 199543,
+    "cache_creation": 48146,
+    "total": 257005
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 52,
+      "output": 25490,
+      "cache_read": 621826,
+      "cache_creation": 132440,
+      "cost_usd": 1.4410112
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 10,
+      "output": 2306,
+      "cache_read": 44933,
+      "cache_creation": 36344,
+      "cost_usd": 0.1229266
+    }
+  ],
+  "permission_denials": []
+}
