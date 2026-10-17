@@ -49,9 +49,9 @@ interface AnchoredComment {
 
 function fileDiff(mergeBase: string, file: string): string {
   try {
-    // `:/` anchors the pathspec at the repo root: `pnpm --filter` runs this from
-    // the package directory, where a plain repo-relative path would match nothing
-    // and quietly send every finding to the summary instead of the diff.
+    // `:/` anchors the pathspec at the repo root: run from the package directory
+    // (tests, a local run), a plain repo-relative path would match nothing and
+    // quietly send every finding to the summary instead of the diff.
     // Two-dot from the resolved merge base, never three-dot from `origin/main`,
     // which the action's depth-1 base fetch grafts parentless.
     return execFileSync("git", ["diff", `${mergeBase}..HEAD`, "--unified=0", "--", `:/${file}`], { encoding: "utf8" });

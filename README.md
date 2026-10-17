@@ -72,8 +72,9 @@ preflight (PR-head checkout, full-vs-incremental mode), the `/pr-ci-review` orch
 spawns the `review-*` agents and emits a structured record), and a poster script that renders
 the record to the PR — inline comments for blocking findings, collapsed sections for the rest,
 and a commit status so an unreviewed diff is never mistaken for a clean one. The model itself
-has **no write channel** to the PR: its tool allowlist is read-only, which is both the
-prompt-injection defense and the delivery guarantee (a dead run still posts "not reviewed").
+has **no write channel** to the PR: managed settings that no file in the PR can widen limit it
+to read-only tools and a sandboxed shell, which is both the prompt-injection defense and the
+delivery guarantee (a dead run still posts "not reviewed").
 The deterministic half lives in **[`tools/review/`](tools/review/)** (preflight, schema,
 poster, metrics — with the design and threat model in its README); each run's record is
 appended to a `ci/review-metrics` orphan branch that the `/review-retro` skill mines to
