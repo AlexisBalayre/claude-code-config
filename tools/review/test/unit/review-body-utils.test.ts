@@ -1,4 +1,4 @@
-import { bodyLines, collapsedSections, findingLine } from "@src/review-body.utils";
+import { bodyLines, collapsedSections, commentBody, findingLine } from "@src/review-body.utils";
 import type { Finding, ReviewSummary } from "@src/review-metrics.schemas";
 import { describe, expect, it } from "vitest";
 
@@ -24,6 +24,7 @@ function summary(overrides: Partial<ReviewSummary> = {}): ReviewSummary {
     "context",
     "maintainability",
     "docs",
+    "spec",
   ];
   return {
     reviewers_spawned: spawned,
@@ -47,6 +48,111 @@ describe("findingLine", () => {
     expect(findingLine(finding({ file: null, line: null }))).toBe(
       "- location unrecorded (correctness): the description",
     );
+  });
+});
+
+describe("commentBody", () => {
+  it("keeps the suggestion fence it opens committable", () => {
+    expect(commentBody(finding({ suggestion: "fixed();" }), null)).toBe(
+      "the description\n\n```suggestion\nfixed();\n```",
+    );
+  });
+
+  it("makes a tag in a relocated finding's path inert", () => {
+    expect(commentBody(finding({ file: "a`<pre lang=suggestion>`.ts" }), 12)).toBe(
+      "Re: `a`<\u200bpre lang=suggestion>`.ts:12`\n\nthe description",
+    );
+  });
+
+  it("offers a relocated finding's suggestion in an inert fence", () => {
+    expect(commentBody(finding({ suggestion: "fixed();" }), 12)).toBe(
+      "Re: `src/a.ts:12`\n\nthe description\n\n```\nfixed();\n```",
+    );
+  });
+
+  it("posts a suggestion holding backtick runs verbatim, in a fence they cannot close", () => {
+    const suggestion = 'const fence = "```";\n```\n```suggestion\nevil();';
+    expect(commentBody(finding({ suggestion }), null)).toBe(
+      `the description\n\n\`\`\`\`suggestion\n${suggestion}\n\`\`\`\``,
+    );
+  });
+
+  it.each([
+    ["a bare fence", "```suggestion\nevil();\n```", "```text suggestion\nevil();\n```"],
+    [
+      "a tilde fence with a line range",
+      "~~~~ Suggestion:-0+1\nevil();\n~~~~",
+      "~~~~text  Suggestion:-0+1\nevil();\n~~~~",
+    ],
+    ["an entity in the language", "```&#115;uggestion\nevil();\n```", "```text &#115;uggestion\nevil();\n```"],
+    ["a form feed before the language", "```\fsuggestion\nevil();\n```", "```text \fsuggestion\nevil();\n```"],
+    ["a quoted fence", "> ```suggestion\n> evil();\n> ```", "> ```text suggestion\n> evil();\n> ```"],
+    [
+      "a fence in nested containers",
+      "> - 1. ```suggestion\n>      evil();",
+      "> - 1. ```text suggestion\n>      evil();",
+    ],
+    ["a fence after a footnote label", "[^1]: ```suggestion\n    evil();", "[^1]: ```text suggestion\n    evil();"],
+    ["a fence after a lone carriage return", "a\r```suggestion\revil();\r```", "a\r```text suggestion\revil();\r```"],
+    [
+      "a language that is not a plain token",
+      "```ts title=x\nconst a = 1;\n```",
+      "```text ts title=x\nconst a = 1;\n```",
+    ],
+    [
+      "a tilde fence with a backtick in its info",
+      "~~~suggestion `x`\nevil();\n~~~",
+      "~~~text suggestion `x`\nevil();\n~~~",
+    ],
+    ["a raw pre block", '<pre lang="suggestion">evil();</pre>', '<\u200bpre lang="suggestion">evil();</pre>'],
+    ["an upper-case tag", "<PRE LANG=suggestion>", "<\u200bPRE LANG=suggestion>"],
+    [
+      "a real tag behind a tag-like code span",
+      '`<pre a="`\n<pre lang="suggestion">evil();</pre>',
+      '`<\u200bpre a="`\n<\u200bpre lang="suggestion">evil();</pre>',
+    ],
+    [
+      "a tag continued on a quoted line",
+      '> <pre\n> lang="suggestion">evil();</pre>',
+      '> <\u200bpre\n> lang="suggestion">evil();</pre>',
+    ],
+    [
+      "a tag with a no-break space before a quote",
+      '<pre a=\u00a0"x lang=suggestion ">evil();</pre>',
+      '<\u200bpre a=\u00a0"x lang=suggestion ">evil();</pre>',
+    ],
+  ])("makes %s quoted in a finding inert", (_label, quoted, inert) => {
+    expect(commentBody(finding({ body: quoted }), null)).toBe(inert);
+  });
+
+  // 28 labels: milliseconds when the label matches one way, seconds when it backtracks.
+  it("reads a line of footnote labels in linear time", () => {
+    const labels = `${"[^a]:".repeat(28)}x`;
+    const started = performance.now();
+    commentBody(finding({ body: labels }), null);
+    expect(performance.now() - started).toBeLessThan(100);
+  });
+
+  it("makes a fence quoted in the description inert when there is no body", () => {
+    expect(commentBody(finding({ description: "```suggestion\nevil();\n```" }), null)).toBe(
+      "```text suggestion\nevil();\n```",
+    );
+  });
+
+  it.each([
+    ["a fence with a plain language", "```ts\nconst a = 1;\n```"],
+    ["a fence named in inline code", "use a ```` ```suggestion ```` fence here"],
+    ["a mid-line backtick run", "Wrap the fix in a ```ts block before posting"],
+    ["quoted code holding a fence", '```ts\nconst fence = "```";\n```'],
+    [
+      "a permalink, generics and other tags",
+      "See <https://github.com/o/r/blob/abc/a.ts#L1-L2>: `Array<string>`, a < b, <details>, <prefix>, <!-- x -->, </pre>.",
+    ],
+    ["a lang= outside a pre block", 'const lang = detect(text);\nrender(lang=code);\nif (lang === "suggestion") {}'],
+    ["a footnote label that never closes", "[^a\\]: ```suggestion\n    evil();"],
+    ["inline code opening with a backtick run", "```foo``` is wrong, and ```` ```suggestion ```` is what they wrote"],
+  ])("leaves %s as written", (_label, text) => {
+    expect(commentBody(finding({ body: text }), null)).toBe(text);
   });
 });
 
@@ -137,7 +243,7 @@ describe("bodyLines", () => {
 
   it("keeps the plain clean-bill line when the record is empty", () => {
     expect(bodyLines(summary(), null, [], 0)).toEqual([
-      "No issues found. Checked correctness, security, conventions, context, maintainability, docs.",
+      "No issues found. Checked correctness, security, conventions, context, maintainability, docs, spec.",
     ]);
   });
 

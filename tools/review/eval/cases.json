@@ -52,10 +52,25 @@
     }
   },
   {
+    "id": "pr20-summary-count-dropped",
+    "pr": 20,
+    "base": "76ca81ac6c687666f86a1b30b4a55493c199a464",
+    "head": "804110d413b5587a0306d3d9091bb9285f5e8aa5",
+    "spec": "The CI review's metrics record drops the tool calls its permission rules refused, so `/review-retro` cannot tell a verb missing from the allow list from a brief that invites a forbidden command.\n\n## Acceptance criteria\n\n- [ ] The record carries every denied call: its tool name and its input (the command, for Bash), cut to 200 characters, since the record is published.\n- [ ] The job summary shows how many calls were denied.\n- [ ] The record's schema version is bumped.\n- [ ] `review-correctness` and `review-security` both say the review is static under CI (no spikes), as `review-validator` already does.\n",
+    "plant": {
+      "file": "tools/review/src/review-metrics.script.ts",
+      "find": "    [\"Permission denials\", record.permission_denials?.length ?? \"-\"],\n",
+      "replace": "",
+      "keywords": ["job summary", "job-summary", "summaryTable", "calls were denied"],
+      "regression": "The issue asks for the denial count in the job summary. The PR records the denials but never shows the count, and only a review that reads the issue can tell."
+    }
+  },
+  {
     "id": "pr20-clean",
     "pr": 20,
     "base": "76ca81ac6c687666f86a1b30b4a55493c199a464",
     "head": "804110d413b5587a0306d3d9091bb9285f5e8aa5",
+    "spec": "The CI review's metrics record drops the tool calls its permission rules refused, so `/review-retro` cannot tell a verb missing from the allow list from a brief that invites a forbidden command.\n\n## Acceptance criteria\n\n- [ ] The record carries every denied call: its tool name and its input (the command, for Bash), cut to 200 characters, since the record is published.\n- [ ] The job summary shows how many calls were denied.\n- [ ] The record's schema version is bumped.\n- [ ] `review-correctness` and `review-security` both say the review is static under CI (no spikes), as `review-validator` already does.\n",
     "plant": null
   }
 ]

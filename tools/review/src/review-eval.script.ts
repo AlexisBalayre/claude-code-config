@@ -20,9 +20,11 @@ import { type Finding, reviewSummarySchema } from "./review-metrics.schemas";
  * the PR and deletes the branches. Nothing in the PR, its branch or the folders
  * around its checkout names the eval, the case or the plant: the plant-named
  * index files and results.json stay in a `review-eval-*` folder of this repo's
- * git directory.
- * --pipeline <ref> picks whose `.claude/` reviews (default HEAD), so two
- * pipeline versions can be scored on the same cases.
+ * git directory. A case with a `spec` opens it as an issue the PR closes, which
+ * is what spawns the spec reviewer, and deletes the issue afterwards; its
+ * requirements reach the reviewer through that issue alone. --pipeline <ref>
+ * picks whose `.claude/` reviews (default HEAD), so two pipeline versions can
+ * be scored on the same cases; --case <id> runs that case alone.
  */
 
 const CASES_FILE = new URL("../eval/cases.json", import.meta.url);
@@ -46,6 +48,7 @@ const caseSchema = z.object({
   pr: z.number().int(),
   base: z.string(),
   head: z.string(),
+  spec: z.string().optional(),
   plant: z
     .object({
       file: z.string(),
@@ -94,8 +97,9 @@ function lockedPermissions(pipeline: string): { allow: string[]; deny: string[] 
 /**
  * Rebuilds the case's head commit with the plant folded in, without a checkout:
  * the head's own message, parents, author and dates, minus the ` (#N)` a squash
- * merge appends, which would point the reviewer at the unplanted original. The
- * clean case goes through the same rebuild, so it looks no different.
+ * merge appends, which would point the reviewer at the unplanted original; a
+ * spec case squashes onto its base instead (below). A clean case goes through
+ * the same rebuild, so it looks no different from its planted twin.
  */
 function plantCommit(evalCase: EvalCase, scratch: string): { sha: string; line: number | null } {
   const { plant, head } = evalCase;
@@ -117,7 +121,13 @@ function plantCommit(evalCase: EvalCase, scratch: string): { sha: string; line: 
     tree = git(["write-tree"], { env: index });
     line = original.slice(0, at).split("\n").length;
   }
-  const parents = git(["rev-parse", `${head}^@`]).split("\n");
+  // A spec case's commit bodies restate its requirements, which must reach the
+  // reviewer through the issue alone: its commits squash into one, under a bare
+  // subject.
+  const parents = evalCase.spec ? [evalCase.base] : git(["rev-parse", `${head}^@`]).split("\n");
+  const message = evalCase.spec
+    ? git(["log", "--no-merges", "-1", "--format=%s", `${evalCase.base}..${head}`])
+    : git(["log", "-1", "--format=%B", head]);
   const [authorName, authorEmail, authorDate, committerName, committerEmail, committerDate] = git([
     "log",
     "-1",
@@ -125,7 +135,7 @@ function plantCommit(evalCase: EvalCase, scratch: string): { sha: string; line: 
     head,
   ]).split("\n");
   const sha = git(["commit-tree", tree, ...parents.flatMap((parent) => ["-p", parent])], {
-    input: git(["log", "-1", "--format=%B", head]).replace(/ \(#\d+\)$/m, ""),
+    input: message.replace(/ \(#\d+\)$/m, ""),
     env: {
       ...process.env,
       GIT_AUTHOR_NAME: authorName,
@@ -311,7 +321,12 @@ function main(): void {
   let remaining = budgetAt === -1 ? DEFAULT_BUDGET_USD : Number(args[budgetAt + 1]);
   // NaN would pass every budget check below and cap no case.
   if (!Number.isFinite(remaining)) throw new Error(`--budget takes a USD amount, got ${args[budgetAt + 1]}`);
-  const cases = z.array(caseSchema).parse(JSON.parse(readFileSync(CASES_FILE, "utf8")));
+  const caseAt = args.indexOf("--case");
+  const cases = z
+    .array(caseSchema)
+    .parse(JSON.parse(readFileSync(CASES_FILE, "utf8")))
+    .filter((evalCase) => caseAt === -1 || evalCase.id === args[caseAt + 1]);
+  if (cases.length === 0) throw new Error(`--case names no case in ${CASES_FILE.pathname}: ${args[caseAt + 1]}`);
   // Holds what names the plants (index files, results), so it sits where no
   // clone's surroundings lead: this repo's git directory.
   const scratch = mkdtempSync(join(git(["rev-parse", "--path-format=absolute", "--git-common-dir"]), "review-eval-"));
@@ -319,6 +334,7 @@ function main(): void {
 
   for (const { evalCase, sha, line } of planted) {
     process.stdout.write(`\n== ${evalCase.id} (PR #${evalCase.pr})\n`);
+    if (evalCase.spec) process.stdout.write(`spec, opened as the issue the PR closes:\n${evalCase.spec}\n`);
     if (!evalCase.plant) {
       process.stdout.write("clean: no plant, any important finding is a candidate false positive\n");
       continue;
@@ -354,12 +370,17 @@ function main(): void {
     // other's branches.
     const dir = mkdtempSync(join(tmpdir(), "pr-"));
     const branch = basename(dir);
+    let issueNumber: string | null = null;
     let prNumber: string | null = null;
     try {
       git(["push", "-q", "origin", `${evalCase.base}:refs/heads/${branch}-base`, `${sha}:refs/heads/${branch}`]);
       const original = z
         .object({ title: z.string(), body: z.string() })
         .parse(JSON.parse(gh("pr", "view", String(evalCase.pr), "--json", "title,body")));
+      if (evalCase.spec) {
+        const issue = gh("issue", "create", "--title", original.title, "--body", evalCase.spec);
+        issueNumber = issue.slice(issue.lastIndexOf("/") + 1);
+      }
       const url = gh(
         "pr",
         "create",
@@ -371,7 +392,9 @@ function main(): void {
         "--title",
         original.title,
         "--body",
-        original.body,
+        // The original body restates the requirements, and the issue must be
+        // their only route to the reviewer.
+        issueNumber ? `Closes #${issueNumber}.` : original.body,
       );
       prNumber = url.slice(url.lastIndexOf("/") + 1);
       checkout(branch, origin, pipeline, dir);
@@ -401,6 +424,8 @@ function main(): void {
         () =>
           prNumber ? gh("pr", "close", prNumber, "--delete-branch") : git(["push", "-q", "origin", "--delete", branch]),
         () => git(["push", "-q", "origin", "--delete", `${branch}-base`]),
+        () => issueNumber && gh("issue", "close", issueNumber),
+        () => issueNumber && gh("issue", "delete", issueNumber, "--yes"),
         () => rmSync(dir, { recursive: true, force: true }),
       ];
       for (const cleanup of cleanups) {

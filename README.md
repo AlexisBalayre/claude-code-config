@@ -35,7 +35,7 @@ around one stack. This one is built on three different bets:
   the loop) enforce formatting, the convention spot-check, file naming, generated-file protection
   and the never-commit-to-`main` rule. An agent cannot talk its way past a hook.
 - **The PR review is a pipeline, not a prompt.** A deterministic preflight resolves the head and
-  the full-vs-incremental mode, six gated reviewers report, a validator refutes weak findings, and
+  the full-vs-incremental mode, seven gated reviewers report, a validator refutes weak findings, and
   a poster script writes the result. The model has no write channel to your PR, which is both the
   injection defense and the reason a dead run still posts "not reviewed".
 
@@ -47,7 +47,7 @@ around one stack. This one is built on three different bets:
 | **`project.env`** | 1 | The project profile: format/lint/typecheck/test/install commands, generated paths, file-naming pattern, trunk. Every hook and script reads it; an empty key turns its check off. |
 | **`rules/`** | 2+ | Path-scoped **pure loaders** (core, testing, plus one per project area once adapted) that auto-load `docs/conventions/*.md` only when you touch matching files. |
 | **`skills/`** | 35 | Auto-discoverable workflows: setup (`adapt-to-project`), planning (`to-spec`, `to-tickets`, `wayfinder`, `implement`, `implement-spec`…), engineering (`tdd`, `diagnosing-bugs`, `wizard`, `research`…), thinking & design (`grilling`, `grill-me`, `codebase-design`, `domain-modeling`, `prototype`…), PR & review (`pr-description`, `pr-ci-review`, `address-review-comments`, `review-retro`), meta (`writing-for-agents`, `retro`, `handoff`, `wait-what`…), and personal integrations (`obsidian-vault`, `daily-note`, `fix-sonar`, `wiz`… — configured via `.env`). Engineering and thinking skills track [mattpocock/skills](https://github.com/mattpocock/skills). |
-| **`agents/`** | 12 | Isolated subagents: 4 proactive (`convention-checker`, `migration-reviewer`, `security-reviewer`, `architecture-explainer`), 7 `review-*` reviewers + validator dispatched by `pr-ci-review`, and `comment-pruner` dispatched by its Stop hook. |
+| **`agents/`** | 13 | Isolated subagents: 4 proactive (`convention-checker`, `migration-reviewer`, `security-reviewer`, `architecture-explainer`), 8 `review-*` agents (7 reviewers + validator) dispatched by `pr-ci-review`, and `comment-pruner` dispatched by its Stop hook. |
 | **`hooks/`** | 7 | Zero-LLM shell scripts on lifecycle events: quality gate, convention spot-check, comment-pruner dispatch, git safety, generated-file protection, file-naming validation, compaction preservation. All stack-specific values come from `project.env`. |
 
 The full architecture — what loads when, the context budget, and how to extend each layer — is
@@ -107,8 +107,8 @@ the request, so `@claude review, thanks` is a plain review.
 | `@claude review` | the changes since the last complete review; the whole PR when there is none, when it reviewed this same head, or after a rebase or a merge from the base |
 | `@claude review full` | the whole PR diff |
 | `@claude review quick` | correctness, plus security when a trust boundary is touched, one instance each |
-| `@claude review deep` | every area, gate or not; one more instance of each size-scaled area (up to 3); maintainability on Opus; the orchestrator at high effort |
-| `@claude review security docs` | only the named areas: `correctness`, `security`, `context`, `conventions`, `maintainability`, `docs` |
+| `@claude review deep` | every area, gate or not (`spec` still needs an issue the PR closes); one more instance of each size-scaled area (up to 3); maintainability on Opus; the orchestrator at high effort |
+| `@claude review security docs` | only the named areas (`correctness`, `security`, `context`, `conventions`, `maintainability`, `docs`), plus `spec` when the PR closes an issue |
 
 A quick or area-restricted review is partial: the next review diffs from the last complete one,
 so what it skipped is covered then; comment `@claude review` for a complete pass now. The Claude

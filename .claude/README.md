@@ -33,7 +33,7 @@ What a session pays for this config, in approximate tokens (bytes / 4), so addit
 |---|---|---|
 | `CLAUDE.md` + `AGENTS.md` | every session | ~1.0k |
 | Descriptions of the model-invocable skills | every session | ~0.7k |
-| Descriptions of all 12 agents | every session | ~0.7k |
+| Descriptions of all 13 agents | every session | ~0.8k |
 | `docs/conventions/core.md` | first source file touched | ~0.8k as shipped, grows when adapted |
 | `testing.md` / each area doc | first file touched in that area | ~0.4k as shipped; aim for ≤3k each |
 
@@ -75,7 +75,7 @@ A rule fires on the first Read, Edit, or Write of a matching path (not on MCP re
 │   ├── review-context.md          review-conventions.md          # dispatched by pr-ci-review
 │   ├── review-correctness.md      review-docs.md
 │   ├── review-maintainability.md  review-security.md
-│   ├── review-validator.md
+│   ├── review-spec.md             review-validator.md
 │   └── comment-pruner.md          # dispatched by the comment-pruner Stop hook
 │
 └── hooks/                    # Deterministic shell scripts (zero LLM cost)
@@ -143,7 +143,7 @@ Specialized AI workers that run in their own context window. Claude delegates to
 | `migration-reviewer` | Sonnet | Read, Glob, Grep | Schema change safety review |
 | `security-reviewer` | Opus | Read, Glob, Grep, Bash | Deep security analysis |
 | `architecture-explainer` | Sonnet | Read, Glob, Grep | Answer why/how architecture questions, grounded in `docs/` |
-| `review-*` (7 agents) | Sonnet/Opus | Read, Glob, Grep, Bash | Area reviewers + adversarial validator, dispatched by the `pr-ci-review` skill |
+| `review-*` (8 agents) | Sonnet/Opus | Read, Glob, Grep, Bash | Area reviewers + adversarial validator, dispatched by the `pr-ci-review` skill |
 | `comment-pruner` | Sonnet | Read, Edit, Grep, Glob, Bash | Prune low-value comments; dispatched by the `comment-pruner.sh` Stop hook |
 
 **Frontmatter options:**

@@ -68,7 +68,7 @@ replace them with yours.
 
 ```sh
 pnpm --dir tools/review exec tsx src/review-eval.script.ts                      # print the plants, spend nothing
-pnpm --dir tools/review exec tsx src/review-eval.script.ts --run [--pipeline <ref>] [--budget <usd>]
+pnpm --dir tools/review exec tsx src/review-eval.script.ts --run [--pipeline <ref>] [--budget <usd>] [--case <id>]
 ```
 
 `--run` opens a draft PR per case under the replayed PR's own title and body, with the plant folded
@@ -81,7 +81,12 @@ though a `@claude review` comment on one still starts a billed review. It runs `
 the PR locally under the workflow's permission lock, read from the workflow itself, with the repo's
 own grants dropped as CI drops them, but outside CI's sandbox. Then it grades the record, closes the
 PR and deletes its branches; `results.json` is rewritten after each case, and the run ends with
-recall over the planted cases and how many clean cases drew an important finding. `--budget` caps
-the spend (default $10); a case whose run reports no cost is charged its cap (up to $5).
+recall over the planted cases and how many clean cases drew an important finding. A case with a
+`spec` opens it as an issue whose title is the PR's, and the PR's body only closes it, with its
+commits squashed under a bare subject, so the requirements reach the reviewer through the issue
+alone; that is what spawns the spec reviewer. The issue is deleted afterwards, which takes admin
+rights on the repo: without them it is only closed, and the run prints the failed cleanup. `--budget`
+caps the spend (default $10); a case whose run reports no cost is charged its cap (up to $5).
 `--pipeline` picks whose `.claude/` and lock review, so two versions of the protocol score on the
 same cases; that ref's hooks run on your machine unsandboxed, so point it only at a ref you trust.
+`--case` runs one case alone, dry or not.

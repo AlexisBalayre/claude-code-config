@@ -12,7 +12,15 @@ import { z } from "zod";
  * anything the author must read has to travel through `findingSchema`.
  */
 
-export const REVIEWER_AREAS = ["correctness", "security", "conventions", "context", "maintainability", "docs"] as const;
+export const REVIEWER_AREAS = [
+  "correctness",
+  "security",
+  "conventions",
+  "context",
+  "maintainability",
+  "docs",
+  "spec",
+] as const;
 
 export const reviewerAreaSchema = z.enum(REVIEWER_AREAS);
 
@@ -28,6 +36,7 @@ const processComponentSchema = z.enum([
   "context",
   "maintainability",
   "docs",
+  "spec",
   "consolidator",
   "validator",
   "orchestrator",

@@ -1,10 +1,11 @@
 import { type Finding, REVIEWER_AREAS, type RefutedFinding, type ReviewSummary } from "./review-metrics.schemas";
 
 /**
- * Renders the review body the poster submits. Importants anchor
- * inline on the diff; everything else the run confirmed, and everything
- * validation refuted, renders here in collapsed sections, so severity decides
- * how loudly a finding is displayed, never whether it is displayed at all.
+ * Renders what the poster submits: the review body, and the line comment for
+ * each important anchored inline on the diff. Everything else the run
+ * confirmed, and everything validation refuted, renders in the body in
+ * collapsed sections, so severity decides how loudly a finding is displayed,
+ * never whether it is displayed at all.
  */
 
 type Listed = Pick<Finding, "file" | "line" | "area" | "description"> & { body?: string | null };
@@ -14,6 +15,51 @@ export function findingLine(finding: Listed): string {
     ? `\`${finding.file}${finding.line ? `:${finding.line}` : ""}\``
     : "location unrecorded";
   return `- ${location} (${finding.area}): ${finding.body ?? finding.description}`;
+}
+
+function isPlainLanguage(info: string): boolean {
+  const language = info.trim();
+  return /^[\w+#.-]*$/.test(language) && !/^suggestion/i.test(language);
+}
+
+// GitHub turns a block whose language is `suggestion` into a "Commit suggestion"
+// button in a line comment, and a finding's text can quote what a PR or issue
+// author wrote. GitHub decodes the info string first (`&#115;uggestion` counts)
+// and opens a fence after any container prefix, so a fence opener whose language
+// is not a plain token, or starts with `suggestion`, gets `text` as its language.
+// A raw `<pre lang="suggestion">` renders the same block. Only a full parser
+// knows where that tag ends inside markdown, but its name follows `<` directly,
+// so a zero-width space there stops it opening and the text reads as it did.
+function inertFences(markdown: string): string {
+  return markdown
+    .replace(
+      // A label ends at its first unescaped `]`, so a line of labels splits only
+      // one way; a lazy `.*?` would backtrack exponentially on `[^a]:[^a]:...`.
+      /^((?:[^\S\r\n]*(?:>|[-+*]|\d{1,9}[.)]|\[\^(?:\\.|[^\]\\\r\n])*\]:))*[^\S\r\n]*)(`{3,}|~{3,})(.*)$/gm,
+      (match, prefix: string, fence: string, info: string) =>
+        // A backtick in a backtick fence's info string makes it inline code.
+        isPlainLanguage(info) || (fence.startsWith("`") && info.includes("`"))
+          ? match
+          : `${prefix}${fence}text ${info}`,
+    )
+    .replace(/<(?=pre\b)/gi, "<\u200b");
+}
+
+export function commentBody(finding: Finding, relocatedFrom: number | null): string {
+  const parts: string[] = [];
+  if (relocatedFrom !== null) parts.push(inertFences(`Re: \`${finding.file}:${relocatedFrom}\``), "");
+  parts.push(inertFences(finding.body ?? finding.description));
+  if (finding.suggestion !== null) {
+    // Longer than any backtick run in the suggestion, so its code can never
+    // close the fence early and is posted exactly as written.
+    const runs = finding.suggestion.match(/`+/g) ?? [];
+    const fence = "`".repeat(Math.max(3, ...runs.map((run) => run.length + 1)));
+    // A committable suggestion rewrites the line it is attached to, so on a
+    // relocated anchor it would replace code the finding never mentioned. Same
+    // text, inert fence.
+    parts.push("", relocatedFrom === null ? `${fence}suggestion` : fence, finding.suggestion, fence);
+  }
+  return parts.join("\n");
 }
 
 function refutedLine(finding: RefutedFinding): string {
@@ -85,7 +131,8 @@ export function bodyLines(
   }
 
   const spawned = [...new Set(summary.reviewers_spawned)];
-  const skipped = REVIEWER_AREAS.filter((area) => !spawned.includes(area));
+  // spec runs only when the PR closes an issue, so its absence is no gap to report.
+  const skipped = REVIEWER_AREAS.filter((area) => !spawned.includes(area) && area !== "spec");
   const coverage = `Checked ${spawned.join(", ")}.${skipped.length ? ` Skipped ${skipped.join(", ")}.` : ""}`;
   const scope =
     summary.review_mode === "incremental" && summary.incremental_from_sha

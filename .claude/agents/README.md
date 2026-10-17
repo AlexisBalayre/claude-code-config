@@ -31,6 +31,7 @@ is spawned (relevance-gated, model-tiered) by the [`pr-ci-review` skill](../skil
 | `review-docs` | Accuracy and usefulness of prose a change introduces; strict on noise comments and stale docs. | Sonnet · Read/Glob/Grep/Bash |
 | `review-maintainability` | Structural regressions — wrong layer, duplication, needless indirection — each with a citable mechanism. | Sonnet · Read/Glob/Grep/Bash |
 | `review-security` | Real, reachable security issues at trust boundaries, cross-referenced against the threat model. | Opus · Read/Glob/Grep/Bash |
+| `review-spec` | Holds the change against the issue or spec it implements: requirements missing, partial, or built wrong, and scope creep. Spawned only when the change links a spec. | Sonnet · Read/Glob/Grep/Bash |
 | `review-validator` | Adversarial gate: tries to refute each finding against the actual code before it is posted or auto-fixed. | Opus · Read/Glob/Grep/Bash |
 
 **Tuning:** `tools` is the minimum each needs; `model` is matched to the work (Haiku = fast/cheap,
