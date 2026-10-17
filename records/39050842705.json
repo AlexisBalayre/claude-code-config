@@ -1,0 +1,144 @@
+{
+  "schema_version": 5,
+  "timestamp": "2026-10-17T16:53:04.852Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "39050842705",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/39050842705",
+  "actor": "AlexisBalayre",
+  "commit_sha": "c67c0af401a9b0583c61f94ca647e3cd2764600e",
+  "source": "pr",
+  "pr_number": 29,
+  "action": "review",
+  "reviewers_spawned": [
+    "correctness",
+    "security",
+    "maintainability",
+    "conventions",
+    "docs"
+  ],
+  "reviewers_returned": [
+    "correctness",
+    "security",
+    "maintainability",
+    "conventions",
+    "docs"
+  ],
+  "reviewers_skipped": [
+    "context"
+  ],
+  "review_mode": "full",
+  "incremental_from_sha": null,
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [],
+  "findings": [
+    {
+      "file": ".claude/skills/wizard/template.sh",
+      "line": "96-98",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "important",
+      "description": "`_existing` turns `'\\''` back into `'` using a double-quoted pattern substitution whose replacement is the literal `\\'`. Bash 4.3+ strips the backslash from that replacement, so the decode works there. Bash 4.2 and older do not (bash's own compat42 notes say so), and that includes macOS's `/bin/bash` 3.2. The template supports macOS (`open_url` falls back to `open`), and `#!/usr/bin/env bash` picks up 3.2 when Homebrew bash isn't installed. On that bash, a value containing `'` that `write_env` saved comes back as `\\'`. It is shown as the \"[Enter keeps current]\" default, and pressing Enter makes `write_env` re-encode and save the corrupted value. Each re-run adds another backslash.",
+      "body": "**On bash ≤ 4.2 (macOS `/bin/bash`), `_existing` decodes `'` wrongly, so each re-run corrupts the stored value**\n\n`write_env` stores `'` as `'\\''`, and `_existing` turns it back with `\"${value//\"$sq\"/\\'}\"`. In a double-quoted expansion, bash 4.3+ removes the backslash from the replacement `\\'`. Bash ≤ 4.2 keeps it. Bash's COMPAT notes for `compat42` say: *\"the replacement string in double-quoted pattern substitution does not undergo quote removal\"*.\n\nmacOS still ships bash 3.2 as `/bin/bash`, and the template targets macOS (`open_url` falls back to `open`). Nothing else in the template needs bash 4, so it runs there and hits this:\n\n1. `write_env K \"it's\"` stores `K='it'\\''s'`.\n2. `_existing` returns `it\\'s`.\n3. The prompt offers it as `[Enter keeps current]`. Pressing Enter saves `'it\\'\\''s'`.\n4. Every later run adds another backslash.\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/c67c0af401a9b0583c61f94ca647e3cd2764600e/.claude/skills/wizard/template.sh#L96-L98\n\nTaking the replacement from a variable makes it decode the same way on every bash version. Text that comes out of an expansion never goes through quote removal. `$q` has no `&`, so bash 5.2's `patsub_replacement` leaves it alone too. `write_env` already uses `$sq` the same way on the encode side.\n\nThis file is taken whole from upstream, so the fix may belong upstream too.",
+      "suggestion": "  local line value sq=\"'\\\\''\" q=\"'\"; line=$(grep -E \"^${1}=\" \"$ENV_FILE\" | tail -n1) || return 1\n  value=\"${line#*=}\"\n  if [[ \"$value\" == \\'*\\' ]]; then value=\"${value:1:${#value}-2}\"; value=\"${value//\"$sq\"/$q}\""
+    },
+    {
+      "file": ".claude/skills/wizard/template.sh",
+      "line": "140-147",
+      "area": "security",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "`write_env` used to `mv` a 0600 `mktemp` file over `.env`, so any write left `.env` at 0600. It now writes through `cat` and keeps the existing mode. A `.env` copied from `.env.example` under umask 022 stays world-readable (0644) after secrets are written to it. Adding `chmod go-rwx \"$ENV_FILE\"` after the `cat` keeps the symlink write-through and tightens the mode.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/skills/wizard/template.sh",
+      "line": "143-147",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "If `cat \"$tmp\" > \"$ENV_FILE\"` fails (for example, the user made `.env` read-only, which the old `mv` tolerated), `set -e` aborts before `rm -f \"$tmp\"`. That leaves a 0600 copy of the whole `.env`, new secret included, in `$TMPDIR`. A `trap 'rm -f \"$tmp\"' RETURN` in `write_env` would clean it up.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/skills/wizard/template.sh",
+      "line": "145",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "`write_env` now writes `KEY='value'` and escapes `'` as `'\\''`. Only a shell understands that escape: node `dotenv` and `python-dotenv` read `KEY='it'\\''s'` as `it` plus trailing junk. The old unquoted form passed such values through intact. Quoting still fixes values with spaces or `#`, so this only bites apostrophe values read by a non-shell `.env` reader.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/skills/implement-spec/SKILL.md",
+      "line": "9, 15",
+      "area": "docs",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "With no tracker, the skill points at tickets in `docs/plans/<feature-slug>/issues/` and tells it to pass subagents context pointers to them. `docs/plans/` is local-only (`scripts/pre-commit` refuses to commit it), so the files exist only in the main checkout, not on the integration branch the per-ticket worktrees branch from. A relative pointer handed to an implementer won't resolve. One clause saying no-tracker pointers use absolute paths into the main checkout would fix it.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/skills/retro/SKILL.md",
+      "line": "13",
+      "area": "docs",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "Step 2 says the transcript directory is the project path \"with `/` replaced by `-`\". Claude Code actually replaces every non-alphanumeric character with `-`. In this repo's required `.worktrees/<name>` checkouts the real directory is `...--worktrees-<name>`, so following the rule literally gives a path that doesn't exist (`...-.worktrees-<name>`).",
+      "body": null,
+      "suggestion": null
+    }
+  ],
+  "refuted_findings": [],
+  "process_issues": [
+    {
+      "component": "orchestrator",
+      "description": "review-context was not spawned. The diff touches no CI, HTTP, docker or settings surfaces, only skill prose, one shell template, READMEs and the social-preview asset. Instance scaling was also held at one per area even though the PR has 16 files across 3 top-level areas: the only executable logic is a single file (`wizard/template.sh`, about 65 changed lines), so splitting it across instances would have overlapped."
+    },
+    {
+      "component": "validator",
+      "description": "The review-validator reported that `git diff <merge_base>..HEAD` asked for approval and could not run, so it fell back to `gh pr diff`. It also could not run bash 3.2 or 4.2, so the bash-version finding rests on the documented COMPAT behaviour rather than an executed test (confidence medium)."
+    }
+  ],
+  "comments_posted_actual": 1,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 2.4707369999999997,
+  "duration_ms": 382678,
+  "num_turns": 12,
+  "tokens": {
+    "input": 12,
+    "output": 12257,
+    "cache_read": 261714,
+    "cache_creation": 35860,
+    "total": 309843
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 60,
+      "output": 53987,
+      "cache_read": 1012526,
+      "cache_creation": 142420,
+      "cost_usd": 2.1021652
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 40,
+      "output": 10264,
+      "cache_read": 359309,
+      "cache_creation": 77596,
+      "cost_usd": 0.36857180000000006
+    }
+  ],
+  "permission_denials": [
+    {
+      "tool": "Bash",
+      "input": "git -C /home/runner/work/claude-code-config/claude-code-config diff 072674042313b21fd8408e9e189eaea5e2a64919 c67c0af401a9b0583c61f94ca647e3cd2764600e -- .claude/skills/wizard/template.sh"
+    }
+  ]
+}
