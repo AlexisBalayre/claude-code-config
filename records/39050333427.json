@@ -1,0 +1,248 @@
+{
+  "schema_version": 5,
+  "timestamp": "2026-10-17T16:46:04.362Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "39050333427",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/39050333427",
+  "actor": "AlexisBalayre",
+  "commit_sha": "1593b9734def257fe57fb703f5f847de2ebe8fed",
+  "source": "pr",
+  "pr_number": 27,
+  "action": "review",
+  "reviewers_spawned": [
+    "correctness",
+    "security",
+    "context",
+    "conventions",
+    "maintainability",
+    "docs"
+  ],
+  "reviewers_returned": [
+    "correctness",
+    "security",
+    "context",
+    "conventions",
+    "maintainability",
+    "docs"
+  ],
+  "reviewers_skipped": [],
+  "review_mode": "full",
+  "incremental_from_sha": null,
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [],
+  "findings": [
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "170-191",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "important",
+      "description": "`--setting-sources project` loads the pipeline ref's `.claude/settings.json`. Its allow list adds `Bash(git -c*)`, `Bash(git -C*)`, `Bash(cp *)`, `Bash(mv *)`, `Bash(mkdir *)`, `Bash(git worktree*)`, `Bash(git branch*)`, `Bash(git add*)`, `Bash(git stash*)`, `Bash(git pull*)`, `Bash(git remote*)`, `Bash(gh pr *)` and `Read(*)`, and `DENIED` blocks none of them. With no sandbox and no `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB`, the model can run arbitrary commands (`git -c core.pager='sh -c …' log`). It can push (`git -C . push …` gets past the `Bash(git push*)` deny), and it can run `gh pr ready <n>`, which takes the eval PR out of draft and starts a billed CI review. The skill feeds third-party PR comments into the orchestrator, which makes this reachable.",
+      "body": "**The local run's permissions are much wider than CI's lock.**\n\nThe comment at L24-25 says the opposite: \"the writes the lock denies are denied here by name\". The README makes the same claim (\"under the workflow's allow list\").\n\n**Why CI is safe.** CI writes `allowManagedPermissionRulesOnly: true` into managed settings, so every repo grant is discarded. It also runs in a sandbox and scrubs the subprocess env.\n\n**Why this run isn't.** `--setting-sources project` keeps the pipeline ref's `.claude/settings.json`. Its allow list includes:\n- `Bash(git -c*)` and `Bash(git -C*)`\n- `Bash(cp *)`, `Bash(mv *)`, `Bash(mkdir *)`\n- `Bash(git add*)`, `Bash(git stash*)`, `Bash(git pull*)`, `Bash(git remote*)`, `Bash(git worktree*)`\n- `Bash(gh pr *)`\n\n`DENIED` lists only some writes, by prefix. With no sandbox, and with the full `process.env` passed to the child (no `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB`), that allows:\n- `git -c core.pager='sh -c …' log`, which runs arbitrary commands as the operator, with the operator's credentials.\n- `git -C . push …`, which matches `Bash(git -C*)` and slips past the `Bash(git push*)` prefix deny.\n- `gh pr ready <n>`, which takes the draft out of draft and fires the workflow's `ready_for_review` trigger as the owner, starting a billed review. `gh pr checkout` would also overwrite the swapped-in config.\n\nThe replayed diff is untrusted input to the model, and so are comments on the eval PR, which the skill reads into its steering brief.\n\n**The evidence is affected too.** Reads like `git -C <path> diff`, which CI refuses and records as a denial, succeed here. So \"no refused tool call\" from an eval run says nothing about the CI lock.\n\n**Possible fixes:**\n- After `checkout()`, drop `permissions.allow` from the scratch worktree's `.claude/settings.json`, so that `--allowedTools` is the only grant.\n- Set `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: \"1\"`.\n- If neither is done, correct the comment and the README.\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/1593b9734def257fe57fb703f5f847de2ebe8fed/tools/review/src/review-eval.script.ts#L170-L191\nhttps://github.com/AlexisBalayre/claude-code-config/blob/1593b9734def257fe57fb703f5f847de2ebe8fed/tools/review/src/review-eval.script.ts#L24-L55",
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "43-55",
+      "area": "security",
+      "confidence": "high",
+      "tag": "important",
+      "description": "`DENIED` copies the workflow's file-tool denies but leaves out the workflow's `Bash(git *--output*)` deny. `ALLOWED` grants `Bash(git log*)`, `Bash(git show*)` and `Bash(git diff *)`, so the model can run `git log -1 --format='<arbitrary text>' --output=<any path>` and write any file the operator can write. In CI the sandbox would contain that write. This run has no sandbox, so a write to `~/.bashrc` or `.git/config` (for example `core.pager`) becomes code execution on the operator's machine.",
+      "body": "**`DENIED` is missing the workflow's `Bash(git *--output*)` deny.**\n\nThe workflow's managed lock denies that pattern (`.github/workflows/claude-code-review.yml` L273-278). Its comment at L244-245 explains why: `--output` \"makes any git diff, log or show write a file of its choosing.\"\n\nThis script copies the `Edit`/`Write`/`NotebookEdit` denies but not that one, while `ALLOWED` grants `Bash(git log*)`, `Bash(git show*)` and `Bash(git diff *)` under `--permission-mode dontAsk`. The run has no sandbox (the README says it runs \"outside its sandbox\"). The project settings' deny list and the `git-safety.sh` hook don't catch `--output` either.\n\nSo `git log -1 --format='…' --output=.git/config` (or `~/.bashrc`) can write a file that executes code on the operator's machine.\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/1593b9734def257fe57fb703f5f847de2ebe8fed/tools/review/src/review-eval.script.ts#L43-L55",
+      "suggestion": "const DENIED = [\n  \"Edit\",\n  \"Write\",\n  \"NotebookEdit\",\n  \"Bash(git *--output*)\",\n  \"Bash(git push*)\",\n  \"Bash(git commit*)\",\n  \"Bash(gh pr comment*)\",\n  \"Bash(gh pr review*)\",\n  \"Bash(gh pr merge*)\",\n  \"Bash(gh pr edit*)\",\n  \"Bash(gh pr close*)\",\n  \"Bash(gh api*)\",\n];"
+    },
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "116",
+      "area": "correctness",
+      "confidence": "high",
+      "tag": "important",
+      "description": "The eval PR title (`eval: <id> (do not merge)`) and the plant commit message (`eval: plant <id>`) give the case id to the orchestrator, which reads intent from commit messages and the PR title. The ids name the regression, so the measured recall is inflated.",
+      "body": "**The eval tells the reviewer where the plant is and what it does.**\n\n`/pr-ci-review` §3 reads intent \"from the commit messages and, for a PR, the title and body\", and §5 passes that intent to every reviewer. On an eval PR the orchestrator sees two things:\n- The PR title `eval: pr18-every-review-partial (do not merge)` (L302-303).\n- The newest commit in `git log <base>..HEAD`: `eval: plant pr18-every-review-partial` (L116).\n\nThe case ids summarize the bugs:\n- `pr15-sonnet-tier-on-opus`\n- `pr17-schema-version-not-bumped`\n- `pr19-partial-hides-findings`\n- `pr20-clean`, which says the case has no plant.\n\nThe word \"plant\" plus a one-commit, one-line diff also isolates the regression. So a hit isn't \"recall only the reviewers supply\", and the 4/4 result can't be told apart from this hint. The PR body's declared limits only cover #17's own commit message.\n\n**Suggested fix:**\n- For the plant commit, reuse the head commit's message (`git log -1 --format=%B <head>`).\n- For the draft PR, reuse the original PR's title and body, with an id-free marker if one is needed.\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/1593b9734def257fe57fb703f5f847de2ebe8fed/tools/review/src/review-eval.script.ts#L116-L116\nhttps://github.com/AlexisBalayre/claude-code-config/blob/1593b9734def257fe57fb703f5f847de2ebe8fed/tools/review/src/review-eval.script.ts#L294-L306",
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "17",
+      "area": "docs",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "\"The workflow never reviews a draft\" (and the README's \"the workflow skips drafts\") holds only for the `pull_request` trigger: the workflow's `issue_comment` branch has no draft guard, so an owner's `@claude review` on an eval draft still starts a billed review.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "328-331",
+      "area": "correctness",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "The recall headline counts only hit/miss outcomes, so a planted case that errored or was skipped for budget drops out of the denominator; a pipeline that crashes on half the cases can still print `recall 2/2`.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "125-131",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "A keyword match ignores file and line, so an important about a different issue that only mentions the identifier is graded a hit.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "110",
+      "area": "correctness",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "`String.prototype.replace` with a string pattern still expands `$&`, `` $` ``, `$'`, `$$` and `$1` in the replacement, so a future plant whose `replace` contains shell or regex `$` sequences is silently mangled.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "292-324",
+      "area": "correctness",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "Any exception inside a case (push, `gh pr create`, `checkout`) is rethrown after `finally` and aborts the whole loop. The remaining cases are skipped and `results.json` is never written for the cases already paid for, although `Outcome` has an `error` verdict for exactly this.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "318-323",
+      "area": "correctness",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "The cleanup steps in `finally` are not independently guarded, and `dir` is assigned only after `checkout()` returns. A failing `gh pr close` (or `git push --delete` of a never-created branch) skips the `-base` delete and the worktree removal and masks the original error. A throw inside `checkout()` after `git worktree add` (archive/tar/cp) leaks a registered worktree.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "318-321",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The `finally` block deletes `eval/<id>` and `eval/<id>-base` on the remote even when this run's push failed, which means the branches already existed and belong to someone else. The usual case is two runs side by side, which the docstring invites (\"two pipeline versions can be scored on the same cases\"). The second run's push of `eval/<id>` is rejected as non-fast-forward because `commit-tree` stamps a fresh SHA. Its `finally` then deletes the first run's branches, and deleting the base branch closes the first run's PR in the middle of its review. Deletion can only hit `eval/*` names, never anything else.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "142-143",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "`--pipeline <ref>` takes `.claude/` from any ref, and `--setting-sources project` then runs that ref's `hooks` (`PreToolUse` git-safety.sh, `Stop` quality-checks.sh, and so on) as unsandboxed shell commands on the operator's machine. Scoring a pipeline change from an outside contributor's branch, the stated use, therefore executes that contributor's code locally. CI never does this, because the action restores `.claude/` from base. The README mentions none of it.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "24-55, 160-192",
+      "area": "maintainability",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "The allow list, the model ids (`claude-opus-5-5` appears twice, plus `claude-sonnet-5-5`) and the prompt template are hand-copied from `claude-code-review.yml` with nothing tying them together, so a workflow change silently leaves the eval scoring a stale invocation.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "256",
+      "area": "conventions",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The default total budget is an inline literal (`10`), while the per-case cap is the named constant `CASE_BUDGET_USD`. `core.md` §Structure says \"No hardcoded values\".",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/review/src/review-eval.script.ts",
+      "line": "125-131",
+      "area": "maintainability",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "`onPlant` takes `Pick<Finding, \"file\" | \"line\" | \"description\">` but probes `\"body\" in finding` at runtime; declaring `body?: string | null` in the parameter type would state the contract instead of hiding it.",
+      "body": null,
+      "suggestion": null
+    }
+  ],
+  "refuted_findings": [],
+  "process_issues": [
+    {
+      "component": "correctness",
+      "description": "The allow list refused `git -C <path> merge-base`. The reviewer reran the command without `-C` and lost nothing."
+    }
+  ],
+  "comments_posted_actual": 3,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 3.3294486,
+  "duration_ms": 372283,
+  "num_turns": 14,
+  "tokens": {
+    "input": 12,
+    "output": 14968,
+    "cache_read": 261369,
+    "cache_creation": 43069,
+    "total": 319418
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 88,
+      "output": 64564,
+      "cache_read": 1347024,
+      "cache_creation": 218448,
+      "cost_usd": 2.7824837999999996
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 36,
+      "output": 18634,
+      "cache_read": 357014,
+      "cache_creation": 115660,
+      "cost_usd": 0.5469648
+    }
+  ],
+  "permission_denials": [
+    {
+      "tool": "Bash",
+      "input": "ls /home/runner/work/claude-code-config/claude-code-config/.claude /home/runner/work/claude-code-config/claude-code-config/.claude/skills/pr-ci-review; git -C /home/runner/work/claude-code-config/clau"
+    },
+    {
+      "tool": "Bash",
+      "input": "for p in \"647115db7832103cfa10bc80c42e8fc1e71d49f7 2d3e564c89df4f30a328d3c6a368b06793cf39f4\" \"43636691e6a9dfa986bfb6163059b656b108a13f 99c76d657cc275b2dcaebdb3012004bff62b57b0\" \"99c76d657cc275b2dcaebd"
+    },
+    {
+      "tool": "Bash",
+      "input": "git -C /home/runner/work/claude-code-config/claude-code-config merge-base 647115db7832103cfa10bc80c42e8fc1e71d49f7 2d3e564c89df4f30a328d3c6a368b06793cf39f4"
+    },
+    {
+      "tool": "Bash",
+      "input": "git -C /home/runner/work/claude-code-config/claude-code-config merge-base 43636691e6a9dfa986bfb6163059b656b108a13f 99c76d657cc275b2dcaebdb3012004bff62b57b0"
+    },
+    {
+      "tool": "Bash",
+      "input": "git -C /home/runner/work/claude-code-config/claude-code-config merge-base 99c76d657cc275b2dcaebdb3012004bff62b57b0 1dbd348771ba2423983c7207c53fdd6972958f09"
+    },
+    {
+      "tool": "Bash",
+      "input": "git -C /home/runner/work/claude-code-config/claude-code-config merge-base 1dbd348771ba2423983c7207c53fdd6972958f09 76ca81ac6c687666f86a1b30b4a55493c199a464"
+    },
+    {
+      "tool": "Bash",
+      "input": "git -C /home/runner/work/claude-code-config/claude-code-config merge-base 76ca81ac6c687666f86a1b30b4a55493c199a464 804110d413b5587a0306d3d9091bb9285f5e8aa5"
+    },
+    {
+      "tool": "Bash",
+      "input": "git -C /home/runner/work/claude-code-config/claude-code-config show 2d3e564c89df4f30a328d3c6a368b06793cf39f4:.github/workflows/claude-code-review.yml"
+    }
+  ]
+}
