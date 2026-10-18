@@ -1,0 +1,108 @@
+{
+  "schema_version": 6,
+  "timestamp": "2026-10-18T00:10:51.375Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "39081639747",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/39081639747",
+  "actor": "AlexisBalayre",
+  "commit_sha": "dc6d4540fba36888e22a13a05fdc38be4f7b5c5d",
+  "source": "pr",
+  "pr_number": 34,
+  "action": "review",
+  "reviewers_spawned": [
+    "correctness",
+    "security",
+    "context",
+    "conventions",
+    "maintainability",
+    "docs"
+  ],
+  "reviewers_returned": [
+    "correctness",
+    "security",
+    "context",
+    "conventions",
+    "maintainability",
+    "docs"
+  ],
+  "reviewers_skipped": [
+    "spec"
+  ],
+  "review_mode": "incremental",
+  "incremental_from_sha": "32615f34871e1f85c5cd64a10735d1e0b703c71b",
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [
+    {
+      "file": "scripts/worktree-remove.sh",
+      "line": "39-41",
+      "status": "resolved"
+    }
+  ],
+  "findings": [
+    {
+      "file": "scripts/worktree-remove.sh",
+      "line": "51-55",
+      "area": "correctness",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "\"Kept origin/$BRANCH: it moved past the merged tip\" is printed on every push failure, including auth, network and branch-protection errors, when the lease only trips if the branch moved after the fetch. Meanwhile the common case where origin really did move past the tip (`REMOTE_TIP != TIP`) skips the push and prints nothing. Use a cause-neutral message on push failure (e.g. \"Kept origin/$BRANCH: delete refused (see git's error above)\") and add an `else` that reports the moved-past case.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "scripts/worktree-remove.sh",
+      "line": "20",
+      "area": "correctness",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "The fetch now runs before the loop and is fatal, so offline or without an `origin` remote the script exits on git's error before removing any worktree. Before this commit those cases still removed clean worktrees and kept their branches. Only the branch deletions need a fresh origin. Keeping the failure closed while still removing worktrees would restore that: on fetch failure, set a flag that skips branch deletion and says why, e.g. `FETCHED=1; git fetch --prune --quiet origin || { FETCHED=0; echo \"Fetch failed: keeping all branches\" >&2; }`, then `[ \"$FETCHED\" = 1 ] || continue` after \"Removed\".",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "docs/workflow.md",
+      "line": "45",
+      "area": "docs",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The Worktree removal row hardcodes `feature/` though the script deletes `<prefix>/` branches from WORKTREE_BRANCH_PREFIX, and omits the detached-HEAD case the script header names as a reason a worktree is kept.",
+      "body": null,
+      "suggestion": null
+    }
+  ],
+  "refuted_findings": [],
+  "process_issues": [],
+  "comments_posted_actual": 0,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 1.2344003,
+  "duration_ms": 120153,
+  "num_turns": 14,
+  "tokens": {
+    "input": 10,
+    "output": 8154,
+    "cache_read": 208099,
+    "cache_creation": 48388,
+    "total": 264651
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 28,
+      "output": 19429,
+      "cache_read": 313486,
+      "cache_creation": 88920,
+      "cost_usd": 1.0411532
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 16,
+      "output": 6711,
+      "cache_read": 52113,
+      "cache_creation": 46273,
+      "cost_usd": 0.1932471
+    }
+  ],
+  "permission_denials": []
+}
