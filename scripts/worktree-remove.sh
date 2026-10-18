@@ -31,8 +31,10 @@ git fetch --prune --quiet origin || { FETCHED=0; echo "Fetch failed: keeping eve
 [ "$FETCHED" = 1 ] || [ "$MERGED_ONLY" = 0 ] || exit 1
 
 # A squash merge leaves the tip off the trunk, so only GitHub knows it shipped.
+# gh's stderr stays visible: a failed lookup (no auth, no network) keeps the
+# worktree like an unshipped one, and only gh's error says which it was.
 shipped() {
-  gh pr list --head "$1" --base "${GIT_TRUNK:-main}" --state merged --json headRefOid --jq '.[].headRefOid' 2>/dev/null |
+  gh pr list --head "$1" --base "${GIT_TRUNK:-main}" --state merged --json headRefOid --jq '.[].headRefOid' |
     grep -Fx "$2" >/dev/null
 }
 
@@ -89,7 +91,7 @@ for NAME in "$@"; do
     git branch -D "$BRANCH"
     if [ "$REMOTE_TIP" = "$TIP" ]; then
       # The lease has origin refuse the delete if the branch moved since the fetch.
-      git push --quiet --force-with-lease="refs/heads/$BRANCH:$TIP" origin --delete "$BRANCH" ||
+      git push --quiet --force-with-lease="refs/heads/$BRANCH:$TIP" origin --delete "refs/heads/$BRANCH" ||
         echo "Kept origin/$BRANCH: delete refused (see git's error above)" >&2
     elif [ -n "$REMOTE_TIP" ]; then
       echo "Kept origin/$BRANCH: it moved past the merged tip" >&2
