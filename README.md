@@ -111,10 +111,11 @@ the request, so `@claude review, thanks` is a plain review.
 | `@claude review security docs` | only the named areas (`correctness`, `security`, `context`, `conventions`, `maintainability`, `docs`), plus `spec` when the PR closes an issue |
 
 A quick or area-restricted review is partial: the next review diffs from the last complete one,
-so what it skipped is covered then; comment `@claude review` for a complete pass now. The Claude
+so what it skipped is covered then; comment `@claude review` for a complete pass now. A partial
+pass never sets the `claude-review` status, whatever its outcome. The Claude
 GitHub App reacts 👀 to any `@claude` mention on its own, and the review adds its verdict as a
-reaction when it ends: 🚀 (no important findings), 👍 (no important findings from a partial review,
-which leaves the `claude-review` status to the full review), 👎 (important findings posted), or 😕
+reaction when it ends: 🚀 (no important findings), 👍 (no important findings from a partial review),
+👎 (important findings posted), or 😕
 (not reviewed: the run failed or was cancelled, or the PR had closed). A request that waits behind
 a running review can be displaced by a later push to the PR; it then never starts, and its comment
 keeps the App's 👀 with no verdict after it, so comment again.

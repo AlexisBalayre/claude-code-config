@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # SessionStart(compact) hook: re-injects the live state a compaction summary
-# tends to lose or leave stale: the session's directory and branch, the other
-# worktrees, the open PRs and whether the CI review covers their head.
+# tends to lose or leave stale: the session's directory, the project checkout's
+# branch, the other worktrees, the open PRs and whether the CI review covers
+# their head.
 # Read fresh here, after compaction, because SessionStart stdout is added to
 # Claude's context while PreCompact output never reaches the summary.
 # Every probe is best-effort: a missing tool or a failed call drops its line.

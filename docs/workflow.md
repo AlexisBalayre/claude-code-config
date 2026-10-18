@@ -45,7 +45,7 @@ scripts/worktree-remove.sh --merged     # the same for every worktree whose tip 
 | Worktree removal | `scripts/worktree-remove.sh` | `scripts/worktree-remove.sh <name>...` keeps a worktree with uncommitted or untracked files (ignored ones go with it), a detached HEAD, or a branch outside `<prefix>/` (`WORKTREE_BRANCH_PREFIX`). It deletes the branch once a PR merged into `GIT_TRUNK` shipped its tip, along with `origin`'s copy while that is still at the tip, or once `origin`'s copy holds every commit. `--merged` does the same for every worktree whose tip a merged PR shipped, and keeps the rest. |
 | Quality gate | `.claude/hooks/quality-checks.sh` | On every `Stop`, runs `FORMAT_FIX_CMD` and `LINT_CMD` on the dirty files and `TYPECHECK_CMD` on the repo (all from `.claude/project.env`); blocks on failure. An empty key skips that check. |
 | Test gate | `scripts/pre-commit` | Runs `TEST_CMD` from `.claude/project.env` before every commit. |
-| Context survival | `.claude/hooks/post-compact-state.sh` | Re-injects the session's directory, the branch, worktrees and open PRs after compaction. |
+| Context survival | `.claude/hooks/post-compact-state.sh` | Re-injects the session's directory, the project checkout's branch, worktrees and open PRs after compaction. |
 | Visibility | `.claude/statusline.sh` | Shows the active worktree branch, context usage, and cost in the statusline. |
 | `CLAUDE.md` | repo root | States the rule in always-on context: PRs only, worktrees only, never the trunk. |
 
