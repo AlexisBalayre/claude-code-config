@@ -1,0 +1,162 @@
+{
+  "schema_version": 6,
+  "timestamp": "2026-10-18T12:35:58.487Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "39127726394",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/39127726394",
+  "actor": "AlexisBalayre",
+  "commit_sha": "256a8dbb509404c84ba703679221118be84d4a6f",
+  "source": "pr",
+  "pr_number": 42,
+  "action": "review",
+  "reviewers_spawned": [
+    "correctness",
+    "security",
+    "context",
+    "conventions",
+    "maintainability",
+    "docs"
+  ],
+  "reviewers_returned": [
+    "correctness",
+    "security",
+    "context",
+    "conventions",
+    "maintainability",
+    "docs"
+  ],
+  "reviewers_skipped": [
+    "spec"
+  ],
+  "review_mode": "full",
+  "incremental_from_sha": null,
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [],
+  "findings": [
+    {
+      "file": ".claude/hooks/post-compact-state.sh",
+      "line": "18, 25",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "Plain `git status` can briefly take a worktree's `index.lock` to refresh the index. Since this hook runs it in every worktree, a git command (`add`, `commit`) run at the same moment by a parallel session in one of them can fail with \"index.lock: File exists\". `git --no-optional-locks status ...` reads the same data without taking the lock.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/settings.json",
+      "line": "129",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "All probes run in sequence under the single 15s limit: one `git status` per worktree plus a GraphQL `gh pr list`. On a large repo with several worktrees, or on a slow network, the hook can be killed at the limit. Claude Code then most likely drops all of its stdout, including the cheap branch and status lines (this is an inference about Claude Code internals). Putting the per-command `timeout` on the `gh` call, or keeping the per-worktree probe cheap, would keep the core state.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/hooks/post-compact-state.sh",
+      "line": "28-32",
+      "area": "maintainability",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The `claude-review` status name is hardcoded in the jq filter (`select(.context == \"claude-review\")`). The same literal sits in `tools/review/src/post-review.script.ts:123` (`context: \"claude-review\"`). The hook reads the status that script writes, so renaming it there silently turns every PR's review state in the hook into \"none\". This is Duplicated Code between a bash hook and a TypeScript tool, with no shared source. `.claude/project.env` has no key for it, so the fix is optional: add a key such as `REVIEW_STATUS_CONTEXT` and read it in both places. Otherwise a comment naming `post-review.script.ts` as the producer would make the coupling visible. The existing comment only says where the status sits, not where it comes from.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/hooks/post-compact-state.sh",
+      "line": "22-26",
+      "area": "maintainability",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The worktree listing parses `git worktree list --porcelain` with a dense awk one-liner. It uses magic offsets (`substr($0,10)` and `substr($0,19)`, which strip `worktree ` and `branch refs/heads/`) and three separate patterns. The next line then loops over the output to run `git status` per worktree. I found no existing worktree-listing helper in `scripts/` or the other hooks to reuse; the grep showed `worktree list` in none of them. So this is only a readability and fragility concern. Branch names containing a tab or a path containing a tab would break the `\\t`-delimited read. A bare worktree would print no line, which is harmless. Naming the offsets in a comment, or using `${line#branch refs/heads/}` in a `while read` loop, would make it easier to maintain.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/hooks/post-compact-state.sh",
+      "line": "30-34",
+      "area": "maintainability",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The `gh pr list` call packs its limits and formatting inline. The `--limit 20` and `head -20` on line 18 are magic numbers with no named variable. The jq expression `([.statusCheckRollup[] | select(...) | .state][0]) // \"none\"` takes the first match of the status and builds the whole output string in one line. Splitting the jq into a multi-line `--jq` string would help. The `.[0]` pick is also order-dependent. If a PR has several `claude-review` entries, it reports whichever comes first, not the latest.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/hooks/README.md",
+      "line": "19",
+      "area": "conventions",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The new row writes the event as `` `SessionStart` (`compact`) ``, split across two code spans. Every sibling row in that table puts the matcher inside one span (`PreToolUse(Bash)`, `PreToolUse(Edit\\|Write)`, `PreToolUse(Write)`). The PR's own `.claude/README.md` row for the same hook also uses `SessionStart(compact)`. The rule is `AGENTS.md` \"Core rule\": \"read 2-3 similar files in the same directory and match their patterns exactly.\" The fix is `` `SessionStart(compact)` ``. This is formatting only.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/hooks/README.md",
+      "line": "19",
+      "area": "docs",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The new row runs to about 60 words. The sibling rows state what the hook does and which config key it reads. This one adds a historical rationale: \"It runs after compaction, not before, because `PreCompact` output never reaches the summary.\" The script header (lines 5-6) already says this. The row also describes the hook's inputs and probes, which the header repeats. Consider cutting the last sentence from the README row so the WHY lives only in the script. This is guidance-grade at most (`AGENTS.md` \"Comments\" duplicate-WHY clause, applied to docs), so it stays a nit.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/hooks/post-compact-state.sh",
+      "line": "2",
+      "area": "docs",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "The new header comment contains an em-dash: `# SessionStart(compact) hook — re-injects the live state...`. Per `.claude/agents/review-docs.md`, new prose should not carry em/en dashes. Use a colon or a comma, for example `# SessionStart(compact) hook: re-injects the live state...`. This is the only added line with a dash. Every other dash in the diff is in pre-existing text.",
+      "body": null,
+      "suggestion": null
+    }
+  ],
+  "refuted_findings": [],
+  "process_issues": [
+    {
+      "component": "conventions",
+      "description": "A repo-wide Grep from the repository root was denied by permissions, so the conventions reviewer scoped its search for leftover PreCompact/pre-compact references to .claude-pr only. The context and docs reviewers covered the rest of the tree (docs/, .cursor/, scripts/, README.md)."
+    }
+  ],
+  "comments_posted_actual": 0,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 1.3520390000000002,
+  "duration_ms": 132971,
+  "num_turns": 13,
+  "tokens": {
+    "input": 10,
+    "output": 11403,
+    "cache_read": 195427,
+    "cache_creation": 45366,
+    "total": 252206
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 32,
+      "output": 22467,
+      "cache_read": 360822,
+      "cache_creation": 87190,
+      "cost_usd": 1.0936804
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 24,
+      "output": 7627,
+      "cache_read": 129881,
+      "cache_creation": 67621,
+      "cost_usd": 0.2583586
+    }
+  ],
+  "permission_denials": [
+    {
+      "tool": "Grep",
+      "input": "{\"pattern\":\"PreCompact|pre-compact\",\"path\":\"/home/runner/work/claude-code-config\",\"glob\":\"!.git/**\",\"output_mode\":\"content\"}"
+    }
+  ]
+}
