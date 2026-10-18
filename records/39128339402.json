@@ -1,0 +1,74 @@
+{
+  "schema_version": 6,
+  "timestamp": "2026-10-18T12:43:18.002Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "39128339402",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/39128339402",
+  "actor": "AlexisBalayre",
+  "commit_sha": "5d19afd60770a126d6637cd67f738399f71d4e72",
+  "source": "pr",
+  "pr_number": 44,
+  "action": "review",
+  "reviewers_spawned": [
+    "correctness",
+    "maintainability",
+    "conventions",
+    "docs"
+  ],
+  "reviewers_returned": [
+    "correctness",
+    "maintainability",
+    "conventions",
+    "docs"
+  ],
+  "reviewers_skipped": [
+    "security",
+    "context",
+    "spec"
+  ],
+  "review_mode": "full",
+  "incremental_from_sha": null,
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [],
+  "findings": [],
+  "refuted_findings": [],
+  "process_issues": [
+    {
+      "component": "conventions",
+      "description": "The conventions reviewer said it did not open docs/adr/*, so ADR compliance for the hook change was not checked. The risk is low for a 6-line flag and comment change."
+    }
+  ],
+  "comments_posted_actual": 0,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 0.6476181,
+  "duration_ms": 66153,
+  "num_turns": 12,
+  "tokens": {
+    "input": 12,
+    "output": 5529,
+    "cache_read": 221490,
+    "cache_creation": 33301,
+    "total": 260332
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 18,
+      "output": 7102,
+      "cache_read": 245348,
+      "cache_creation": 48043,
+      "cost_usd": 0.5312996000000001
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 14,
+      "output": 2237,
+      "cache_read": 53930,
+      "cache_creation": 35411,
+      "cost_usd": 0.11631849999999999
+    }
+  ],
+  "permission_denials": []
+}
