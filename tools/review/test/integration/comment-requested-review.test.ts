@@ -104,11 +104,11 @@ describe("a partial pass's commit status", () => {
     expect(ghCalls).not.toContain('"context":"claude-review"');
   });
 
-  it("still fails when the pass reaches no verdict", () => {
+  it("is left to the full review when the pass reaches no verdict", () => {
     const { ghCalls } = runScript("post-review.script.ts", {
       REVIEW_STRUCTURED_OUTPUT: "",
       REVIEW_PARTIAL: "true",
     });
-    expect(ghCalls).toContain('"state":"failure"');
+    expect(ghCalls).not.toContain('"context":"claude-review"');
   });
 });
