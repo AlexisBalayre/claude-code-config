@@ -85,7 +85,7 @@ A rule fires on the first Read, Edit, or Write of a matching path (not on MCP re
     ├── git-safety.sh              # PreToolUse(Bash): block dangerous git/shell ops
     ├── protect-generated.sh       # PreToolUse(Edit|Write): block generated files
     ├── validate-file-naming.sh    # PreToolUse(Write): enforce the project's file naming
-    └── pre-compact-preserve.sh    # PreCompact: inject must-preserve context
+    └── post-compact-state.sh      # SessionStart(compact): re-inject live git/PR state
 ```
 
 ---
@@ -171,7 +171,7 @@ Shell scripts that run outside the LLM loop on lifecycle events. Zero context co
 | `git-safety.sh` | PreToolUse(Bash) | Block `rm -rf`, `git reset --hard`, force push, `checkout -b` on main, push to main |
 | `protect-generated.sh` | PreToolUse(Edit\|Write) | Block edits to paths matching `GENERATED_PATHS_REGEX` |
 | `validate-file-naming.sh` | PreToolUse(Write) | Enforce `FILE_NAMING_REGEX` on new files under this checkout |
-| `pre-compact-preserve.sh` | PreCompact | Preserve branch, modified files, test output across compaction |
+| `post-compact-state.sh` | SessionStart(compact) | Re-inject branch, uncommitted files, worktrees, open PRs and their CI-review state after compaction |
 
 **Exit codes:**
 - `0` — success, continue
