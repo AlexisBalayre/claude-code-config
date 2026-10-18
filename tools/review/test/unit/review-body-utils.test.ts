@@ -70,6 +70,16 @@ describe("commentBody", () => {
     );
   });
 
+  it.each([
+    ["a backtick fence", "```suggestion\nevil();\n```", "```text suggestion\nevil();\n```"],
+    ["a tilde fence", "~~~suggestion\nevil();\n~~~", "~~~text suggestion\nevil();\n~~~"],
+    ["a quoted fence", "> ```suggestion\n> evil();", "> ```text suggestion\n> evil();"],
+    ["a raw tag", '<pre lang="suggestion">evil();</pre>', '<​pre lang="suggestion">evil();</pre>'],
+  ])("keeps %s in a relocated suggestion inert after a body that leaves a fence open", (_label, suggestion, inert) => {
+    const body = commentBody(finding({ body: "See below\n````", suggestion }), 12);
+    expect(body).toContain(`\n${inert}\n`);
+  });
+
   it("posts a suggestion holding backtick runs verbatim, in a fence they cannot close", () => {
     const suggestion = 'const fence = "```";\n```\n```suggestion\nevil();';
     expect(commentBody(finding({ suggestion }), null)).toBe(

@@ -227,14 +227,15 @@ function main(): void {
   } finally {
     const importants = anchored.length + unanchored.length;
     const failure = noVerdict ?? (reviewPosted ? null : "the review could not be posted");
-    // A quick or area-restricted pass is no merge signal, so the status and the
-    // reaction both say it was partial.
+    // A quick or area-restricted pass is no merge signal: branch protection reads
+    // only the state, so a partial success would turn a head whose full review
+    // failed green. It leaves the status alone unless it failed too.
     const partial = env.REVIEW_PARTIAL === "true";
     const outcome = importants > 0 ? `${importants} important finding(s)` : "no blocking issues";
     const sha = env.REVIEW_COMMIT_SHA ?? "";
     if (sha) {
       if (failure) setCommitStatus(repository, sha, "failure", failure);
-      else setCommitStatus(repository, sha, "success", `${partial ? "partial review: " : ""}${outcome}`);
+      else if (!partial) setCommitStatus(repository, sha, "success", outcome);
     } else {
       warn("no commit sha; skipping the claude-review status");
     }
