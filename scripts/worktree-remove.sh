@@ -16,8 +16,10 @@ PREFIX="${WORKTREE_BRANCH_PREFIX:-feature}"
 
 [ $# -gt 0 ] || { echo "Usage: scripts/worktree-remove.sh <name>..." >&2; exit 1; }
 
-# A stale origin ref could vouch for commits the remote no longer has.
-git fetch --prune --quiet origin
+# A stale origin ref could vouch for commits the remote no longer has, so
+# without a fresh fetch every branch is kept.
+FETCHED=1
+git fetch --prune --quiet origin || { FETCHED=0; echo "Fetch failed: keeping every branch" >&2; }
 
 for NAME in "$@"; do
   WORKTREE_DIR=".worktrees/$NAME"
@@ -41,6 +43,7 @@ for NAME in "$@"; do
     "$PREFIX"/*) ;;
     *) echo "Kept branch $BRANCH: not a $PREFIX/ branch" >&2; continue ;;
   esac
+  [ "$FETCHED" = 1 ] || continue
 
   TIP=$(git rev-parse "refs/heads/$BRANCH")
   REMOTE_TIP=$(git rev-parse -q --verify "refs/remotes/origin/$BRANCH" || true)
@@ -51,7 +54,9 @@ for NAME in "$@"; do
     if [ "$REMOTE_TIP" = "$TIP" ]; then
       # The lease has origin refuse the delete if the branch moved since the fetch.
       git push --quiet --force-with-lease="refs/heads/$BRANCH:$TIP" origin --delete "$BRANCH" ||
-        echo "Kept origin/$BRANCH: it moved past the merged tip" >&2
+        echo "Kept origin/$BRANCH: delete refused (see git's error above)" >&2
+    elif [ -n "$REMOTE_TIP" ]; then
+      echo "Kept origin/$BRANCH: it moved past the merged tip" >&2
     fi
   elif [ -n "$REMOTE_TIP" ] && git merge-base --is-ancestor "$TIP" "$REMOTE_TIP"; then
     git branch -D "$BRANCH"

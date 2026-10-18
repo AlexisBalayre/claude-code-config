@@ -42,7 +42,7 @@ scripts/worktree-clean.sh               # force-remove worktrees whose remote br
 | :-------- | :--- | :----------------- |
 | Branch protection | `.claude/hooks/git-safety.sh` | Blocks `git checkout -b` on the trunk, blocks pushes to the trunk, blocks `git reset --hard` and `rm -rf`. |
 | Worktree creation | `scripts/worktree-create.sh` | `scripts/worktree-create.sh <name>` always makes `.worktrees/<name>` on `feature/<name>` and runs `INSTALL_CMD`. |
-| Worktree removal | `scripts/worktree-remove.sh` | `scripts/worktree-remove.sh <name>...` keeps a worktree with uncommitted or untracked files (ignored ones go with it). It deletes the `feature/` branch once a merged PR shipped its tip, along with `origin`'s copy while that is still at the tip, or once `origin`'s copy holds every commit. |
+| Worktree removal | `scripts/worktree-remove.sh` | `scripts/worktree-remove.sh <name>...` keeps a worktree with uncommitted or untracked files (ignored ones go with it) or a detached HEAD. It deletes the `<prefix>/` branch (`WORKTREE_BRANCH_PREFIX`) once a merged PR shipped its tip, along with `origin`'s copy while that is still at the tip, or once `origin`'s copy holds every commit. |
 | Worktree cleanup | `scripts/worktree-clean.sh` | Force-removes worktrees whose remote branch is gone (e.g. after merge), uncommitted files included. |
 | Quality gate | `.claude/hooks/quality-checks.sh` | On every `Stop`, runs `FORMAT_FIX_CMD` and `LINT_CMD` on the dirty files and `TYPECHECK_CMD` on the repo (all from `.claude/project.env`); blocks on failure. An empty key skips that check. |
 | Test gate | `scripts/pre-commit` | Runs `TEST_CMD` from `.claude/project.env` before every commit. |
