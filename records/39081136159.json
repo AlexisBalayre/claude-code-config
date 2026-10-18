@@ -1,0 +1,247 @@
+{
+  "schema_version": 6,
+  "timestamp": "2026-10-18T00:04:06.552Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "39081136159",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/39081136159",
+  "actor": "AlexisBalayre",
+  "commit_sha": "32615f34871e1f85c5cd64a10735d1e0b703c71b",
+  "source": "pr",
+  "pr_number": 34,
+  "action": "review",
+  "reviewers_spawned": [
+    "correctness",
+    "security",
+    "context",
+    "conventions",
+    "maintainability",
+    "docs"
+  ],
+  "reviewers_returned": [
+    "correctness",
+    "security",
+    "context",
+    "conventions",
+    "maintainability",
+    "docs"
+  ],
+  "reviewers_skipped": [
+    "spec"
+  ],
+  "review_mode": "full",
+  "incremental_from_sha": null,
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [],
+  "findings": [
+    {
+      "file": "scripts/worktree-remove.sh",
+      "line": "39-41",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "important",
+      "description": "The script deletes the remote branch whenever the cached `origin/$BRANCH` ref equals the merged tip. But line 14 lets `git fetch` fail silently, so that cached ref can be stale. When it is, the unconditional `git push origin --delete` also deletes commits pushed to the remote branch after the merge.",
+      "body": "The comment on line 38 states the intent: a remote tip past the merged one holds commits nothing else has, so keep it. The check doesn't look at the remote, though. It compares `REMOTE_TIP`, read from the local `refs/remotes/origin/$BRANCH`, and that ref is only as fresh as the last fetch. Line 14 hides fetch failures:\n\n```bash\ngit fetch --prune origin >/dev/null 2>&1 || true\n...\n    if [ \"$REMOTE_TIP\" = \"$TIP\" ]; then\n      git push origin --delete \"$BRANCH\"\n    fi\n```\n\nIf someone pushes to the branch after its PR merged (e.g. a follow-up from another machine) and this run's fetch fails transiently while `gh` and `git push` succeed, the stale ref still equals the merged tip and `git push --delete` removes the advanced remote branch. Those newer commits exist nowhere else, since the local branch was already deleted on line 37. The same gap exists when the fetch succeeds, because the remote can move between the fetch and the push. This goes past the PR's stated worst case (\"deleting a merged PR's branch on `origin` whose tip that PR already shipped\").\n\nA lease with an explicit expected value makes the server verify the tip at push time; the `||` keeps `set -e` from aborting the loop on a rejected push.\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/32615f34871e1f85c5cd64a10735d1e0b703c71b/scripts/worktree-remove.sh#L39-L41",
+      "suggestion": "    if [ \"$REMOTE_TIP\" = \"$TIP\" ]; then\n      git push --force-with-lease=\"refs/heads/$BRANCH:$TIP\" origin --delete \"$BRANCH\" ||\n        echo \"Kept origin/$BRANCH: delete refused (it may have moved past the merged tip)\" >&2\n    fi"
+    },
+    {
+      "file": "scripts/worktree-remove.sh",
+      "line": "42-43",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "If the silent fetch on line 14 fails, line 42 can delete the local branch because a stale `origin/$BRANCH` contains its tip, even though the remote branch has since been deleted or force-pushed; the commits then survive only in that stale ref, which the next `fetch --prune` drops.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "scripts/worktree-remove.sh",
+      "line": "37, 40, 43",
+      "area": "correctness",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "If `git branch -D` or `git push origin --delete` fails (e.g. push auth failure or a protected branch), `set -e` exits the script, skipping the remaining names after the worktree and possibly the local branch are already gone; guarding each with `|| echo ... >&2` would let the loop continue.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "scripts/worktree-remove.sh",
+      "line": "32",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "`git rev-parse \"$BRANCH\"` resolves `refs/tags/` before `refs/heads/`, so a tag with the same name as the branch makes TIP the tag's commit; `git rev-parse \"refs/heads/$BRANCH\"` avoids that.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "scripts/worktree-remove.sh",
+      "line": "30-43",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "No branch-prefix or trunk check guards `git branch -D` / `git push origin --delete` (worktree-clean.sh only acts on `$PREFIX/*` branches, and git-safety.sh never sees the inner push), so a non-default, unprotected trunk checked out in a clean `.worktrees/<name>` could be deleted locally or on origin; restricting to `${WORKTREE_BRANCH_PREFIX:-feature}/*` would close it.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "scripts/worktree-remove.sh",
+      "line": "4, 24-25",
+      "area": "context",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "`git worktree remove` without `--force` refuses only modified or untracked files, not ignored ones (`.env`, `node_modules`), which are deleted silently; the header comment and the docs/workflow.md row overstate the protection.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "scripts/worktree-remove.sh",
+      "line": "23, 30",
+      "area": "context",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "On a detached HEAD `branch --show-current` is empty, so the worktree is removed and branch handling skipped; any commits made on that detached HEAD become unreachable without warning.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "scripts/worktree-remove.sh",
+      "line": "35",
+      "area": "context",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "`gh pr list` returns at most 30 PRs by default and `--head` matches the branch name only, so a branch name reused across many PRs can push the merged one out of the window (safe false negative); `--limit 100` is cheap.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "scripts/worktree-remove.sh",
+      "line": "9-10",
+      "area": "context",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "Run from inside a linked worktree, `git rev-parse --show-toplevel` returns that worktree's root, so `.worktrees/$NAME` resolves under the wrong directory; a usage constraint worth noting (worktree-create.sh may share it).",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "scripts/worktree-remove.sh",
+      "line": "14-47",
+      "area": "maintainability",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "worktree-remove.sh and worktree-clean.sh now hold two policies for dropping the same worktrees (clean force-removes and never deletes the branch); having clean loop over gone-remote worktrees and call worktree-remove.sh would keep one policy.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "scripts/worktree-remove.sh",
+      "line": "17",
+      "area": "maintainability",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The `.worktrees/$NAME` path scheme is hardcoded here and in worktree-create.sh line 14, so moving the worktree location in one script would silently break the other.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "scripts/worktree-remove.sh",
+      "line": "32-46",
+      "area": "maintainability",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "Two branches call `git branch -D` with the remote-delete guard nested in the first, obscuring the three outcomes (merged PR, remote holds everything, keep); a `MERGED` flag with one `git branch -D` and one guarded push would read more plainly.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "docs/workflow.md",
+      "line": "35",
+      "area": "docs",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "`# the worktree, then its branch once the PR merged` overstates the condition: the script also deletes the local branch when `origin/<branch>` contains the tip with no merged PR; `once safe` (as in the README line) would match.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "docs/workflow.md",
+      "line": "45",
+      "area": "docs",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "The Worktree removal row says `keeps a worktree with uncommitted files` (the script says uncommitted or untracked) and `on origin when merged`, while origin is deleted only when a merged PR's head equals the tip and origin sits at that tip.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "scripts/worktree-remove.sh",
+      "line": "4-6",
+      "area": "docs",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The header's `once a merged PR shipped its tip (the remote branch too)` drops the condition that origin sits exactly at that tip; `(and the remote branch, if it is still at that tip)` would be accurate.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "scripts/worktree-remove.sh",
+      "line": "38",
+      "area": "docs",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The comment `A remote tip past the merged one holds commits nothing else has.` states the negative case above the positive-case `if`, and `past` misses the missing/diverged cases the `=` check also excludes.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "docs/workflow.md",
+      "line": "36",
+      "area": "docs",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The neighbouring worktree-clean.sh rows (here and README.md:193) don't mention that clean uses `--force` while remove refuses dirty trees, so a reader may assume the two are equally safe.",
+      "body": null,
+      "suggestion": null
+    }
+  ],
+  "refuted_findings": [],
+  "process_issues": [],
+  "comments_posted_actual": 1,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 1.5791119000000002,
+  "duration_ms": 188192,
+  "num_turns": 13,
+  "tokens": {
+    "input": 10,
+    "output": 10836,
+    "cache_read": 169710,
+    "cache_creation": 58910,
+    "total": 239466
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 34,
+      "output": 31062,
+      "cache_read": 304290,
+      "cache_creation": 104050,
+      "cost_usd": 1.3792140000000002
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 20,
+      "output": 6885,
+      "cache_read": 80152,
+      "cache_creation": 45991,
+      "cost_usd": 0.19989790000000002
+    }
+  ],
+  "permission_denials": [
+    {
+      "tool": "Bash",
+      "input": "gh pr view 34 --repo AlexisBalayre/claude-code-config"
+    }
+  ]
+}
