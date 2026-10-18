@@ -171,7 +171,7 @@ Shell scripts that run outside the LLM loop on lifecycle events. Zero context co
 | `git-safety.sh` | PreToolUse(Bash) | Block `rm -rf`, `git reset --hard`, force push, `checkout -b` on main, push to main |
 | `protect-generated.sh` | PreToolUse(Edit\|Write) | Block edits to paths matching `GENERATED_PATHS_REGEX` |
 | `validate-file-naming.sh` | PreToolUse(Write) | Enforce `FILE_NAMING_REGEX` on new files under this checkout |
-| `post-compact-state.sh` | SessionStart(compact) | Re-inject the session's directory, branch, worktrees, open PRs and their CI-review state after compaction |
+| `post-compact-state.sh` | SessionStart(compact) | Re-inject the session's directory, the project checkout's branch, worktrees, open PRs and their CI-review state after compaction |
 
 **Exit codes:**
 - `0` — success, continue
