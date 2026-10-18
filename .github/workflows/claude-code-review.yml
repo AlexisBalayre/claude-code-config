@@ -433,7 +433,7 @@ jobs:
       - name: Download review metrics
         id: download
         continue-on-error: true
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: review-metrics
           path: ${{ runner.temp }}/review-metrics
