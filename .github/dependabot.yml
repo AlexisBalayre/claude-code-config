@@ -1,0 +1,14 @@
+# Daily, not weekly: the claude-code-action pin also fixes the Claude Code
+# version the CI review runs (the action hardcodes it), and the action cuts a
+# release within minutes of each Claude Code release. Dependabot rewrites the
+# SHA and its `# vX.Y.Z` comment together.
+# The review job is owner-only, so it skips a Dependabot PR: the first review
+# after merging a bump is that bump's real test.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: daily
+    commit-message:
+      prefix: "chore(ci)"

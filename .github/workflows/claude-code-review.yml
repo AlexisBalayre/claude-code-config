@@ -179,11 +179,11 @@ jobs:
           echo "schema=$schema" >> "$GITHUB_OUTPUT"
 
       # AGENTS.md is startup-read config like CLAUDE.md (which imports it), but
-      # the action's SENSITIVE_PATHS list predates it: v1.0.237 still restores
-      # CLAUDE.md, .claude/ and .mcp.json, not AGENTS.md, so the PR head's copy
-      # would execute unreviewed. Apply the action's own treatment first:
-      # snapshot the head's copy for reviewers under .claude-pr/, then take the
-      # merge base's. Drop this step once upstream restores AGENTS.md itself.
+      # the action's SENSITIVE_PATHS list predates it: it restores CLAUDE.md,
+      # .claude/ and .mcp.json, not AGENTS.md, so the PR head's copy would
+      # execute unreviewed. Apply the action's own treatment first: snapshot
+      # the head's copy for reviewers under .claude-pr/, then take the merge
+      # base's. Drop this step once a bump's SENSITIVE_PATHS lists AGENTS.md.
       - name: Restore AGENTS.md from base
         if: steps.pr-head.outputs.skip != 'true' && steps.preflight.outputs.skip != 'true'
         env:
