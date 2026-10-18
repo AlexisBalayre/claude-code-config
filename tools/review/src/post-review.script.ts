@@ -75,12 +75,15 @@ function fileDiff(mergeBase: string, file: string): string {
         "diff",
         "--no-ext-diff",
         "--no-textconv",
+        // The head's .gitattributes can mark a file -diff, which prints no hunks.
+        "--text",
+        "--no-color",
         `${mergeBase}..HEAD`,
         "--unified=0",
         "--",
         `:/${file}`,
       ],
-      { encoding: "utf8", cwd: process.env.GITHUB_WORKSPACE, env: { ...process.env, GIT_NO_LAZY_FETCH: "1" } },
+      { encoding: "utf8", cwd: process.env.GITHUB_WORKSPACE, env: { ...process.env, GIT_NO_LAZY_FETCH: "1", GIT_ALLOW_PROTOCOL: "none" } },
     );
   } catch {
     warn(`could not diff ${file}; its findings go in the review body`);

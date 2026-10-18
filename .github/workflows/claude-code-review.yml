@@ -203,7 +203,8 @@ jobs:
         env:
           MERGE_BASE: ${{ steps.preflight.outputs.merge_base }}
         run: |
-          rm -rf .claude-pr-agents && mkdir .claude-pr-agents
+          rm -rf .claude-pr-agents
+          mkdir .claude-pr-agents
           echo /.claude-pr-agents/ >> "$(git rev-parse --git-path info/exclude)"
           if git cat-file -e HEAD:AGENTS.md 2>/dev/null; then git show HEAD:AGENTS.md > .claude-pr-agents/AGENTS.md; fi
           if git cat-file -e "${MERGE_BASE}:AGENTS.md" 2>/dev/null; then
