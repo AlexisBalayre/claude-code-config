@@ -168,10 +168,11 @@ function onPlant(
 
 /**
  * Checks the case out the way the workflow leaves the tree: PR head, base-branch
- * config, the PR's copy under .claude-pr/. The config's own permission grants
- * go, as CI's `allowManagedPermissionRulesOnly` discards them, so the rules
- * passed on the command line are the only ones left besides the skill's own
- * `allowed-tools` (see LOCAL_DENY).
+ * config, the PR's copy under .claude-pr/ (AGENTS.md's under .claude-pr-agents/).
+ * The config's own permission grants go, as CI's
+ * `allowManagedPermissionRulesOnly` discards them, so the rules passed on the
+ * command line are the only ones left besides the skill's own `allowed-tools`
+ * (see LOCAL_DENY).
  */
 function checkout(branch: string, origin: string, pipeline: string, dir: string): void {
   // A clone of the PR branch alone, as CI checks out: a worktree would share this
@@ -179,7 +180,8 @@ function checkout(branch: string, origin: string, pipeline: string, dir: string)
   git(["clone", "-q", "--single-branch", "--branch", branch, origin, dir]);
   for (const path of CONFIG_PATHS) {
     if (!existsSync(join(dir, path))) continue;
-    cpSync(join(dir, path), join(dir, ".claude-pr", path), { recursive: true });
+    const snapshot = path === "AGENTS.md" ? ".claude-pr-agents" : ".claude-pr";
+    cpSync(join(dir, path), join(dir, snapshot, path), { recursive: true });
     rmSync(join(dir, path), { recursive: true });
   }
   const present = CONFIG_PATHS.filter(

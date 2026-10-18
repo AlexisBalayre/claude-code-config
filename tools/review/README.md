@@ -38,7 +38,8 @@ the model buys three guarantees a model-posted review cannot make:
 CI review executes an LLM on untrusted PR content, so the defenses do not rely on the model
 behaving: claude-code-action restores startup-read config (`.claude/`, `CLAUDE.md`,
 `.mcp.json`, …) from the base branch before the model starts (the workflow extends this to
-`AGENTS.md`), preserving the PR's copies unexecuted under `.claude-pr/` for reviewers to read;
+`AGENTS.md`), preserving the PR's copies unexecuted under `.claude-pr/` (`AGENTS.md`'s under
+`.claude-pr-agents/`) for reviewers to read;
 the model's permissions come from managed settings written before it starts, which discard
 every repo and skill grant and allow only read verbs, with no `git checkout`/`git fetch`
 (which could revert that restore); its shell runs in a sandbox that cannot write outside the
