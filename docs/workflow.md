@@ -33,7 +33,7 @@ scripts/worktree-create.sh my-feature   # .worktrees/my-feature on branch featur
        ├─ commit (pre-commit runs TEST_CMD; lands on feature/ branch, never main)
        └─ open PR  →  /pr-description  →  /pr-ci-review
 scripts/worktree-remove.sh my-feature   # the worktree, then its branch once no work is lost
-scripts/worktree-remove.sh --merged     # the same for every worktree whose PR merged
+scripts/worktree-remove.sh --merged     # the same for every worktree whose tip a merged PR shipped
 ```
 
 ## What enforces it
