@@ -1,0 +1,136 @@
+{
+  "schema_version": 6,
+  "timestamp": "2026-10-18T12:20:39.879Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "39126645503",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/39126645503",
+  "actor": "AlexisBalayre",
+  "commit_sha": "4b91c9ee516b38e9e1768c1584482c3f49d6bebc",
+  "source": "pr",
+  "pr_number": 41,
+  "action": "review",
+  "reviewers_spawned": [
+    "correctness",
+    "security",
+    "conventions",
+    "maintainability",
+    "docs"
+  ],
+  "reviewers_returned": [
+    "correctness",
+    "security",
+    "conventions",
+    "maintainability",
+    "docs"
+  ],
+  "reviewers_skipped": [
+    "context",
+    "spec"
+  ],
+  "review_mode": "full",
+  "incremental_from_sha": null,
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [],
+  "findings": [
+    {
+      "file": "scripts/worktree-remove.sh",
+      "line": "41-51",
+      "area": "correctness",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "Worktrees made before this PR with a nested name can no longer be removed by this script: the old worktree-create.sh accepted `fix/thing`, which gave `.worktrees/fix/thing` on `feature/fix/thing`. Passing that name is now rejected as invalid. `--merged` only sees the parent `.worktrees/fix/`, which is not a worktree, so it prints a misleading \"Kept .worktrees/fix: <main's branch> is not a feature/ branch\". The old worktree-clean.sh did clean these; nothing is lost, but you have to run `git worktree remove` by hand.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "scripts/worktree-remove.sh",
+      "line": "34-37",
+      "area": "correctness",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "In `--merged` mode a broken `gh` (not installed, not logged in, no network) is hidden by `2>/dev/null`. Every worktree is then reported as \"no PR merged into the trunk shipped its tip\" and the script exits 0, so a broken gh looks the same as \"nothing merged\". It fails safe, but it is inconsistent with the explicit `exit 1` on a failed fetch.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/settings.json",
+      "line": "20",
+      "area": "security",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "The existing allow rule `Bash(scripts/worktree-remove.sh *)` already matches `scripts/worktree-remove.sh --merged`, so the bulk mode, which deletes origin branches, runs without a prompt. That contradicts the PR's stated intent not to auto-allow it. Not adding an allow rule is not enough: the prompt needs a `permissions.ask` or `deny` entry for `Bash(scripts/worktree-remove.sh --merged*)`.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "docs/workflow.md",
+      "line": "36",
+      "area": "docs",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "\"the same for every worktree whose PR merged\" overstates what `--merged` does: it removes only worktrees whose exact tip a PR merged into GIT_TRUNK shipped, and a worktree with commits after the merge is kept. The same wording is in the scripts/worktree-remove.sh line 4 header. Suggest \"the same for every worktree whose tip a merged PR shipped\", which matches the table row.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "scripts/worktree-create.sh",
+      "line": "14-18",
+      "area": "maintainability",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "The NAME-validation glob `''|-*|*/*|*..*|*[!A-Za-z0-9._-]*` is copy-pasted into both worktree-create.sh and worktree-remove.sh, with different error wording, so the two copies can drift. This is acceptable given the verbatim-port intent.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "scripts/worktree-remove.sh",
+      "line": "69-86",
+      "area": "maintainability",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "`SHIPPED` is computed before the removal and invalidated by hand after it (`[ \"$NOW\" = \"$TIP\" ] || { TIP=$NOW; SHIPPED=0; }`). Any new early-exit path added between the two must remember to keep `SHIPPED` and `TIP` in step.",
+      "body": null,
+      "suggestion": null
+    }
+  ],
+  "refuted_findings": [],
+  "process_issues": [
+    {
+      "component": "orchestrator",
+      "description": "The PR head moved during the review, from 4b91c9ee516b38e9e1768c1584482c3f49d6bebc (the checkout the reviewers read) to e07c64952db5dfc6c63778da84312847bf7153eb. The new head adds one change: it removes the `Bash(scripts/worktree-clean.sh*)` allow rule from .claude/settings.json. No reviewer saw that change; the orchestrator checked it against `gh pr diff`. Every finding was re-checked against the new diff, the scripts are unchanged, and the settings.json nit was re-anchored to line 20."
+    }
+  ],
+  "comments_posted_actual": 0,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 1.4841199999999997,
+  "duration_ms": 168699,
+  "num_turns": 13,
+  "tokens": {
+    "input": 12,
+    "output": 7880,
+    "cache_read": 231213,
+    "cache_creation": 60961,
+    "total": 300066
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 26,
+      "output": 27097,
+      "cache_read": 314084,
+      "cache_creation": 110345,
+      "cost_usd": 1.3394688
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 14,
+      "output": 3538,
+      "cache_read": 55207,
+      "cache_creation": 41489,
+      "cost_usd": 0.14465119999999998
+    }
+  ],
+  "permission_denials": []
+}
