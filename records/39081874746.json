@@ -1,0 +1,100 @@
+{
+  "schema_version": 6,
+  "timestamp": "2026-10-18T00:13:43.777Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "39081874746",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/39081874746",
+  "actor": "AlexisBalayre",
+  "commit_sha": "81c4b32a446900f02cb364fe4d6b852fc202c0b8",
+  "source": "pr",
+  "pr_number": 34,
+  "action": "review",
+  "reviewers_spawned": [
+    "correctness",
+    "maintainability",
+    "conventions",
+    "docs"
+  ],
+  "reviewers_returned": [
+    "correctness",
+    "maintainability",
+    "conventions",
+    "docs"
+  ],
+  "reviewers_skipped": [
+    "security",
+    "context",
+    "spec"
+  ],
+  "review_mode": "incremental",
+  "incremental_from_sha": "dc6d4540fba36888e22a13a05fdc38be4f7b5c5d",
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [],
+  "findings": [
+    {
+      "file": "scripts/worktree-remove.sh",
+      "line": "58-59",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "This branch runs whenever origin's copy exists but is not at the merged tip. It does not check that origin's copy descends from that tip, so \"moved past\" is only one of the cases it covers. A likely trigger: after a squash merge, someone reuses the branch name by resetting it to `origin/main`, starting new work and force-pushing. Origin's copy then sits on a commit that is not a descendant of the merged tip, and the message wrongly says it \"moved past\" it. Keeping origin's copy is still the right outcome; only the reason is wrong. A neutral message such as `\"Kept origin/$BRANCH: it no longer points at the merged tip\"` would be accurate in every case without an extra `merge-base` call.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "scripts/worktree-remove.sh",
+      "line": "2-8",
+      "area": "docs",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "The script header doesn't mention the fetch-failure behavior this delta adds. When `git fetch --prune origin` fails (offline), the script still removes clean worktrees but keeps every branch, whatever the PR or remote state (line 46, `[ \"$FETCHED\" = 1 ] || continue`). The header's \"deleted once a merged PR shipped its tip... or once origin's copy holds every commit; otherwise it is kept\" reads as if those conditions alone decide. Add something like \"If the fetch fails, every branch is kept.\"",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "docs/workflow.md",
+      "line": "45",
+      "area": "docs",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "The Worktree removal row has the same gap. It says when the `<prefix>/` branch is deleted but not that a failed fetch (for example offline) keeps every branch while the worktree is still removed. A reader running it offline would expect branch deletion and get none. Append \"If the fetch from `origin` fails, every branch is kept.\"",
+      "body": null,
+      "suggestion": null
+    }
+  ],
+  "refuted_findings": [],
+  "process_issues": [],
+  "comments_posted_actual": 0,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 0.6719619999999998,
+  "duration_ms": 68751,
+  "num_turns": 13,
+  "tokens": {
+    "input": 10,
+    "output": 5796,
+    "cache_read": 193376,
+    "cache_creation": 38988,
+    "total": 238170
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 14,
+      "output": 8503,
+      "cache_read": 208406,
+      "cache_creation": 48171,
+      "cost_usd": 0.5696161999999999
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 12,
+      "output": 3037,
+      "cache_read": 47784,
+      "cache_creation": 24958,
+      "cost_usd": 0.10234579999999999
+    }
+  ],
+  "permission_denials": []
+}
