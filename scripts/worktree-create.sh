@@ -11,6 +11,11 @@ cd "$ROOT"
 PREFIX="${WORKTREE_BRANCH_PREFIX:-feature}"
 
 NAME="${1:?Usage: scripts/worktree-create.sh <name>}"
+case "$NAME" in
+  ''|-*|*/*|*..*|*[!A-Za-z0-9._-]*)
+    echo "Error: invalid worktree name '$NAME' (letters, digits, . _ - only; no leading dash)." >&2
+    exit 1 ;;
+esac
 WORKTREE_DIR=".worktrees/$NAME"
 BRANCH="$PREFIX/$NAME"
 

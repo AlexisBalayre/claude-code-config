@@ -190,8 +190,7 @@ Everything project-specific lives in a few well-known places, so tuning is editi
 ├── tools/review/              # deterministic review tooling (schema, poster, metrics)
 ├── scripts/
 │   ├── worktree-create.sh     # scripts/worktree-create.sh <name>
-│   ├── worktree-clean.sh      # force-remove worktrees whose remote branch is gone
-│   ├── worktree-remove.sh     # scripts/worktree-remove.sh <name>... (worktree, then branch once safe)
+│   ├── worktree-remove.sh     # scripts/worktree-remove.sh <name>... | --merged (worktree, then branch once safe)
 │   └── pre-commit             # lint/typecheck/test gate for human/CLI commits
 ├── .claude/
 │   ├── README.md              # architecture deep-dive (start here)
