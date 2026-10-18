@@ -17,7 +17,6 @@
       "Agent(*)",
       "mcp__codegraph",
       "Bash(scripts/worktree-create.sh *)",
-      "Bash(scripts/worktree-clean.sh*)",
       "Bash(scripts/worktree-remove.sh *)",
       "Bash(git add*)",
       "Bash(git commit*)",
