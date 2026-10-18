@@ -1,0 +1,78 @@
+{
+  "schema_version": 6,
+  "timestamp": "2026-10-18T12:22:37.801Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "39126836501",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/39126836501",
+  "actor": "AlexisBalayre",
+  "commit_sha": "e07c64952db5dfc6c63778da84312847bf7153eb",
+  "source": "pr",
+  "pr_number": 41,
+  "action": "review",
+  "reviewers_spawned": [
+    "security",
+    "context",
+    "conventions"
+  ],
+  "reviewers_returned": [
+    "security",
+    "context",
+    "conventions"
+  ],
+  "reviewers_skipped": [
+    "correctness",
+    "maintainability",
+    "docs",
+    "spec"
+  ],
+  "review_mode": "incremental",
+  "incremental_from_sha": "4b91c9ee516b38e9e1768c1584482c3f49d6bebc",
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [],
+  "findings": [],
+  "refuted_findings": [],
+  "process_issues": [
+    {
+      "component": "orchestrator",
+      "description": "The PR head moved during the review, from e07c64952db5dfc6c63778da84312847bf7153eb (the checkout the reviewers read) to ed61d6a44830d58e17a06d6ad609cd943986adc3. Per `gh pr diff 41`, the new head changes only two prose lines: docs/workflow.md:36 and the scripts/worktree-remove.sh line 4 header now say \"the same for every worktree whose tip a merged PR shipped\". That applies the prior round's docs nit word for word. No reviewer saw this change; the orchestrator checked it against the diff and found nothing to raise. Every other hunk is byte-identical to the reviewed checkout."
+    }
+  ],
+  "comments_posted_actual": 0,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 0.6250853,
+  "duration_ms": 65030,
+  "num_turns": 15,
+  "tokens": {
+    "input": 18,
+    "output": 5094,
+    "cache_read": 393551,
+    "cache_creation": 42419,
+    "total": 441082
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 24,
+      "output": 6125,
+      "cache_read": 417792,
+      "cache_creation": 48757,
+      "cost_usd": 0.5771963999999999
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 8,
+      "output": 896,
+      "cache_read": 29729,
+      "cache_creation": 14376,
+      "cost_usd": 0.047888900000000005
+    }
+  ],
+  "permission_denials": [
+    {
+      "tool": "Bash",
+      "input": "git -C /home/runner/work/claude-code-config/claude-code-config diff 4b91c9ee516b38e9e1768c1584482c3f49d6bebc..HEAD"
+    }
+  ]
+}
