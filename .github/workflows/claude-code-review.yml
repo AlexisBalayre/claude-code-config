@@ -82,9 +82,12 @@ jobs:
       # silently reviews only the last commit of a multi-commit PR.
       - name: Checkout repository
         uses: actions/checkout@v7
-        # persist-credentials off: the checkout would leave this job's token in
-        # .git for the rest of the job, where the model reads it. gh lends its
-        # own credential to the few git calls that reach the network.
+        # persist-credentials off: this job's token never lands in .git, rather
+        # than relying on the action to strip checkout's header before the model
+        # starts, which it does best-effort (a failure is logged and the run goes
+        # on). .git is not credential-free during the review: the action writes
+        # its app token, the GH_TOKEN above, into origin's URL. The git calls
+        # before the action borrow gh's credential instead.
         with:
           fetch-depth: 0
           persist-credentials: false

@@ -50,8 +50,8 @@ function gitOk(...args: string[]): boolean {
   }
 }
 
-// The checkout persists no credential (it would sit in .git where the model
-// reads), so a network git call borrows gh's for that one command.
+// The checkout persists no credential (see the workflow's checkout step), so a
+// network git call borrows gh's for that one command.
 const GH_CREDENTIAL = ["-c", "credential.helper=", "-c", "credential.helper=!gh auth git-credential"];
 
 function gh(...args: string[]): string {
