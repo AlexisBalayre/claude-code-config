@@ -31,8 +31,8 @@ git fetch --prune --quiet origin || { FETCHED=0; echo "Fetch failed: keeping eve
 [ "$FETCHED" = 1 ] || [ "$MERGED_ONLY" = 0 ] || exit 1
 
 # A squash merge leaves the tip off the trunk, so only GitHub knows it shipped.
-# gh's stderr stays visible: a failed lookup (no auth, no network) keeps the
-# worktree like an unshipped one, and only gh's error says which it was.
+# gh's stderr stays visible: a failed lookup (no auth, say) reads as unshipped,
+# and only gh's error says it failed.
 shipped() {
   gh pr list --head "$1" --base "${GIT_TRUNK:-main}" --state merged --json headRefOid --jq '.[].headRefOid' |
     grep -Fx "$2" >/dev/null
