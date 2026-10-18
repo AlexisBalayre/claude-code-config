@@ -50,6 +50,10 @@ function gitOk(...args: string[]): boolean {
   }
 }
 
+// The checkout persists no credential (it would sit in .git where the model
+// reads), so a network git call borrows gh's for that one command.
+const GH_CREDENTIAL = ["-c", "credential.helper=", "-c", "credential.helper=!gh auth git-credential"];
+
 function gh(...args: string[]): string {
   return execFileSync("gh", args, { encoding: "utf8", cwd: process.env.GITHUB_WORKSPACE }).trim();
 }
@@ -121,13 +125,14 @@ async function main(): Promise<void> {
   // The checkout's refs date from the start of the run; refresh so a record the
   // previous run persisted minutes ago is visible. Absence tolerated: no ref
   // means no prior record, which resolves to a full review, never a halt.
-  gitOk("fetch", "origin", "ci/review-metrics") || warn("could not fetch ci/review-metrics; resolving mode as full");
+  gitOk(...GH_CREDENTIAL, "fetch", "origin", "ci/review-metrics") ||
+    warn("could not fetch ci/review-metrics; resolving mode as full");
   let records = priorRecords(prNumber);
   if (records.length === 0 && trigger === "synchronize") {
     // A queued synchronize run can start while the prior run's persist-metrics
     // job is still writing its record; one short retry covers the race.
     await new Promise((resolve) => setTimeout(resolve, 30_000));
-    gitOk("fetch", "origin", "ci/review-metrics");
+    gitOk(...GH_CREDENTIAL, "fetch", "origin", "ci/review-metrics");
     records = priorRecords(prNumber);
   }
 
