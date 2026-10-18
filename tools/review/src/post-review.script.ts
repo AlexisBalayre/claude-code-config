@@ -136,7 +136,7 @@ function postReview(repository: string, prNumber: number, body: string, comments
 /**
  * The observable outcome: a status on the head SHA that a
  * cancelled, skipped, or dead run leaves red, visible on the PR itself. Not a
- * required check, so it never blocks a merge; its own failure only warns,
+ * required check here, though an adopting repo may make it one; its own failure only warns,
  * because the review comment is the primary contract and this the signal.
  */
 function setCommitStatus(repository: string, sha: string, state: "success" | "failure", description: string): void {
@@ -227,14 +227,16 @@ function main(): void {
   } finally {
     const importants = anchored.length + unanchored.length;
     const failure = noVerdict ?? (reviewPosted ? null : "the review could not be posted");
-    // A quick or area-restricted pass is no merge signal, so the status and the
-    // reaction both say it was partial.
+    // A quick or area-restricted pass is no merge signal, so it never sets the
+    // status: that speaks for the head's full review alone. A partial success
+    // would turn a failed full review green, a partial failure a passed one red.
     const partial = env.REVIEW_PARTIAL === "true";
-    const outcome = importants > 0 ? `${importants} important finding(s)` : "no blocking issues";
     const sha = env.REVIEW_COMMIT_SHA ?? "";
     if (sha) {
-      if (failure) setCommitStatus(repository, sha, "failure", failure);
-      else setCommitStatus(repository, sha, "success", `${partial ? "partial review: " : ""}${outcome}`);
+      const outcome = importants > 0 ? `${importants} important finding(s)` : "no blocking issues";
+      if (partial) process.stdout.write("partial pass; leaving the claude-review status to the full review\n");
+      else if (failure) setCommitStatus(repository, sha, "failure", failure);
+      else setCommitStatus(repository, sha, "success", outcome);
     } else {
       warn("no commit sha; skipping the claude-review status");
     }

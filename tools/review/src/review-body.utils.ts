@@ -51,13 +51,20 @@ export function commentBody(finding: Finding, relocatedFrom: number | null): str
   parts.push(inertFences(finding.body ?? finding.description));
   if (finding.suggestion !== null) {
     // Longer than any backtick run in the suggestion, so its code can never
-    // close the fence early and is posted exactly as written.
+    // close the fence early; a committable one is posted exactly as written.
     const runs = finding.suggestion.match(/`+/g) ?? [];
     const fence = "`".repeat(Math.max(3, ...runs.map((run) => run.length + 1)));
     // A committable suggestion rewrites the line it is attached to, so on a
-    // relocated anchor it would replace code the finding never mentioned. Same
-    // text, inert fence.
-    parts.push("", relocatedFrom === null ? `${fence}suggestion` : fence, finding.suggestion, fence);
+    // relocated anchor it would replace code the finding never mentioned: an
+    // inert fence, and inert text inside it, because a fence the body leaves
+    // open makes this fence its close and the suggestion text live markdown.
+    parts.push(
+      "",
+      ...(relocatedFrom === null
+        ? [`${fence}suggestion`, finding.suggestion]
+        : [fence, inertFences(finding.suggestion)]),
+      fence,
+    );
   }
   return parts.join("\n");
 }
