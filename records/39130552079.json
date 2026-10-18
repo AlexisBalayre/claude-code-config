@@ -1,0 +1,93 @@
+{
+  "schema_version": 6,
+  "timestamp": "2026-10-18T13:15:50.813Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "39130552079",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/39130552079",
+  "actor": "AlexisBalayre",
+  "commit_sha": "2fdc98fc8645c1a4158e9f7bc41f60210055ab54",
+  "source": "pr",
+  "pr_number": 45,
+  "action": "review",
+  "reviewers_spawned": [
+    "correctness",
+    "security",
+    "conventions",
+    "docs",
+    "maintainability",
+    "context"
+  ],
+  "reviewers_returned": [
+    "correctness",
+    "security",
+    "conventions",
+    "docs",
+    "maintainability",
+    "context"
+  ],
+  "reviewers_skipped": [
+    "spec"
+  ],
+  "review_mode": "incremental",
+  "incremental_from_sha": "a38d6b3325c254b6b02452acd678aa1a4f36f92a",
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [
+    {
+      "file": ".claude/hooks/post-compact-state.sh",
+      "line": "16-29",
+      "status": "resolved"
+    },
+    {
+      "file": ".claude/hooks/post-compact-state.sh",
+      "line": "26",
+      "status": "resolved"
+    }
+  ],
+  "findings": [
+    {
+      "file": ".claude/hooks/post-compact-state.sh",
+      "line": "3",
+      "area": "docs",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "The header says the hook re-injects \"the session's directory and branch\", and `.claude/README.md` L174 and `docs/workflow.md` L48 word it the same way. But the branch comes from `git branch --show-current` after `cd \"$CLAUDE_PROJECT_DIR\"`, so it is the project checkout's branch, not the branch of the session's cwd. `.claude/hooks/README.md` L19 already says \"the project checkout's branch\"; the other three could use the same wording.",
+      "body": null,
+      "suggestion": null
+    }
+  ],
+  "refuted_findings": [],
+  "process_issues": [],
+  "comments_posted_actual": 0,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 1.1118789,
+  "duration_ms": 138036,
+  "num_turns": 15,
+  "tokens": {
+    "input": 10,
+    "output": 8354,
+    "cache_read": 206068,
+    "cache_creation": 47299,
+    "total": 261731
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 20,
+      "output": 20756,
+      "cache_read": 247440,
+      "cache_creation": 71879,
+      "cost_usd": 0.96598
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 16,
+      "output": 4749,
+      "cache_read": 58119,
+      "cache_creation": 37026,
+      "cost_usd": 0.1458989
+    }
+  ],
+  "permission_denials": []
+}
