@@ -426,7 +426,7 @@ jobs:
 
       - name: Upload review metrics
         if: always() && steps.pr-head.outputs.skip != 'true' && steps.preflight.outputs.skip != 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: review-metrics
           path: ${{ runner.temp }}/review-metrics.json
