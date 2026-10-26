@@ -318,7 +318,7 @@ jobs:
         if: steps.pr-head.outputs.skip != 'true' && steps.preflight.outputs.skip != 'true'
         id: claude-review
         # SHA-pinned (secrets + write token); the tag comment tracks the version.
-        uses: anthropics/claude-code-action@e4a6faad497d33dbc7144135c75e41f82f0bf6c0 # v1.0.255
+        uses: anthropics/claude-code-action@16f9f71ab9c490faf367f94dd294897edc25be33 # v1.0.261
         # The reviewer manifests keep their `opus` / `sonnet` aliases; these pin
         # the aliases to exact ids, so a Claude Code bump cannot move a tier
         # silently, while a local /pr-ci-review still follows the local defaults.
