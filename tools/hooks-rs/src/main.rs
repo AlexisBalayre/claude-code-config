@@ -1,10 +1,12 @@
 #![deny(unsafe_code)]
 mod added_lines;
+mod check_agent_config;
 mod check_dashes;
 mod comment_pruner;
 mod common;
 mod convention_spot_check;
 mod frozen_paths;
+mod gate_lock;
 mod git_safety;
 mod post_compact_state;
 mod pre_commit;
@@ -15,6 +17,7 @@ mod quality_checks;
 mod session;
 mod tool_result_size;
 mod validate_file_naming;
+mod verify;
 mod worktree_create;
 mod worktree_remove;
 
@@ -24,7 +27,10 @@ fn main() {
     let rest = args.get(1..).unwrap_or(&[]);
     match name {
         "added-lines" => added_lines::run(rest),
+        "check-agent-config" => check_agent_config::run(rest),
         "check-dashes" => check_dashes::run(rest),
+        "gate-lock" => gate_lock::run(rest),
+        "verify" => verify::run(rest),
         "pre-commit" => pre_commit::run(rest),
         "pre-push" => pre_push::run(rest),
         "worktree-create" => worktree_create::run(rest),
