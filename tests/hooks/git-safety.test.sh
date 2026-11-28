@@ -39,6 +39,8 @@ expect 0 'without jq, a push to a branch passes' "$T/bin" \
   '{"tool_input":{"command":"git push origin feature/x","description":"not to main "}}'
 expect 2 'without jq, an escaped tab still separates the words' "$T/bin" \
   '{"tool_input":{"command":"git reset\t--hard"}}'
+expect 2 'without jq, an escaped newline ends the line a rule anchors on' "$T/bin" \
+  '{"tool_input":{"command":"git push origin main\nls"}}'
 expect 2 'without jq, a quoted word does not end the command' "$T/bin" \
   '{"tool_input":{"command":"git commit -m \"x\" && git push --force"}}'
 expect 0 'without jq, the description is not read' "$T/bin" \
