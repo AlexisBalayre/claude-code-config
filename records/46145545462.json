@@ -1,0 +1,107 @@
+{
+  "schema_version": 6,
+  "timestamp": "2026-11-28T12:39:42.584Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "46145545462",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/46145545462",
+  "actor": "AlexisBalayre",
+  "commit_sha": "d9af95314a9f1f2fa5cd777f0456327d4b810e16",
+  "source": "pr",
+  "pr_number": 74,
+  "action": "review",
+  "reviewers_spawned": [
+    "conventions",
+    "docs"
+  ],
+  "reviewers_returned": [
+    "conventions",
+    "docs"
+  ],
+  "reviewers_skipped": [
+    "correctness",
+    "security",
+    "context",
+    "maintainability",
+    "spec"
+  ],
+  "review_mode": "full",
+  "incremental_from_sha": null,
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [],
+  "findings": [
+    {
+      "file": ".claude/skills/ci-and-agent-config/SKILL.md",
+      "line": "1-4",
+      "area": "conventions",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "New skill omits `disable-model-invocation: true`, so it is model-invoked and its description loads every turn. The README row lists it as 'Auto or /ci-and-agent-config' but nothing states why natural phrasing must trigger it. writing-for-agents/SKILL.md 'House rules' (line 90) says: 'Default new skills to user-invoked (`disable-model-invocation: true`). Keep model-invocation only when natural task phrasing must trigger the skill, or another skill calls it.' Either add the flag, or add a line to the skill or README giving the reason.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "docs/workflow.md",
+      "line": "30",
+      "area": "docs",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The diagram annotation `(red first)` only restates `red → green → refactor` in the same line and says nothing new. Drop the parenthetical, or name the companion plugin's `tdd` skill there as the other two edits in this PR do.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "README.md",
+      "line": "3",
+      "area": "docs",
+      "confidence": "high",
+      "tag": "pre-existing",
+      "description": "The headline reads \"7 skills, 12 subagents, 7 deterministic hooks\". The PR edits that line to fix the skill count, but the component table below it, `.claude/README.md` and the `agents/README.md` catalog (the last not opened) give 13 agents and 10 hooks. The 12 and 7 were stale before this PR.",
+      "body": null,
+      "suggestion": null
+    }
+  ],
+  "refuted_findings": [],
+  "process_issues": [
+    {
+      "component": "orchestrator",
+      "description": "Gated out correctness, security, maintainability, context and spec: the diff is markdown prose only (skill deletions, skill/README/doc rewrites), with no executable logic, trust boundary, infra surface, or spec source (no closing issues)."
+    },
+    {
+      "component": "orchestrator",
+      "description": "The reviewer briefs gave the restored config path as `.claude-pr/<path relative to .claude>`. The PR's copies actually sit at `.claude-pr/.claude/...`, so the conventions reviewer's first reads missed until it found the right path."
+    }
+  ],
+  "comments_posted_actual": 0,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 0.772107,
+  "duration_ms": 96481,
+  "num_turns": 7,
+  "tokens": {
+    "input": 10,
+    "output": 5558,
+    "cache_read": 207220,
+    "cache_creation": 39631,
+    "total": 252419
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 10,
+      "output": 5558,
+      "cache_read": 207220,
+      "cache_creation": 39631,
+      "cost_usd": 0.46969199999999994
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 38,
+      "output": 9005,
+      "cache_read": 421890,
+      "cache_creation": 68040,
+      "cost_usd": 0.302415
+    }
+  ],
+  "permission_denials": []
+}
