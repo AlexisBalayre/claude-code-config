@@ -632,11 +632,12 @@ pub fn run() {
 
     // The lead lists `<branch> <push url> ...` for a branch whose Design or Approach the user
     // approved, in a file the user's settings `env` names: a path the command can't choose and
-    // the worker can't write. The push skips the prompt only to that URL, since `-C` or a
-    // redirected .git file can aim origin anywhere.
+    // the worker can't write, so an absolute one, since a relative path would resolve in the
+    // call's cwd. The push skips the prompt only to that URL, since `-C` or a redirected .git
+    // file can aim origin anywhere.
     let trusted = std::env::var("AGENT_APPROVED_PLANS")
         .ok()
-        .filter(|file| !file.is_empty())
+        .filter(|file| Path::new(file).is_absolute())
         .and_then(|file| std::fs::read(file).ok())
         .and_then(|plans| {
             String::from_utf8_lossy(&plans)

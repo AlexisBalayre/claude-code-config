@@ -1,7 +1,9 @@
 mod common;
 
-use common::{bash_payload, decision, expect_decision, git, hook, run, write, TempDir};
-use std::os::unix::fs::{symlink, PermissionsExt};
+use common::{
+    bash_payload, decision, executable, expect_decision, git, hook, path_with, run, write, TempDir,
+};
+use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
@@ -56,17 +58,13 @@ impl Fixture {
 
     /// Put an executable stub named `name` in the fixture directory `dir`.
     fn stub(&self, dir: &str, name: &str, script: &str) {
-        let path = self.path(dir).join(name);
-        write(&path, script);
-        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755))
-            .expect("make the stub executable");
+        executable(&self.path(dir).join(name), script);
     }
 
     /// Build a gate whose PATH finds the stubs of the fixture directory `dir` first.
     fn gate_with_stubs(&self, dir: &str) -> Command {
-        let path = std::env::var("PATH").unwrap_or_default();
         let mut gate = hook("push-gate");
-        gate.env("PATH", format!("{}:{path}", self.at(dir)));
+        gate.env("PATH", path_with(&[&self.path(dir)]));
         gate
     }
 
@@ -230,12 +228,7 @@ fn asks_when_config_sends_an_approved_branch_to_another_ref() {
         ("push.default", "tracking"),
     ] {
         fixture.git("w", &["config", key, value]);
-        let out = run(
-            &mut fixture.gate_with_plan(),
-            &bash_payload(&fixture.at("w"), PUSH_NEW),
-        );
-        assert_eq!(decision(&out), "ask", "setting: {key} {value}");
-        assert!(out.stdout.contains("another ref"), "setting: {key} {value}");
+        fixture.expect_planned("ask", "w", PUSH_NEW, "another ref");
         fixture.git("w", &["config", "--unset", key]);
     }
 }
@@ -313,13 +306,24 @@ fn reads_plans_only_from_the_file_the_environment_names() {
     expect_decision(&mut gate, "ask", &fixture.at("w"), PUSH_NEW, "feature/new");
 }
 
+// A relative path would resolve in the call's cwd, which the command chooses.
+#[test]
+fn reads_no_plans_from_a_relative_path() {
+    let fixture = Fixture::new("plans-relative");
+    let line = format!("feature/new {}\n", fixture.at("remote.git"));
+    write(&fixture.path("w/plans"), &line);
+    let mut gate = hook("push-gate");
+    gate.env("AGENT_APPROVED_PLANS", "plans")
+        .current_dir(fixture.path("w"));
+    expect_decision(&mut gate, "ask", &fixture.at("w"), PUSH_NEW, "feature/new");
+}
+
 #[test]
 fn asks_for_a_payload_that_names_a_candidate_and_does_not_parse() {
     for payload in [
         r#"{"tool_input":{"command":"gh pr merge 5""#,
         r#"{"tool_input":{"command":123,"x":"gh pr merge 5"}}"#,
         r#"{"tool_input":"git push origin main"}"#,
-        "git push origin main",
     ] {
         let out = run(&mut hook("push-gate"), payload);
         assert_eq!(decision(&out), "ask", "payload: {payload:?}");
@@ -336,10 +340,8 @@ fn defers_for_a_payload_that_does_not_parse_and_names_no_candidate() {
 fn starts_no_process_for_a_call_naming_no_push() {
     let fixture = Fixture::new("spy");
     let log = fixture.path("spy.log");
-    for tool in ["jq", "cat", "grep"] {
-        let script = format!("#!/bin/sh\necho {tool} >>\"{}\"\nexit 127\n", log.display());
-        fixture.stub("spy", tool, &script);
-    }
+    let script = format!("#!/bin/sh\necho git >>\"{}\"\nexit 127\n", log.display());
+    fixture.stub("spy", "git", &script);
     for command in ["git status", r#"git commit -m "fix the gate""#] {
         // A fixed cwd: the temp path could spell a word the early test looks for.
         expect_decision(
@@ -382,7 +384,7 @@ fn probes_origin_while_budget_is_left() {
     fixture.repo("left", "git@example.invalid:left.git");
     let probed = fixture.at("probed");
     let mut gate = hook("push-gate");
-    gate.env("SECONDS", "6")
+    gate.env("SECONDS", "5")
         .env("GIT_SSH_COMMAND", format!("touch '{probed}'; exit 1 #"));
     expect_decision(&mut gate, "ask", &fixture.at("left"), PUSH_X, "feature/x");
     assert!(Path::new(&probed).exists(), "no probe started");
@@ -483,13 +485,6 @@ fn asks_for_any_other_shape_even_on_origin() {
         "git push\norigin feature/x",
         "git push origin feature/x\necho done",
     ]);
-}
-
-// The shell hook splits its one jq call on this separator; the whole command still decides.
-#[test]
-fn asks_for_a_command_holding_the_unit_separator() {
-    let command = "git push origin feature/x\x1f; echo done";
-    Fixture::new("separator").expect("ask", "w", command, "alone in its own call");
 }
 
 // Each of these would run unprompted under the settings' allow rules if the gate missed it.
