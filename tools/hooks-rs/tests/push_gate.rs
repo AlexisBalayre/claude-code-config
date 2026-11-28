@@ -314,29 +314,22 @@ fn reads_plans_only_from_the_file_the_environment_names() {
 }
 
 #[test]
-fn decides_without_a_working_jq() {
-    let fixture = Fixture::new("nojq");
-    fixture.stub("nojq", "jq", "#!/bin/sh\nexit 127\n");
-    for command in [
-        "git push -u origin feature/new",
-        "cd x\ngit push -u origin feature/new",
-        "cd x;\tgit push",
-        "git -C x \\\npush",
-        r"g\h pr merge 5",
-        r#"g""h pr merge 5"#,
-        "g\\\nh pr merge 5",
-        r#"bash -c "true; gh pr view 5""#,
-        "true #x\\\ngh pr view 5",
-        "true #x\\\ngh api -X PUT repos/o/r/pulls/5/merge",
-        "git -C . -c alias.m=$'!true\\ngh pr merge 5' m",
-        "bash -c '#x\\\ngh pr merge 5'",
-        "echo a\\\\\ngit push",
+fn asks_for_a_payload_that_names_a_candidate_and_does_not_parse() {
+    for payload in [
+        r#"{"tool_input":{"command":"gh pr merge 5""#,
+        r#"{"tool_input":{"command":123,"x":"gh pr merge 5"}}"#,
+        r#"{"tool_input":"git push origin main"}"#,
+        "git push origin main",
     ] {
-        let mut gate = fixture.gate_with_stubs("nojq");
-        expect_decision(&mut gate, "ask", &fixture.at("w"), command, "");
+        let out = run(&mut hook("push-gate"), payload);
+        assert_eq!(decision(&out), "ask", "payload: {payload:?}");
     }
-    let mut gate = fixture.gate_with_stubs("nojq");
-    expect_decision(&mut gate, "none", &fixture.at("w"), "git status", "");
+}
+
+#[test]
+fn defers_for_a_payload_that_does_not_parse_and_names_no_candidate() {
+    let out = run(&mut hook("push-gate"), "not json");
+    assert_eq!(decision(&out), "none");
 }
 
 #[test]
@@ -381,6 +374,45 @@ fn asks_before_a_slow_origin_answers() {
         !Path::new(&ended).exists(),
         "the hook waited for the ssh to end"
     );
+}
+
+#[test]
+fn probes_origin_while_budget_is_left() {
+    let fixture = Fixture::new("budget-left");
+    fixture.repo("left", "git@example.invalid:left.git");
+    let probed = fixture.at("probed");
+    let mut gate = hook("push-gate");
+    gate.env("SECONDS", "6")
+        .env("GIT_SSH_COMMAND", format!("touch '{probed}'; exit 1 #"));
+    expect_decision(&mut gate, "ask", &fixture.at("left"), PUSH_X, "feature/x");
+    assert!(Path::new(&probed).exists(), "no probe started");
+}
+
+// 7 s inherited plus the hook's own time leaves under the 1 s a probe needs.
+#[test]
+fn starts_no_probe_with_under_a_second_of_budget_left() {
+    let fixture = Fixture::new("budget-edge");
+    fixture.repo("edge", "git@example.invalid:edge.git");
+    let probed = fixture.at("probed");
+    let mut gate = hook("push-gate");
+    gate.env("SECONDS", "7")
+        .env("GIT_SSH_COMMAND", format!("touch '{probed}'; exit 1 #"));
+    expect_decision(&mut gate, "ask", &fixture.at("edge"), PUSH_X, "feature/x");
+    assert!(!Path::new(&probed).exists(), "a probe started");
+}
+
+// With 6 s inherited the probe has 2 s. The 6 s bound sits between that and the whole budget.
+#[test]
+fn an_aged_hook_cuts_the_probe_at_what_is_left_of_the_budget() {
+    let fixture = Fixture::new("budget-cut");
+    fixture.repo("cut", "git@example.invalid:cut.git");
+    let mut gate = hook("push-gate");
+    gate.env("SECONDS", "6")
+        .env("GIT_SSH_COMMAND", "sleep 30 #");
+    let start = std::time::Instant::now();
+    expect_decision(&mut gate, "ask", &fixture.at("cut"), PUSH_X, "feature/x");
+    let took = start.elapsed();
+    assert!(took.as_secs() < 6, "the probe ran {took:?}");
 }
 
 #[test]

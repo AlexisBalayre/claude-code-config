@@ -584,13 +584,11 @@ pub fn run() {
     let _ = std::io::stdin().read_to_end(&mut input);
     let input = String::from_utf8_lossy(input.split(|&c| c == 0).next().unwrap_or_default());
     // This runs on every Bash call, so a payload that cannot be a candidate below exits before
-    // any parsing. The payload's JSON keeps ASCII letters literal, as the raw read below relies
-    // on too.
+    // any parsing. The payload's JSON keeps ASCII letters literal.
     if !(input.contains("push") || input.contains("send-pack") || gh_spelt(input.as_bytes())) {
         return;
     }
 
-    // cwd comes first so a command holding the separator still splits right.
     let fields = serde_json::from_str::<Value>(&input)
         .ok()
         .and_then(|payload| {
@@ -603,44 +601,15 @@ pub fn run() {
             ((payload.is_object() || payload.is_null())
                 && (tool_input.is_object() || tool_input.is_null()))
             .then_some(())?;
-            Some(text(&payload["cwd"])? + "\x1f" + &text(&tool_input["command"])?)
+            Some((text(&payload["cwd"])?, text(&tool_input["command"])?))
         });
-    let unparsed;
-    let (cwd, command) = match &fields {
-        Some(fields) => fields
-            .trim_end_matches('\n')
-            .split_once('\x1f')
-            .unwrap_or_default(),
-        // A payload that does not parse still carries the command's words, so the checks below
-        // run on it and a candidate asks instead of passing unseen. JSON escapes, so a word
-        // split by a backslash reads whole: a continuation and a backslash go, `\"` is a quote,
-        // any other pair (`\n` before `git`) a blank. Two literal backslashes go first, or the
-        // newline after them reads as continued.
-        None => {
-            let text = input
-                .replace(r"\\\\", " ")
-                .replace(r"\\\n", "")
-                .replace(r"\\", "")
-                .replace(r#"\""#, "\"");
-            let mut chars = text.chars();
-            let mut command = String::with_capacity(text.len());
-            while let Some(c) = chars.next() {
-                command.push(if c == '\\' && chars.next().is_some() {
-                    ' '
-                } else {
-                    c
-                });
-            }
-            unparsed = command;
-            ("", unparsed.as_str())
-        }
+    let Some((cwd, command)) = fields else {
+        ask("the hook payload names a push or gh and does not parse, so the gate cannot read the call.")
     };
+    let (cwd, command) = (cwd.as_str(), command.trim_end_matches('\n'));
 
-    // Unparsed, every call asks: the payload's own quotes cannot be told from the command's.
     // The scan reads the command with the newline a here-string ends it with.
-    if gh_spelt(command.as_bytes())
-        && (fields.is_none() || !gh_calls_ok(format!("{command}\n").as_bytes()))
-    {
+    if gh_spelt(command.as_bytes()) && !gh_calls_ok(format!("{command}\n").as_bytes()) {
         ask("a gh call that can merge or print the token needs the user's go, and so does a gh shape the gate does not list, a mention in text included.");
     }
 
