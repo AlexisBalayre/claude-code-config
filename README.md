@@ -45,10 +45,10 @@ around one stack. This one is built on three different bets:
 | :---- | :---- | :----------- |
 | **`AGENTS.md`** + **`CLAUDE.md`** | 2 | Always-on project memory, layered: `AGENTS.md` is the tool-agnostic base (role, conventions map, comments/altitude discipline, git workflow) any coding agent can read; `CLAUDE.md` just imports it and adds Claude Code-only notes. Kept tiny on purpose. |
 | **`project.env`** | 1 | The project profile: format/lint/typecheck/test/install commands, generated paths, file-naming pattern, trunk. Every hook and script reads it; an empty key turns its check off. |
-| **`rules/`** | 2+ | Path-scoped **pure loaders** (core, testing, plus one per project area once adapted) that auto-load `docs/conventions/*.md` only when you touch matching files. |
+| **`rules/`** | 2+ | Path-scoped symlinks (core, testing, plus one per project area once adapted) that load `docs/conventions/*.md` only when you touch files matching the doc's `paths:`. |
 | **`skills/`** | 35 | Auto-discoverable workflows: setup (`adapt-to-project`), planning (`to-spec`, `to-tickets`, `wayfinder`, `implement`, `implement-spec`…), engineering (`tdd`, `diagnosing-bugs`, `wizard`, `research`…), thinking & design (`grilling`, `grill-me`, `codebase-design`, `domain-modeling`, `prototype`…), PR & review (`pr-description`, `pr-ci-review`, `address-review-comments`, `review-retro`), meta (`writing-for-agents`, `retro`, `handoff`, `wait-what`…), and personal integrations (`obsidian-vault`, `daily-note`, `fix-sonar`, `wiz`… — configured via `.env`). Engineering and thinking skills track [mattpocock/skills](https://github.com/mattpocock/skills). |
 | **`agents/`** | 13 | Isolated subagents: 4 proactive (`convention-checker`, `migration-reviewer`, `security-reviewer`, `architecture-explainer`), 8 `review-*` agents (7 reviewers + validator) dispatched by `pr-ci-review`, and `comment-pruner` dispatched by its Stop hook. |
-| **`hooks/`** | 7 | Zero-LLM shell scripts on lifecycle events: quality gate, convention spot-check, comment-pruner dispatch, git safety, generated-file protection, file-naming validation, post-compaction state. All stack-specific values come from `project.env`. |
+| **`hooks/`** | 10 | Zero-LLM shell scripts on lifecycle events: quality gate, convention spot-check, comment-pruner dispatch, git safety, push gate, frozen paths, generated-file protection, file-naming validation, tool-result size warning, post-compaction state. All stack-specific values come from `project.env`. |
 
 The full architecture — what loads when, the context budget, and how to extend each layer — is
 documented in **[`.claude/README.md`](.claude/README.md)**. For when and how to use each skill,
@@ -139,7 +139,7 @@ their own worktree. Read the full loop in **[`docs/workflow.md`](docs/workflow.m
    ```bash
    git clone https://github.com/AlexisBalayre/claude-code-config.git
    cd claude-code-config
-   cp -R .claude AGENTS.md CLAUDE.md docs scripts .mcp.json ../your-repo/
+   cp -R .claude AGENTS.md CLAUDE.md docs scripts tests ../your-repo/
    # optional: the CI review pipeline
    cp -R .github tools ../your-repo/
    chmod +x ../your-repo/.claude/hooks/*.sh ../your-repo/.claude/statusline.sh ../your-repo/scripts/*
@@ -154,9 +154,6 @@ their own worktree. Read the full loop in **[`docs/workflow.md`](docs/workflow.m
    Re-run it whenever the project grows a new area.
 3. **Opt into your tools.** Copy `.claude/settings.local.json.example` to
    `.claude/settings.local.json` (gitignored) and add your personal permissions / MCP servers.
-   The shipped [`.mcp.json`](.mcp.json) declares [CodeGraph](https://github.com/colbymchenry/codegraph),
-   a local symbol graph the agent queries instead of grepping; build its index once with
-   `npx @colbymchenry/codegraph@1.6.0 init` (new worktrees get their own automatically).
 4. **Personalize.** Copy `.env.example` to `.env` (gitignored) and fill in the values used by
    the personal-integration skills: your Obsidian vault path, issue-tracker IDs, SonarQube and Wiz IDs.
 
@@ -169,7 +166,7 @@ Everything project-specific lives in a few well-known places, so tuning is editi
 
 | To change... | Edit |
 | :----------- | :--- |
-| Commands the quality gate, pre-commit and worktree scripts run | `.claude/project.env` |
+| Commands the quality gate, pre-commit, verify and worktree scripts run | `.claude/project.env` |
 | Coding rules for an area | `docs/conventions/<area>.md` (loaded by `.claude/rules/<area>-conventions.md`) |
 | Cheap structural checks on every turn | `.claude/spot-checks.tsv` |
 | What every agent knows up front | `AGENTS.md` (Claude-only notes in `CLAUDE.md`) |
@@ -183,7 +180,6 @@ Everything project-specific lives in a few well-known places, so tuning is editi
 ├── AGENTS.md                  # tool-agnostic always-on memory (any coding agent)
 ├── CLAUDE.md                  # thin Claude Code layer: @AGENTS.md + Claude-only notes
 ├── .env.example               # personal-integration settings (vault path, tracker/Sonar/Wiz IDs)
-├── .mcp.json                  # CodeGraph MCP server (pinned, telemetry off)
 ├── .github/
 │   ├── CODEOWNERS             # default reviewer for every path
 │   └── workflows/
@@ -192,7 +188,14 @@ Everything project-specific lives in a few well-known places, so tuning is editi
 ├── scripts/
 │   ├── worktree-create.sh     # scripts/worktree-create.sh <name>
 │   ├── worktree-remove.sh     # scripts/worktree-remove.sh <name>... | --merged (worktree, then branch once safe)
-│   └── pre-commit             # lint/typecheck/test gate for human/CLI commits
+│   ├── setup.sh               # installs the git hooks below (run once per clone)
+│   ├── pre-commit             # lints the staged files, blocks local-only paths
+│   ├── verify.sh              # lint, typecheck and tests on the committed tree; stamps it green
+│   ├── pre-push               # refuses a push without a green stamp or above the PR size cap
+│   └── gate-lock.sh           # one heavy command at a time across worktrees
+├── tests/
+│   ├── scripts/               # shell harnesses for scripts/ (bash tests/scripts/<name>.test.sh)
+│   └── hooks/                 # shell harnesses for .claude/hooks/
 ├── .claude/
 │   ├── README.md              # architecture deep-dive (start here)
 │   ├── settings.json          # permissions + hook wiring
@@ -205,9 +208,9 @@ Everything project-specific lives in a few well-known places, so tuning is editi
     ├── README.md              # Diátaxis index
     ├── glossary.md            # shared vocabulary
     ├── workflow.md            # the worktree-first loop
-    ├── conventions/           # source of truth imported by rules/ (core, testing, + areas)
+    ├── conventions/           # source of truth linked from rules/ (core, testing, + areas)
     ├── reference/             # architecture.md
-    ├── explanation/           # security-model.md
+    ├── explanation/           # security-model.md, claude-code-practices.md
     └── adr/                   # decision records (none shipped)
 ```
 

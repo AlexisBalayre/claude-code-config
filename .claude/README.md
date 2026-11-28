@@ -37,7 +37,7 @@ What a session pays for this config, in approximate tokens (bytes / 4), so addit
 | `docs/conventions/core.md` | first source file touched | ~0.8k as shipped, grows when adapted |
 | `testing.md` / each area doc | first file touched in that area | ~0.4k as shipped; aim for ≤3k each |
 
-A rule fires on the first Read, Edit, or Write of a matching path (not on MCP results such as codegraph) and its `@import` pulls the whole file, so each convention doc is paid once per session per area. Keep them obligations-only, never instruct the model to Read one, and prefer `disable-model-invocation: true` for user-only skills since agents have no equivalent switch.
+A rule fires on the first Read, Edit, or Write of a matching path (not on MCP results) and injects the whole doc it links to, so each convention doc is paid once per session per area. Keep them obligations-only, never instruct the model to Read one, and prefer `disable-model-invocation: true` for user-only skills since agents have no equivalent switch.
 
 ---
 
@@ -50,7 +50,7 @@ A rule fires on the first Read, Edit, or Write of a matching path (not on MCP re
 ├── project.env                # Project profile: commands, generated paths, naming, trunk
 ├── spot-checks.tsv            # Checks run by convention-spot-check.sh
 │
-├── rules/                 # Path-scoped convention loaders (auto-load)
+├── rules/                 # Symlinks to docs/conventions/ (auto-load by path)
 │   ├── core-conventions.md
 │   └── testing-conventions.md     # + one <area>-conventions.md per area, added when adapting
 │
@@ -79,10 +79,13 @@ A rule fires on the first Read, Edit, or Write of a matching path (not on MCP re
 │   └── comment-pruner.md          # dispatched by the comment-pruner Stop hook
 │
 └── hooks/                    # Deterministic shell scripts (zero LLM cost)
-    ├── quality-checks.sh          # Stop: format/lint dirty files + repo typecheck
+    ├── quality-checks.sh          # Stop: format/lint the dirty files of the session's tree
     ├── convention-spot-check.sh   # Stop: spot-checks.tsv scan (blocks once)
     ├── comment-pruner.sh          # Stop: dispatch the comment-pruner subagent on new comments
     ├── git-safety.sh              # PreToolUse(Bash): block dangerous git/shell ops
+    ├── push-gate.sh               # PreToolUse(Bash): ask before a first push or a merge
+    ├── frozen-paths.sh            # PreToolUse(Edit|Write|NotebookEdit): block frozen paths
+    ├── tool-result-size.sh        # PostToolUse: warn on a context-crowding result
     ├── protect-generated.sh       # PreToolUse(Edit|Write): block generated files
     ├── validate-file-naming.sh    # PreToolUse(Write): enforce the project's file naming
     └── post-compact-state.sh      # SessionStart(compact): re-inject live git/PR state
@@ -98,23 +101,27 @@ The root `AGENTS.md` contains the universal rules every AI coding agent sees: ro
 
 **When to edit:** Add universal rules to `AGENTS.md`; Claude-only lines go in `CLAUDE.md`. For area-specific rules, use `rules/` instead.
 
-### 2. `rules/` — Path-Scoped Convention Loaders
+### 2. `rules/`: path-scoped convention loaders
 
-Markdown files with `paths:` frontmatter that auto-load when Claude works with matching files. Each rule is a **pure loader** — `paths:` frontmatter plus a single `@docs/conventions/<area>.md` import, no content of its own:
+Each rule is a symlink to a convention doc, and the doc's own `paths:` frontmatter says which files load it:
 
-```yaml
+```
+.claude/rules/api-conventions.md -> ../../docs/conventions/api.md
+
 ---
 paths:
   - "src/api/**"
 ---
-@docs/conventions/api.md
+# API conventions
 ```
+
+A rule that `@import`s a doc loads it at session start whatever its `paths:` say; a symlink loads it only when a matching file is touched.
 
 **Key insight:** the rule is a trigger; `docs/conventions/` is the single source of truth (readable by humans and non-Claude tools too). This keeps always-on context small while ensuring full detail loads exactly when a matching file is touched.
 
 **When to add a rule:** When conventions are specific to a file path pattern and should auto-load when editing those files.
 
-**Catalog:** [`rules/README.md`](rules/README.md) — every rule, its path scope, and what it enforces.
+**Catalog:** [`rules/README.md`](rules/README.md) lists every rule, its path scope, and what it enforces.
 
 ### 3. `skills/` — Auto-Discoverable Workflows
 
@@ -165,10 +172,13 @@ Shell scripts that run outside the LLM loop on lifecycle events. Zero context co
 
 | Hook | Event | What it does |
 |------|-------|-------------|
-| `quality-checks.sh` | Stop | `FORMAT_FIX_CMD`/`LINT_CMD` on dirty files, `TYPECHECK_CMD` on the repo (blocks on failure; tests live in pre-commit) |
+| `quality-checks.sh` | Stop | `FORMAT_FIX_CMD`/`LINT_CMD` on the dirty files of the session's checkout or worktree (blocks on a lint failure; typecheck and tests live in `scripts/verify.sh`) |
 | `convention-spot-check.sh` | Stop | Run `spot-checks.tsv` over changed files; blocks once, silent on the re-run |
 | `comment-pruner.sh` | Stop | Dispatch the `comment-pruner` subagent when the session added net-new comments |
 | `git-safety.sh` | PreToolUse(Bash) | Block `rm -rf`, `git reset --hard`, force push, `checkout -b` on main, push to main |
+| `push-gate.sh` | PreToolUse(Bash) | Ask before a push that can create a branch on origin, and before a `gh` call that can merge |
+| `frozen-paths.sh` | PreToolUse(Edit\|Write\|NotebookEdit) | Block edits to paths matching `FROZEN_PATHS_REGEX` in a session that sets `AGENT_FROZEN_ALLOW` |
+| `tool-result-size.sh` | PostToolUse | Warn when one tool result is large enough to crowd the context |
 | `protect-generated.sh` | PreToolUse(Edit\|Write) | Block edits to paths matching `GENERATED_PATHS_REGEX` |
 | `validate-file-naming.sh` | PreToolUse(Write) | Enforce `FILE_NAMING_REGEX` on new files under this checkout |
 | `post-compact-state.sh` | SessionStart(compact) | Re-inject the session's directory, the project checkout's branch, worktrees, open PRs and their CI-review state after compaction |
@@ -177,6 +187,8 @@ Shell scripts that run outside the LLM loop on lifecycle events. Zero context co
 - `0` — success, continue
 - `1` — error (shown to user, continues)
 - `2` — **block the operation** (PreToolUse: prevents tool; Stop: feedback to Claude)
+
+A `Stop` hook's exit-0 output never reaches the model, so an advisory `Stop` hook does nothing: block or stay silent. Each `Stop` block costs a turn, and consecutive blocks are capped. `"onFailure": "block"` in `settings.json` makes a hook's crash or timeout block instead of pass.
 
 **Project profile:** hooks never hardcode a toolchain. They source `.claude/project.env` (committed), and an empty key turns its check off. `.env` (gitignored) is only for personal-integration skills.
 
@@ -188,7 +200,8 @@ Shell scripts that run outside the LLM loop on lifecycle events. Zero context co
 
 Shared project configuration. Contains:
 - **`permissions.allow`** — pre-approved tool patterns (worktree scripts, git, MCP tools; `/adapt-to-project` adds the project's commands)
-- **`permissions.deny`** — explicitly blocked operations (force push, hard reset, rm -rf)
+- **`permissions.deny`**: explicitly blocked operations (force push, hard reset, rm -rf, reading secrets, editing settings and shell rc files outside the project)
+- **`permissions.ask`**: operations that need the user each time (merge, rebase, branch deletion, git flags that run a command or write a file)
 - **`hooks`** — wires hook scripts to lifecycle events
 
 **`settings.local.json`** (gitignored) extends this with personal preferences — additional MCP servers, machine-specific permissions, etc. Copy `settings.local.json.example` to `settings.local.json` to start; it is merged on top of `settings.json`, never replacing it.
@@ -213,7 +226,7 @@ Shared project configuration. Contains:
 
 ### New rule
 1. Write the full convention doc at `docs/conventions/<area>.md` (obligations only)
-2. Create `.claude/rules/<name>.md` with `paths:` frontmatter and a single `@docs/conventions/<area>.md` import — no other content
+2. Give the doc `paths:` frontmatter, then link it: `ln -s ../../docs/conventions/<area>.md .claude/rules/<area>-conventions.md`
 
 ### New skill
 1. Create `.claude/skills/<name>/SKILL.md` with `name` and `description` frontmatter

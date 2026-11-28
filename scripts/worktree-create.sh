@@ -25,19 +25,16 @@ if [ -d "$WORKTREE_DIR" ]; then
 fi
 
 mkdir -p .worktrees
-git worktree add "$WORKTREE_DIR" -b "$BRANCH"
+# From origin's trunk, not the checkout's HEAD, which may be stale or on another branch. By its
+# full name: a bare origin/<trunk> resolves to a local branch or tag of that name first.
+# --no-track: a branch tracking the trunk would aim a bare `git push` at it.
+TRUNK="${GIT_TRUNK:-main}"
+git fetch --quiet origin "$TRUNK"
+git worktree add --no-track "$WORKTREE_DIR" -b "$BRANCH" "refs/remotes/origin/$TRUNK"
 
 # Fresh worktrees start without installed dependencies.
 if [ -n "${INSTALL_CMD:-}" ]; then
   (cd "$WORKTREE_DIR" && bash -c "$INSTALL_CMD")
-fi
-
-# Worktree-local CodeGraph index: without one, codegraph answers from the main
-# tree's index, missing symbols changed on this branch. Only when the main
-# checkout opted in, and non-fatal so an indexer hiccup never blocks creation.
-if [ -d .codegraph ]; then
-  (cd "$WORKTREE_DIR" && npx -y @colbymchenry/codegraph@1.6.0 init --yes) ||
-    echo "Warning: codegraph init failed; run it manually in $WORKTREE_DIR" >&2
 fi
 
 echo ""

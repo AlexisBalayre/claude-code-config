@@ -1,17 +1,27 @@
 #!/bin/bash
-# Quality checks: format/lint the session's dirty source files + repo typecheck.
-# Runs on Claude Code Stop event — after every response that modifies files.
+# Quality checks: format and lint the session's dirty source files.
+# Runs on Claude Code Stop event, after every response that modifies files.
 # Commands come from .claude/project.env; an empty command is skipped, so an
-# unadapted template no-ops. Tests are NOT run here: scripts/pre-commit runs
-# TEST_CMD, and whole-repo lint is deliberately avoided so unrelated red on the
-# trunk can't block an unrelated session.
+# unadapted template no-ops. Typecheck and tests are NOT run here: they run in
+# scripts/verify.sh before a push, and whole-repo lint is deliberately avoided so
+# unrelated red on the trunk can't block an unrelated session.
 
 set -o pipefail
 
-cd "$CLAUDE_PROJECT_DIR" || exit 1
+# The session's tree is its cwd when that is a worktree of this repository, so a session
+# working in .worktrees/<name> is checked there; any other cwd falls back to the project dir.
+# git before 2.31 prints --path-format back instead of a path, hence the shape test.
+CWD=$(jq -r '.cwd // empty' <<<"$(cat 2>/dev/null)" 2>/dev/null)
+COMMON=$(git -C "$CLAUDE_PROJECT_DIR" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+[[ $COMMON == /* && $COMMON != *$'\n'* ]] || COMMON=""
+TOP=""
+if [ -n "$CWD" ] && [ -n "$COMMON" ] && [ "$(git -C "$CWD" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" = "$COMMON" ]; then
+  TOP=$(git -C "$CWD" rev-parse --show-toplevel 2>/dev/null)
+fi
+cd "${TOP:-$CLAUDE_PROJECT_DIR}" || exit 1
 [ -f .claude/project.env ] && . .claude/project.env
 
-[ -z "${FORMAT_FIX_CMD}${LINT_CMD}${TYPECHECK_CMD}" ] && exit 0
+[ -z "${FORMAT_FIX_CMD}${LINT_CMD}" ] && exit 0
 
 EXT_RE=$(printf '%s' "${SOURCE_EXTENSIONS:-}" | tr -s ' ' '|')
 [ -z "$EXT_RE" ] && exit 0
@@ -27,29 +37,17 @@ DIRTY=$(
 
 [ -z "$DIRTY" ] && exit 0
 
-echo "Running quality checks..." >&2
-
 if [ -n "${FORMAT_FIX_CMD:-}" ]; then
-  echo "-> Format/fix dirty files: $FORMAT_FIX_CMD" >&2
-  printf '%s\n' "$DIRTY" | tr '\n' '\0' | xargs -0 sh -c "$FORMAT_FIX_CMD \"\$@\"" _ 1>&2
+  printf '%s\n' "$DIRTY" | tr '\n' '\0' | xargs -0 sh -c "$FORMAT_FIX_CMD \"\$@\"" _ >/dev/null 2>&1
 fi
 
 if [ -n "${LINT_CMD:-}" ]; then
-  echo "-> Lint dirty files: $LINT_CMD" >&2
-  if ! printf '%s\n' "$DIRTY" | tr '\n' '\0' | xargs -0 sh -c "$LINT_CMD \"\$@\"" _ 1>&2; then
-    echo "Lint failed on the files this session touched. Fix the remaining issues above." >&2
+  if ! OUT=$(printf '%s\n' "$DIRTY" | tr '\n' '\0' | xargs -0 sh -c "$LINT_CMD \"\$@\"" _ 2>&1); then
+    # The tail only: this output lands in the model's context on every failing turn.
+    printf '%s\n' "$OUT" | tail -n 40 >&2
+    echo "Lint failed on the files this session touched ($LINT_CMD). Fix the remaining issues above." >&2
     exit 2
   fi
 fi
 
-# Whole repo: type errors cross file boundaries.
-if [ -n "${TYPECHECK_CMD:-}" ]; then
-  echo "-> Typecheck: $TYPECHECK_CMD" >&2
-  if ! bash -c "$TYPECHECK_CMD" 1>&2; then
-    echo "Typecheck failed. Fix the type errors above." >&2
-    exit 2
-  fi
-fi
-
-echo "All quality checks passed!" >&2
 exit 0

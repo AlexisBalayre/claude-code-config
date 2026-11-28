@@ -36,7 +36,8 @@ git worktree list --porcelain 2>/dev/null |
 # The claude-review commit status sits on the PR's head commit, so "none" means
 # the CI review has not covered the current head.
 if command -v gh >/dev/null 2>&1; then
-  PRS=$(gh pr list --state open --limit 20 --json number,headRefName,headRefOid,statusCheckRollup \
+  # Only this user's PRs: on a busy repository, others' would crowd the session's own out of the 20.
+  PRS=$(gh pr list --author @me --state open --limit 20 --json number,headRefName,headRefOid,statusCheckRollup \
     --jq '.[] | "    #\(.number) \(.headRefName | gsub("[^A-Za-z0-9._/-]"; "?") | .[:60]) @\(.headRefOid[:7]) review: \(([.statusCheckRollup[] | select(.context == "claude-review") | .state][0]) // "none")"' 2>/dev/null)
   [ -n "$PRS" ] && printf -- '- open PRs:\n%s\n' "$PRS"
 fi

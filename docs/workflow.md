@@ -28,9 +28,10 @@ scripts/worktree-create.sh my-feature   # .worktrees/my-feature on branch featur
   └─ cd .worktrees/my-feature
        ├─ explore + plan (read 2-3 neighbours; match patterns)
        ├─ TDD: red → green → refactor       (tdd skill)
-       ├─ Stop hook gates every response     (format/lint dirty files · typecheck)
+       ├─ Stop hook gates every response     (format/lint dirty files)
        ├─ convention-checker before commit   (≥3 source files changed)
-       ├─ commit (pre-commit runs TEST_CMD; lands on feature/ branch, never main)
+       ├─ commit (pre-commit lints staged files; lands on feature/ branch, never main)
+       ├─ bash scripts/verify.sh             (lint, typecheck, tests; stamps the tree green)
        └─ open PR  →  /pr-description  →  CI review (pr-ci-review)  →  /address-review-comments
 scripts/worktree-remove.sh my-feature   # the worktree, then its branch once no work is lost
 scripts/worktree-remove.sh --merged     # the same for every worktree whose tip a merged PR shipped
@@ -43,8 +44,9 @@ scripts/worktree-remove.sh --merged     # the same for every worktree whose tip 
 | Branch protection | `.claude/hooks/git-safety.sh` | Blocks `git checkout -b` on the trunk, blocks pushes to the trunk, blocks `git reset --hard` and `rm -rf`. |
 | Worktree creation | `scripts/worktree-create.sh` | `scripts/worktree-create.sh <name>` always makes `.worktrees/<name>` on `feature/<name>` and runs `INSTALL_CMD`. |
 | Worktree removal | `scripts/worktree-remove.sh` | `scripts/worktree-remove.sh <name>...` keeps a worktree with uncommitted or untracked files (ignored ones go with it), a detached HEAD, or a branch outside `<prefix>/` (`WORKTREE_BRANCH_PREFIX`). It deletes the branch once a PR merged into `GIT_TRUNK` shipped its tip, along with `origin`'s copy while that is still at the tip, or once `origin`'s copy holds every commit. `--merged` does the same for every worktree whose tip a merged PR shipped, and keeps the rest. |
-| Quality gate | `.claude/hooks/quality-checks.sh` | On every `Stop`, runs `FORMAT_FIX_CMD` and `LINT_CMD` on the dirty files and `TYPECHECK_CMD` on the repo (all from `.claude/project.env`); blocks on failure. An empty key skips that check. |
-| Test gate | `scripts/pre-commit` | Runs `TEST_CMD` from `.claude/project.env` before every commit. |
+| Quality gate | `.claude/hooks/quality-checks.sh` | On every `Stop`, runs `FORMAT_FIX_CMD` and `LINT_CMD` (from `.claude/project.env`) on the dirty files of the session's checkout or worktree; blocks on a lint failure. An empty key skips that check. |
+| Push gate | `scripts/verify.sh`, `scripts/pre-push` | `verify.sh` runs `LINT_CMD`, `TYPECHECK_CMD` and `TEST_CMD` on the committed tree and records it as green; `pre-push` refuses a tree without that record, and a PR above the size cap. `scripts/setup.sh` installs the hooks. |
+| First push and merge | `.claude/hooks/push-gate.sh` | Asks the user before a push that can create a branch on `origin` and before a `gh` call that can merge. |
 | Context survival | `.claude/hooks/post-compact-state.sh` | Re-injects the session's directory, the project checkout's branch, worktrees and open PRs after compaction. |
 | Visibility | `.claude/statusline.sh` | Shows the active worktree branch, context usage, and cost in the statusline. |
 | `CLAUDE.md` | repo root | States the rule in always-on context: PRs only, worktrees only, never the trunk. |
