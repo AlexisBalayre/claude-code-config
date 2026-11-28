@@ -1,14 +1,28 @@
 #![deny(unsafe_code)]
+mod added_lines;
+mod check_dashes;
 mod common;
 mod frozen_paths;
 mod git_safety;
+mod pre_commit;
+mod pre_push;
 mod protect_generated;
 mod tool_result_size;
 mod validate_file_naming;
+mod worktree_create;
+mod worktree_remove;
 
 fn main() {
-    let name = std::env::args().nth(1).unwrap_or_default();
-    match name.as_str() {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let name = args.first().map(String::as_str).unwrap_or("");
+    let rest = args.get(1..).unwrap_or(&[]);
+    match name {
+        "added-lines" => added_lines::run(rest),
+        "check-dashes" => check_dashes::run(rest),
+        "pre-commit" => pre_commit::run(rest),
+        "pre-push" => pre_push::run(rest),
+        "worktree-create" => worktree_create::run(rest),
+        "worktree-remove" => worktree_remove::run(rest),
         "frozen-paths" => frozen_paths::run(),
         "git-safety" => git_safety::run(),
         "protect-generated" => protect_generated::run(),

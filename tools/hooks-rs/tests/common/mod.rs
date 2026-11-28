@@ -99,3 +99,45 @@ pub fn write(path: &Path, text: &str) {
     std::fs::create_dir_all(path.parent().expect("a parent directory")).expect("create parents");
     std::fs::write(path, text).expect("write the fixture file");
 }
+
+impl Output {
+    /// Join stdout and stderr, for a check on text that may land on either.
+    pub fn text(&self) -> String {
+        format!("{}{}", self.stdout, self.stderr)
+    }
+}
+
+/// Build a fixture git command in `dir`, for a call that may fail or whose output matters.
+pub fn git_command(dir: &Path) -> Command {
+    let mut command = isolated("git");
+    command
+        .arg("-C")
+        .arg(dir)
+        .env("GIT_AUTHOR_NAME", "t")
+        .env("GIT_AUTHOR_EMAIL", "t@t")
+        .env("GIT_COMMITTER_NAME", "t")
+        .env("GIT_COMMITTER_EMAIL", "t@t");
+    command
+}
+
+/// Run a fixture git command in `dir` and return its stdout without the trailing newline.
+pub fn git_stdout(dir: &Path, args: &[&str]) -> String {
+    let out = run(git_command(dir).args(args), "");
+    assert_eq!(out.code, 0, "git {args:?} failed: {}", out.stderr);
+    out.stdout.trim_end_matches('\n').to_owned()
+}
+
+/// Write an executable script at `path`, for a stub on PATH or an installed git hook.
+pub fn executable(path: &Path, text: &str) {
+    use std::os::unix::fs::PermissionsExt;
+    write(path, text);
+    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755))
+        .expect("mark the script executable");
+}
+
+/// Put `dirs` ahead of the inherited PATH, first one searched first.
+pub fn path_with(dirs: &[&Path]) -> std::ffi::OsString {
+    let inherited = std::env::var_os("PATH").unwrap_or_default();
+    let dirs = dirs.iter().map(|dir| dir.to_path_buf());
+    std::env::join_paths(dirs.chain(std::env::split_paths(&inherited))).expect("join PATH")
+}
