@@ -1,5 +1,5 @@
-use crate::common::{agent_work, git, grep, issue_of, payload, project_dir, Config};
-use crate::push_gate::{planned_url, push_url, remapped};
+use crate::common::{agent_work, git, grep, payload, project_dir, Config};
+use crate::push_gate::{is_word, planned_url, push_url, remapped};
 use regex_lite::Regex;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -31,8 +31,20 @@ fn deny(message: &str) -> ! {
     decide(json!({"behavior": "deny", "message": format!("worker-permission: {message}")}))
 }
 
-fn pattern(text: &str) -> Regex {
-    Regex::new(text).unwrap_or_else(|_| deny("a pattern did not build"))
+/// The issue number in a worker name `<handle>-<N>`, or None for any other name.
+// The dash keeps `lead`, the one name workers take approvals from, out of reach. The name is
+// also a tmux window target, where `:` and `.` would parse as separators.
+fn issue_of(name: &str) -> Option<&str> {
+    let (handle, issue) = name.split_once('-')?;
+    let mut letters = handle.bytes();
+    (letters.next()?.is_ascii_lowercase()
+        && letters.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit())
+        && issue
+            .bytes()
+            .next()
+            .is_some_and(|c| (b'1'..=b'9').contains(&c))
+        && issue.bytes().all(|c| c.is_ascii_digit()))
+    .then_some(issue)
 }
 
 /// The git directory every worktree of the repository holding `dir` shares.
@@ -244,14 +256,6 @@ fn split_commands(words: Vec<String>) -> Option<Vec<Vec<String>>> {
     Some(commands)
 }
 
-fn basename(word: &str) -> &str {
-    word.rsplit('/').next().unwrap_or(word)
-}
-
-fn is_word(c: u8) -> bool {
-    c.is_ascii_alphanumeric() || c == b'_'
-}
-
 /// git's subcommand, past its global options, or `alias` when one of them can define one.
 fn git_subcommand<'a>(args: &[&'a str]) -> Option<&'a str> {
     let mut at = 0;
@@ -298,7 +302,7 @@ fn runs_push(command: &[&str]) -> bool {
             return true;
         }
         at == 0 && word.starts_with('$') && later.iter().any(|w| matches!(*w, "push" | "send-pack"))
-            || basename(word) == "git"
+            || word.rsplit('/').next() == Some("git")
                 && git_subcommand(later).is_some_and(|sub| {
                     sub.starts_with('$')
                         || matches!(sub, "push" | "send-pack" | "alias")
@@ -355,9 +359,10 @@ pub fn run() {
     // route. A push the words do not show (a string a shell runs, an expansion) takes the grant
     // route like any Bash call, with HEAD hashed in.
     let ref_name = "([A-Za-z0-9._/@][A-Za-z0-9._/@-]*)";
-    let lone_push = pattern(&format!(
+    let lone_push = Regex::new(&format!(
         "^git push(?: -u| --set-upstream)? {ref_name} {ref_name}(?: 2>&1| 2>/dev/null)?$"
-    ));
+    ))
+    .unwrap_or_else(|_| deny("the push pattern did not build"));
     // Only the blanks the shell drops: a trailing no-break space belongs to the last word.
     let lone_push = lone_push.captures(command.trim_matches([' ', '\t', '\n']));
     if lone_push.is_none() && commands.iter().any(|command| runs_push(command)) {

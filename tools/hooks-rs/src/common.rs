@@ -87,22 +87,6 @@ impl Config {
     }
 }
 
-/// The issue number in a worker name `<handle>-<N>`, or None for any other name.
-// The dash keeps `lead`, the one name workers take approvals from, out of reach. The name is
-// also a tmux window target, where `:` and `.` would parse as separators.
-pub fn issue_of(name: &str) -> Option<&str> {
-    let (handle, issue) = name.split_once('-')?;
-    let mut letters = handle.bytes();
-    (letters.next()?.is_ascii_lowercase()
-        && letters.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit())
-        && issue
-            .bytes()
-            .next()
-            .is_some_and(|c| (b'1'..=b'9').contains(&c))
-        && issue.bytes().all(|c| c.is_ascii_digit()))
-    .then_some(issue)
-}
-
 /// The lead's state directory: AGENT_WORK, else one under HOME named for the main checkout of
 /// the repository holding `dir`.
 // Never under ~/.claude, which the sandbox protects even against an allowWrite entry.

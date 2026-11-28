@@ -18,7 +18,7 @@ fn ask(reason: &str) -> ! {
     exit(0)
 }
 
-fn is_word(c: u8) -> bool {
+pub(crate) fn is_word(c: u8) -> bool {
     c.is_ascii_alphanumeric() || c == b'_'
 }
 
