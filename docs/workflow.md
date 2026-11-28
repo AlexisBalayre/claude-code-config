@@ -27,7 +27,7 @@ This matters more with an agent in the loop:
 scripts/worktree-create.sh my-feature   # .worktrees/my-feature on branch feature/my-feature
   └─ cd .worktrees/my-feature
        ├─ explore + plan (read 2-3 neighbours; match patterns)
-       ├─ TDD: red → green → refactor       (tdd skill)
+       ├─ TDD: red → green → refactor       (red first)
        ├─ Stop hook gates every response     (format/lint dirty files · typecheck)
        ├─ convention-checker before commit   (≥3 source files changed)
        ├─ commit (pre-commit runs TEST_CMD; lands on feature/ branch, never main)

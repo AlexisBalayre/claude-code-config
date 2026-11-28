@@ -83,11 +83,11 @@ You win twice: fewer tokens, and a sharper hook for the agent to hang its thinki
 
 ## House rules for this repo
 
-- **Skill names are kebab-case and match their directory.** New skills take imperative names (`diagnose`, `resolve-merge-conflicts`, `audit`); a skill that tracks an upstream original keeps its upstream name (`writing-for-agents`).
-- **Hardcode repo specifics; source machine specifics from config.** Skills bake in doc paths and take the project's commands from `.claude/project.env` (`LINT_CMD`, `TYPECHECK_CMD`, `TEST_CMD`, ...) rather than naming a toolchain; tracker metadata (`TRACKER_TEAM_ID`, `TRACKER_PROJECT_ID`, `TRACKER_ASSIGNEE_ID`, ...) and other per-machine values come from `.env` keys (see `.env.example` and `file-ticket`'s tracker metadata section).
-- **Point at the repo's docs, never a parallel store.** The domain language lives in `docs/glossary.md`, `docs/conventions/`, `docs/explanation/`, and `docs/adr/`; documents reference those (the way `domain-modeling` does), and never create a `CONTEXT.md`.
+- **Skill names are kebab-case and match their directory.** New skills take imperative names (`adapt-to-project`, `address-review-comments`); a skill that tracks an upstream original keeps its upstream name (`writing-for-agents`).
+- **Hardcode repo specifics; source machine specifics from config.** Skills bake in doc paths and take the project's commands from `.claude/project.env` (`LINT_CMD`, `TYPECHECK_CMD`, `TEST_CMD`, ...) rather than naming a toolchain; tracker metadata (`TRACKER_TEAM_ID`, `TRACKER_PROJECT_ID`, `TRACKER_ASSIGNEE_ID`, ...) and other per-machine values come from `.env` keys (see `.env.example`).
+- **Point at the repo's docs, never a parallel store.** The domain language lives in `docs/glossary.md`, `docs/conventions/`, `docs/explanation/`, and `docs/adr/`; documents reference those, and never create a `CONTEXT.md`.
 - **`AGENTS.md` is tool-neutral; `CLAUDE.md` is the Claude Code layer** that imports it (`@AGENTS.md`) and adds only what is Claude Code-specific. Area conventions live once in `docs/conventions/<area>.md` and reach Claude Code through a pure loader in `.claude/rules/`, so neither file restates them.
 - **Default new skills to user-invoked** (`disable-model-invocation: true`). Keep model-invocation only when natural task phrasing must trigger the skill, or another skill calls it.
-- **Scope tools with `allowed-tools`** frontmatter when a skill touches external systems (see `tickets`, `wiz` for the pattern).
+- **Scope tools with `allowed-tools`** frontmatter when a skill touches external systems (see `review-retro` for the pattern).
 - **No em/en dashes in prose you write** (titles exempt); use commas, colons, or parentheses.
 - **Description limits**: imperative or third person, never first or second person; max 1024 chars, and one line for user-invoked skills.

@@ -21,4 +21,4 @@ The invocation cut of splitting (the sequence cut lives in `SKILL.md`): split of
 
 When user-invoked skills multiply past what you can remember, that piled-up cognitive load is cured by a **router skill**: one user-invoked skill that names the others and when to reach for each, so the human has one skill to remember instead of many. It can only hint, never fire them: user-invoked skills have no description, so nothing but the human can reach them.
 
-A **mode router** (`ask`, `audit`, `bugs`, `notes`, `tickets`, `tooling`, `wiz`) holds its modes as files in its folder, and the first word of `$ARGUMENTS` picks one. Each carries this exact line beside its mode table: "With no mode, or one not in the table, list the modes and ask which one."
+A **mode router** holds its modes as files in its folder, and the first word of `$ARGUMENTS` picks one. Each carries this exact line beside its mode table: "With no mode, or one not in the table, list the modes and ask which one."

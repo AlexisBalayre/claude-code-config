@@ -47,6 +47,6 @@ Done when the job log shows each changed step doing its work, rather than only a
 
 ## 4. Hooks and settings
 
-Edit hook scripts in your worktree. `.claude/settings*.json` is the user's: the Edit and Write tools are denied on it, so hand the user the exact change (`agent-workflow` §8). The user reviews the diff on the PR before merge. Change the harnesses beside the hooks with them, and the row of the hook table in `.claude/README.md` whose behaviour the change moves.
+Edit hook scripts in your worktree. `.claude/settings*.json` is the user's: the Edit and Write tools are denied on it, so hand the user the exact change. The user reviews the diff on the PR before merge. Change the harnesses beside the hooks with them, and the row of the hook table in `.claude/README.md` whose behaviour the change moves.
 
 Done when the harnesses pass and the README row matches the new behaviour.

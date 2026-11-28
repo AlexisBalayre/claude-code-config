@@ -42,7 +42,7 @@ Skip all preambles and keep prose brief. Grep `docs/glossary.md` for a term befo
 
 Up to 5 bullets or a table. When a view helps (pseudocode, a call tree, a component or file tree, Mermaid, a `diff` of one of them, or a whole block), pick the smallest that makes the point and place it next to the text it supports; keep only the calls, files, props, states and boundaries a reviewer needs. [VIEWS.md](VIEWS.md) has an example of each.
 
-A change within the Goal that the approved plan did not name (`agent-workflow` WORKER.md §1) gets one `Scope: <what and why>` line, last in this section.
+A change within the Goal that the approved plan did not name gets one `Scope: <what and why>` line, last in this section.
 
 ### Done
 
@@ -80,7 +80,7 @@ When a schema definition or a migration changed, add one line per migration file
 
 3. **Draft title + body together.** Title per [Title format](#title-format); body to a temp file (`mktemp "${TMPDIR:-/tmp}/pr.XXXXXX"`: a bare `mktemp` fails in a sandboxed worker) per the template and [Sections](#sections), obeying [Body rules](#body-rules). For an existing PR, treat the current title and body as a draft, not a constraint.
 
-4. **Create or update the PR.** Show the drafted **title** and **body** + the exact `gh` command; quick confirm before running (notifies reviewers + CODEOWNERS) unless told to just do it or, in a worker, the ticket's Design or Approach is approved (`agent-workflow` §1, which covers opening the PR); a solo session keeps the confirm. This step never pushes: `gh pr create` needs the branch on origin, so a branch with no upstream waits for its push, which in a worker follows `agent-workflow` §4 and in a solo session is the user's call.
+4. **Create or update the PR.** Show the drafted **title** and **body** + the exact `gh` command; quick confirm before running (notifies reviewers + CODEOWNERS) unless told to just do it. This step never pushes: `gh pr create` needs the branch on origin, so a branch with no upstream waits for its push, which is the user's call.
 
    ```sh
    # update existing; pass --title only if it changes:

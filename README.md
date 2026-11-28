@@ -1,6 +1,6 @@
 # claude-code-config
 
-**A complete Claude Code setup you can drop into any repo: path-scoped rules, 35 skills, 12
+**A complete Claude Code setup you can drop into any repo: path-scoped rules, 7 skills, 12
 subagents, 7 deterministic hooks, and a multi-agent PR review that runs in GitHub Actions.**
 
 [![Use this template](https://img.shields.io/badge/use%20this-template-2ea44f?style=flat-square&logo=github)](https://github.com/AlexisBalayre/claude-code-config/generate)
@@ -46,7 +46,7 @@ around one stack. This one is built on three different bets:
 | **`AGENTS.md`** + **`CLAUDE.md`** | 2 | Always-on project memory, layered: `AGENTS.md` is the tool-agnostic base (role, conventions map, comments/altitude discipline, git workflow) any coding agent can read; `CLAUDE.md` just imports it and adds Claude Code-only notes. Kept tiny on purpose. |
 | **`project.env`** | 1 | The project profile: format/lint/typecheck/test/install commands, generated paths, file-naming pattern, trunk. Every hook and script reads it; an empty key turns its check off. |
 | **`rules/`** | 2+ | Path-scoped **pure loaders** (core, testing, plus one per project area once adapted) that auto-load `docs/conventions/*.md` only when you touch matching files. |
-| **`skills/`** | 35 | Auto-discoverable workflows: setup (`adapt-to-project`), planning (`to-spec`, `to-tickets`, `wayfinder`, `implement`, `implement-spec`…), engineering (`tdd`, `diagnosing-bugs`, `wizard`, `research`…), thinking & design (`grilling`, `grill-me`, `codebase-design`, `domain-modeling`, `prototype`…), PR & review (`pr-description`, `pr-ci-review`, `address-review-comments`, `review-retro`), meta (`writing-for-agents`, `retro`, `handoff`, `wait-what`…), and personal integrations (`obsidian-vault`, `daily-note`, `fix-sonar`, `wiz`… — configured via `.env`). Engineering and thinking skills track [mattpocock/skills](https://github.com/mattpocock/skills). |
+| **`skills/`** | 7 | The workflows bound to this template's own machinery: setup (`adapt-to-project`), PR & review (`pr-description`, `pr-ci-review`, `address-review-comments`, `review-retro`) and agent config (`writing-for-agents`, `ci-and-agent-config`). General engineering skills (planning, TDD, debugging, grilling, domain modeling) come from the [mattpocock/skills](https://github.com/mattpocock/skills) plugin: `claude plugin install mattpocock-skills@claude-plugins-official`. |
 | **`agents/`** | 13 | Isolated subagents: 4 proactive (`convention-checker`, `migration-reviewer`, `security-reviewer`, `architecture-explainer`), 8 `review-*` agents (7 reviewers + validator) dispatched by `pr-ci-review`, and `comment-pruner` dispatched by its Stop hook. |
 | **`hooks/`** | 7 | Zero-LLM shell scripts on lifecycle events: quality gate, convention spot-check, comment-pruner dispatch, git safety, generated-file protection, file-naming validation, post-compaction state. All stack-specific values come from `project.env`. |
 
@@ -150,15 +150,15 @@ their own worktree. Read the full loop in **[`docs/workflow.md`](docs/workflow.m
    `/adapt-to-project`. It surveys the codebase, confirms the detected stack with you, then fills
    every `TODO(adapt)` slot: `.claude/project.env`, `AGENTS.md`, `docs/conventions/` plus one rule
    loader per area, the architecture/security/glossary docs, and `CODEOWNERS`. It ends by pruning
-   the skills and agents the project can't use (no database, no GitHub PR review, no Obsidian...).
+   the skills and agents the project can't use (no database, no GitHub PR review...).
    Re-run it whenever the project grows a new area.
 3. **Opt into your tools.** Copy `.claude/settings.local.json.example` to
    `.claude/settings.local.json` (gitignored) and add your personal permissions / MCP servers.
    The shipped [`.mcp.json`](.mcp.json) declares [CodeGraph](https://github.com/colbymchenry/codegraph),
    a local symbol graph the agent queries instead of grepping; build its index once with
    `npx @colbymchenry/codegraph@1.6.0 init` (new worktrees get their own automatically).
-4. **Personalize.** Copy `.env.example` to `.env` (gitignored) and fill in the values used by
-   the personal-integration skills: your Obsidian vault path, issue-tracker IDs, SonarQube and Wiz IDs.
+4. **Personalize.** Copy `.env.example` to `.env` (gitignored) and fill in your
+   issue-tracker IDs.
 
 Until `.claude/project.env` names a command, every hook no-ops, so nothing breaks before the
 project is adapted.
@@ -182,7 +182,7 @@ Everything project-specific lives in a few well-known places, so tuning is editi
 .
 ├── AGENTS.md                  # tool-agnostic always-on memory (any coding agent)
 ├── CLAUDE.md                  # thin Claude Code layer: @AGENTS.md + Claude-only notes
-├── .env.example               # personal-integration settings (vault path, tracker/Sonar/Wiz IDs)
+├── .env.example               # per-machine settings (issue-tracker IDs)
 ├── .mcp.json                  # CodeGraph MCP server (pinned, telemetry off)
 ├── .github/
 │   ├── CODEOWNERS             # default reviewer for every path
@@ -223,7 +223,7 @@ Everything project-specific lives in a few well-known places, so tuning is editi
 
 This config stands on ideas and patterns from:
 
-- **[mattpocock/skills](https://github.com/mattpocock/skills)** — Matt Pocock's library of Claude Code skills and the progressive-disclosure approach to skill design.
+- **[mattpocock/skills](https://github.com/mattpocock/skills)**: Matt Pocock's library of Claude Code skills and the progressive-disclosure approach to skill design. This template no longer vendors copies: install the plugin for the engineering skills.
 - **[shanraisshan/claude-code-best-practice](https://github.com/shanraisshan/claude-code-best-practice)** — a practical catalog of Claude Code best practices.
 - **[Claude Code documentation](https://code.claude.com/docs)** — the official reference for settings, hooks, skills, subagents, and slash commands.
 
