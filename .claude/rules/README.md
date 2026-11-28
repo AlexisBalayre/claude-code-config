@@ -18,7 +18,7 @@ A rule must not `@import` its doc: an import loads at session start whatever `pa
 
 `/adapt-to-project` narrows these globs to the project and adds one rule per area whose conventions
 differ from core (e.g. `api-conventions` -> `docs/conventions/api.md`); list each new rule here.
-`bash scripts/conventions-rules.test.sh` checks that every doc has `paths:` and a symlink.
+`bash tests/scripts/conventions-rules.test.sh` checks that every doc has `paths:` and a symlink.
 
 **How to use:** just edit files in a matching path; the doc loads automatically. To add a rule, see
 [`.claude/README.md`](../README.md) ("New rule").

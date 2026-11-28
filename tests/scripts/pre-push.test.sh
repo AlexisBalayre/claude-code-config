@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Hand-run cases for scripts/pre-push and scripts/verify.sh: `bash scripts/pre-push.test.sh`.
+# Hand-run cases for scripts/pre-push and scripts/verify.sh: `bash tests/scripts/pre-push.test.sh`.
 # Every push goes from a throwaway repo to a throwaway bare remote, and verify runs against a
 # stub command, so nothing here touches this checkout or its remotes.
 
 set -uo pipefail
 
-SCRIPTS=$(cd "$(dirname "$0")" && pwd)
+SCRIPTS=$(cd "$(dirname "$0")/../../scripts" && pwd)
 T=$(mktemp -d)
 trap 'rm -rf "$T"' EXIT
 failures=0

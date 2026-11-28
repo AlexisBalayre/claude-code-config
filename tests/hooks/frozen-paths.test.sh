@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Hand-run cases for frozen-paths.sh: `bash .claude/hooks/frozen-paths.test.sh`.
+# Hand-run cases for frozen-paths.sh: `bash tests/hooks/frozen-paths.test.sh`.
 # Each case feeds the hook an Edit/Write payload for a path in a throwaway repo
 # and checks the exit code (0 = allowed, 2 = blocked).
 set -uo pipefail
 
-HOOK="${HOOK:-$(cd "$(dirname "$0")" && pwd)/frozen-paths.sh}"
+HOOK="${HOOK:-$(cd "$(dirname "$0")/../../.claude/hooks" && pwd)/frozen-paths.sh}"
 TMP=$(mktemp -d)
 trap 'chmod -R u+w "$TMP"; rm -r "$TMP"' EXIT
 fail=0

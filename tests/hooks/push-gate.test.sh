@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Hand-run cases for push-gate.sh: `bash .claude/hooks/push-gate.test.sh`.
+# Hand-run cases for push-gate.sh: `bash tests/hooks/push-gate.test.sh`.
 # Each case feeds a command to the hook as a PreToolUse payload and checks that
 # it either prints nothing (defers) or asks. The commands are never run; the
 # hook's ls-remote reads throwaway bare remotes only.
 
 set -uo pipefail
 
-HOOK="$(cd "$(dirname "$0")" && pwd)/push-gate.sh"
+HOOK="$(cd "$(dirname "$0")/../../.claude/hooks" && pwd)/push-gate.sh"
 T=$(mktemp -d)
 trap 'rm -rf "$T"' EXIT
 failures=0

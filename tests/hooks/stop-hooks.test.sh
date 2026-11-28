@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Hand-run cases for the Stop hook: `bash .claude/hooks/stop-hooks.test.sh`.
+# Hand-run cases for the Stop hook: `bash tests/hooks/stop-hooks.test.sh`.
 # Each fixture tree's .claude/project.env names a stub command that records where it ran
 # and with what, so the cases check which tree quality-checks.sh works on, and that it
 # never runs the typecheck.
 set -uo pipefail
 
-DIR="${HOOKS_DIR:-$(cd "$(dirname "$0")" && pwd)}"
+DIR="${HOOKS_DIR:-$(cd "$(dirname "$0")/../../.claude/hooks" && pwd)}"
 TMP=$(mktemp -d)
 trap 'chmod -R u+w "$TMP"; rm -r "$TMP"' EXIT
 fail=0

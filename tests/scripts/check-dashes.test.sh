@@ -1,10 +1,10 @@
 #!/bin/bash
-# Hand-run cases for check-dashes.sh: `bash scripts/check-dashes.test.sh`.
+# Hand-run cases for check-dashes.sh: `bash tests/scripts/check-dashes.test.sh`.
 # Each case builds a change in a throwaway repo (staged, or committed for the
 # range case) and checks the exit code (0 = passes, 1 = blocked).
 set -uo pipefail
 
-CHECK="$(cd "$(dirname "$0")" && pwd)/check-dashes.sh"
+CHECK="$(cd "$(dirname "$0")/../../scripts" && pwd)/check-dashes.sh"
 EM=$(printf '\342\200\224')
 EN=$(printf '\342\200\223')
 failures=0

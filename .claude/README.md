@@ -37,7 +37,7 @@ What a session pays for this config, in approximate tokens (bytes / 4), so addit
 | `docs/conventions/core.md` | first source file touched | ~0.8k as shipped, grows when adapted |
 | `testing.md` / each area doc | first file touched in that area | ~0.4k as shipped; aim for ≤3k each |
 
-A rule fires on the first Read, Edit, or Write of a matching path (not on MCP results such as codegraph) and injects the whole doc it links to, so each convention doc is paid once per session per area. Keep them obligations-only, never instruct the model to Read one, and prefer `disable-model-invocation: true` for user-only skills since agents have no equivalent switch.
+A rule fires on the first Read, Edit, or Write of a matching path (not on MCP results) and injects the whole doc it links to, so each convention doc is paid once per session per area. Keep them obligations-only, never instruct the model to Read one, and prefer `disable-model-invocation: true` for user-only skills since agents have no equivalent switch.
 
 ---
 

@@ -37,14 +37,6 @@ if [ -n "${INSTALL_CMD:-}" ]; then
   (cd "$WORKTREE_DIR" && bash -c "$INSTALL_CMD")
 fi
 
-# Worktree-local CodeGraph index: without one, codegraph answers from the main
-# tree's index, missing symbols changed on this branch. Only when the main
-# checkout opted in, and non-fatal so an indexer hiccup never blocks creation.
-if [ -d .codegraph ]; then
-  (cd "$WORKTREE_DIR" && npx -y @colbymchenry/codegraph@1.6.0 init --yes) ||
-    echo "Warning: codegraph init failed; run it manually in $WORKTREE_DIR" >&2
-fi
-
 echo ""
 echo "Worktree created:"
 echo "  Directory: $WORKTREE_DIR"

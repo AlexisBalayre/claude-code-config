@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Fails when a conventions doc and its rule files drift: `bash scripts/conventions-rules.test.sh`.
+# Fails when a conventions doc and its rule files drift: `bash tests/scripts/conventions-rules.test.sh`.
 # Each docs/conventions/<area>.md with `paths:` needs .claude/rules/<area>-conventions.md as a
 # symlink to it: without one, Claude Code never injects the doc.
 set -euo pipefail
 
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 failures=0
 checked=0
 fail() {
