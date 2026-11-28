@@ -1,0 +1,227 @@
+{
+  "schema_version": 7,
+  "timestamp": "2026-11-28T18:11:03.620Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "46173457756",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/46173457756",
+  "actor": "AlexisBalayre",
+  "commit_sha": "eb82d5ab39b03585d4e8225a7b771d595e282549",
+  "source": "pr",
+  "pr_number": 88,
+  "action": "review",
+  "reviewers_spawned": [
+    "correctness",
+    "correctness",
+    "correctness",
+    "security",
+    "security",
+    "qa",
+    "quality",
+    "simplicity"
+  ],
+  "reviewers_returned": [
+    "correctness",
+    "correctness",
+    "correctness",
+    "security",
+    "security",
+    "qa",
+    "quality",
+    "simplicity"
+  ],
+  "reviewers_skipped": [
+    "perf",
+    "requirements"
+  ],
+  "review_mode": "full",
+  "incremental_from_sha": null,
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [],
+  "findings": [
+    {
+      "file": "tools/hooks-rs/src/worker_permission.rs",
+      "line": "141, 147-148",
+      "area": "security",
+      "confidence": "high",
+      "tag": "important",
+      "description": "`--body-file`/`-F` is on the no-grant allow list for `gh issue comment` and `gh issue edit`, with no limit on the path. So `gh issue comment 12 -F .env` is allowed outright and posts any file the session can read to the issue. That gets around the project's own `Read(.env*)` and `Read(**/credentials*)` deny rules without the user being asked.",
+      "body": "`tracker_call` lets a call through with no grant when every option it carries is on its list. For `comment` and `edit`, that list includes the file forms, and nothing checks the path that follows them:\n\n```rust\nlet body = [\"--body\", \"-b\", \"--body-file\", \"-F\"];\n...\n\"comment\" => (&body, &[\"--edit-last\", \"--create-if-none\"]),\n\"edit\" => (&body, &[]),\n```\n\n`literal_words` rejects `~`, globs and expansions, but a plain path passes. Each of these is allowed without a request:\n- `gh issue comment 12 -F .env`\n- `gh issue comment 12 --body-file=../../.aws/credentials`\n- `gh issue edit 12 -F /home/u/.ssh/id_ed25519`\n\n`gh` reads the file itself and publishes it on the issue. That issue is public on a public repository.\n\nThe settings deny `Read(.env*)` and `Read(**/credentials*)`, but those rules only govern the Read tool. Before this PR, a `gh issue` call opened a permission dialog. This hook now answers that dialog with `allow`.\n\nWith `--body <text>`, a worker can only post what it already knows. A file path reaches content the worker is denied. This is an allow rule, not a call that stays grantable, so the deferral of the secret-tool refusals to the next PR does not cover it.\n\n**Fix:** drop `--body-file` and `-F` from `body` (`let body = [\"--body\", \"-b\"];`), so a file body goes through the grant route, where the user sees the path. The tests that pin `-F notes/status.md` in `tests/worker_permission_tracker.rs` then move to the grant-route table.\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/eb82d5ab39b03585d4e8225a7b771d595e282549/tools/hooks-rs/src/worker_permission.rs#L141-L148",
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/worker_permission.rs",
+      "line": "404-410",
+      "area": "security",
+      "confidence": "high",
+      "tag": "important",
+      "description": "The push allow accepts any `<prefix>/issue-*` branch, not the worker's own issue, and `remapped` misses config that pushes more than the named branch.",
+      "body": "**Any issue branch passes.**\n\n```rust\nif remote == \"origin\"\n    && branch.starts_with(&format!(\"{prefix}/issue-\"))\n    && !remapped(cwd)\n    && push_url(cwd).is_some_and(|url| planned_url(&plans, branch) == Some(url))\n```\n\nThe hook parses `issue` from `AGENT_WORKER`, and `tracker_call` uses it to keep comments and edits on the worker's own issue. The push rule never compares it with the branch.\n\nThe approved-plans file lists every worker's branch; the PR's own fixture lists both `feature/issue-12` and `feature/issue-5`. Worker `ab-12` can:\n1. run `git worktree add ../w feature/issue-5` (`Bash(git worktree*)` is allowed);\n2. push `git push origin feature/issue-5` from that worktree.\n\nThe hook allows the push, and the worker's commits land on another worker's approved PR branch without the user's go. No test covers this case: `a_listed_branch_that_is_not_checked_out_has_no_grant_route` only covers the branch not being checked out.\n\n**`remapped` misses config that sends extra refs** (`push_gate.rs` 520-552). It checks `remote.origin.push`, `mirror`, `push.default` and the legacy remotes/branches files. It does not check:\n- `push.followTags=true`: a push with an explicit refspec also sends every annotated tag that points into the pushed history. `git tag -a v9.9.9 -m x; git config push.followTags true; git push origin feature/issue-12` creates the tag on origin, which can start a tag-triggered release.\n- `push.recurseSubmodules=on-demand`: the push also pushes submodule commits to remotes that `push_url` never checks.\n\nThe push gate has the same `remapped` gap. Here it sits behind a new worker-facing allow, so it belongs to this PR.\n\n**Fix:**\n- Bind the branch to the worker's issue: `branch == format!(\"{prefix}/issue-{issue}\")`. If a suffix like `-more` is meant to count, match `issue-{issue}` followed by the end of the name or `-`.\n- Make `remapped` also return true for `push.followtags=true` and for any `push.recursesubmodules` other than `no`/`check`.\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/eb82d5ab39b03585d4e8225a7b771d595e282549/tools/hooks-rs/src/worker_permission.rs#L404-L410\nhttps://github.com/AlexisBalayre/claude-code-config/blob/eb82d5ab39b03585d4e8225a7b771d595e282549/tools/hooks-rs/src/push_gate.rs#L520-L552",
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/worker_permission.rs",
+      "line": "333-336, 344-348, 404-410",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "important",
+      "description": "Both allow rules look only at `tool_input.command`, so a worker that adds `dangerouslyDisableSandbox: true` gets an allowed shape approved to run outside the sandbox.",
+      "body": "The hook reads only `command` from the input:\n\n```rust\nlet command = match tool {\n    \"Bash\" => input[\"command\"].as_str().unwrap_or_default(),\n    _ => \"\",\n};\n```\n\nThe grant route hashes the whole input, so the lead sees the flag there. The two `allow()` branches never look at it.\n\nHere is how a worker would use that. It points the worktree's `.git` at a gitdir it controls, in which:\n- `HEAD` is `ref: refs/heads/feature/issue-12`;\n- origin is set to the planned URL;\n- `core.sshCommand`, or a `core.hooksPath` pre-push hook, carries the payload.\n\nIt then calls `{\"command\":\"git push origin feature/issue-12\",\"dangerouslyDisableSandbox\":true}`. Every check reads that gitdir, so the hook allows the call, and git runs the payload outside the sandbox.\n\n`push_gate.rs` 594-596 already names this redirected-`.git` threat. The same works for `gh issue comment 12 --body-file <sandbox-denied path>`.\n\nWhether Claude Code routes such a call through PermissionRequest depends on how the launcher configures the sandbox, hence medium confidence.\n\n**Fix:** neither allow branch fires when `input[\"dangerouslyDisableSandbox\"] == Value::Bool(true)`. Such a call takes the grant route.\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/eb82d5ab39b03585d4e8225a7b771d595e282549/tools/hooks-rs/src/worker_permission.rs#L330-L348",
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/worker_permission.rs",
+      "line": "341-348",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "important",
+      "description": "The \"same repository\" check compares git directories, but gh picks its target repository from that directory's remotes, which the worker can rewrite. A worker can point an allowed `gh issue edit/comment <own N>` at issue N of any repository the user can write to.",
+      "body": "This check stands in for refusing `-R`:\n\n```rust\nif tracker_call(command, issue)\n    && common_dir(cwd).is_some_and(|dir| Some(dir) == common_dir(&project_dir()))\n{\n    allow();\n}\n```\n\nIt proves the cwd shares the project's `.git`. It does not prove which GitHub repository gh will target. gh picks that from the remotes in the shared `.git/config`, preferring a `remote.<name>.gh-resolved` entry, and the worker can write that config: `Bash(git remote*)` is allowed with no prompt.\n\nThe worker:\n1. runs `git remote set-url origin https://github.com/victim/repo`, or adds a remote with `gh-resolved base`;\n2. runs `gh issue edit 12 --body x`; the hook allows it, and gh rewrites `victim/repo#12` with the user's token;\n3. restores the remote.\n\nThe same function refuses `-R` to block exactly this outcome. The claim about how gh resolves its repository rests on gh's documented behaviour, hence medium confidence.\n\n**Fix:** pin the repository to a value the worker cannot write, for example a slug in the settings `env` or from the launcher. Either require `-R <slug>`, or check that origin is the only remote, that no `gh-resolved` key exists, and that origin's URL matches the trusted value.\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/eb82d5ab39b03585d4e8225a7b771d595e282549/tools/hooks-rs/src/worker_permission.rs#L341-L348",
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/worker_permission.rs",
+      "line": "372-380, 415-418, 431-434",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "important",
+      "description": "The grant covers `{worker, tool, input, HEAD}`, but neither the directory the call runs in nor uncommitted or untracked changes are hashed or shown in the record. After the user approves a call such as `bash scripts/x.sh` at commit `abc`, the worker can edit `x.sh` without committing, or `cd` to another directory at the same HEAD. The retry then matches the grant and runs code the user never saw.",
+      "body": "The request id is built from the worker, the tool, the input and HEAD:\n\n```rust\nlet rev = (tool == \"Bash\")\n    .then(|| git(cwd, &[\"rev-parse\", \"HEAD\", \"--symbolic-full-name\", \"HEAD\"]))\n    .flatten();\n...\nSha256::digest(format!(\"{worker}\\n{tool}\\n{shown}\\n{head}\"))\n```\n\nNeither `cwd` nor the working-tree state goes into the id or into the record that `grant show` prints. The comment says \"A grant is for the HEAD the lead saw\", but Bash runs whatever is in the working tree, not what HEAD holds.\n\nHow that plays out:\n1. The worker requests `bash scripts/verify.sh`, possibly with `dangerouslyDisableSandbox`.\n2. The user reads `verify.sh` at `abc` and approves.\n3. The worker edits the script with the Edit tool, which is auto-allowed and never reaches PermissionRequest, and does not commit.\n4. Within 30 minutes it retries. The id matches, and the edited script runs.\n\nA relative command run from another subdirectory at the same HEAD has the same id but resolves to a different file.\n\n**Fix:**\n- Record and hash `cwd`.\n- Then either hash the working-tree state (for example a tree written from a temporary index, plus `git status --porcelain -z`), or keep calls made in a dirty tree off the grant route.\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/eb82d5ab39b03585d4e8225a7b771d595e282549/tools/hooks-rs/src/worker_permission.rs#L372-L380",
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/worker_permission.rs",
+      "line": "401-403",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "important",
+      "description": "When `AGENT_APPROVED_PLANS` is unset, the hook falls back to `<work>/approved-plans`, a file `worktree-remove` never prunes. A deleted issue branch's plan line therefore stays, and a later branch of the same name pushes without a new approval.",
+      "body": "When `AGENT_APPROVED_PLANS` is unset, the hook reads its plans from a default file in the state directory:\n\n```rust\nlet plans = std::env::var_os(\"AGENT_APPROVED_PLANS\")\n    .filter(|file| !file.is_empty())\n    .map_or_else(|| work.join(\"approved-plans\"), PathBuf::from);\n```\n\nThe teardown that stops a plan from outliving its branch only knows the env var. `worktree_remove.rs` (`Repo.plans` around line 247, `unlist_plan` 80-110) and `scripts/worktree-remove.sh` 58-72 prune only the file that variable names. When it is unset, they keep the line and print \"AGENT_APPROVED_PLANS names no file here (the lead removes it)\".\n\nThe stated invariant is \"so a later branch of that name needs a fresh approval\". With this default, a removed `feature/issue-12` keeps its `<branch> <url>` line. A later `feature/issue-12`, a redo for the same issue with the same push URL, then passes the `planned_url(&plans, branch) == Some(url)` check at line 407 and is allowed with no new approval.\n\nBefore this PR the push gate had no fallback, so an unset variable meant no plan at all.\n\n**Fix:** either resolve the same default in `worktree_remove` and its shell twin through `agent_work`, or drop the fallback so that an unset variable means no plan, as in `push_gate`.\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/eb82d5ab39b03585d4e8225a7b771d595e282549/tools/hooks-rs/src/worker_permission.rs#L401-L403\nhttps://github.com/AlexisBalayre/claude-code-config/blob/eb82d5ab39b03585d4e8225a7b771d595e282549/tools/hooks-rs/src/worktree_remove.rs#L80-L110",
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/push_gate.rs",
+      "line": "556-566",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "important",
+      "description": "`planned_url` returns the URL of the first line for the branch. If another repository's line for the same branch name comes first, the worker hook does not auto-allow this repository's approved push and sends it to the grant route instead.",
+      "body": "`worktree_remove.rs` 87-98 says the plans file can hold the same branch name for several repositories (\"another repository may name its branches as this one does\"), and it filters on the `(branch, url)` pair. The lookup this PR extracts and gives a new caller stops at the first line for the branch:\n\n```rust\n.find_map(|line| {\n    let mut words = line.split([' ', '\\t']).filter(|word| !word.is_empty());\n    (words.next() == Some(branch)).then(|| words.next().unwrap_or(\"\").to_owned())\n})\n```\n\nTake a file holding `feature/issue-12 <urlA>` followed by `feature/issue-12 <urlB>`. A push from repository B gets `Some(urlA)`, so `worker_permission.rs:407` fails the comparison. The already-approved push is then recorded as a request and needs the user's go.\n\n`issue-<N>` names repeat across repositories, and `AGENT_APPROVED_PLANS` usually comes from user-level settings, so this happens in practice. The push gate's own caller (`push_gate.rs` 691-701) had the same first-match behaviour before this PR. The new caller is what this PR adds.\n\n**Fix:** match the pair, as `unlist_plan` does, and update both callers:\n\n```rust\npub(crate) fn planned(file: impl AsRef<Path>, branch: &str, url: &str) -> bool {\n    std::fs::read(file).is_ok_and(|plans| {\n        String::from_utf8_lossy(&plans).split('\\n').any(|line| {\n            let mut words = line.split([' ', '\\t']).filter(|word| !word.is_empty());\n            words.next() == Some(branch) && words.next() == Some(url)\n        })\n    })\n}\n```\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/eb82d5ab39b03585d4e8225a7b771d595e282549/tools/hooks-rs/src/push_gate.rs#L556-L566",
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/worker_permission.rs",
+      "line": "333-336",
+      "area": "qa",
+      "confidence": "medium",
+      "tag": "important",
+      "description": "Test adequacy: the guard `let command = match tool { \"Bash\" => input[\"command\"].as_str().unwrap_or_default(), _ => \"\" }` has no test that fails if the `_ => \"\"` arm is reverted to read `input[\"command\"]` for every tool. Every test that carries a `command` key uses `tool_name: \"Bash\"`. Every non-Bash test (`a_file_tool_call_is_not_bound_to_head`, the Read/Write calls) sends `file_path` or `content`, never `command`. With the mutant, a non-Bash tool (an MCP tool, say) whose input has `command: \"gh issue comment 12 --body x\"` would reach `tracker_call` and be auto-allowed, and a `git push` string in a non-Bash tool would be routed through the push shape logic. The suite passes both.",
+      "body": "No test pins the guard that keeps non-Bash tools out of the allow rules. The mutant that survives is `let command = input[\"command\"].as_str().unwrap_or_default();`:\n- The `Tracker` and `Plan` fixtures hard-code `\"tool_name\": \"Bash\"` (`worker_permission_tracker.rs:24`, `worker_permission_push.rs:39`).\n- `Lead::ask_as` is the only route to another tool, and no test passes it a `command` key.\n\nA test along these lines, in `tests/worker_permission_tracker.rs`, catches it. Adjust the names to the file's own fixtures:\n\n```rust\n#[test]\nfn a_tracker_command_in_a_tool_that_is_not_bash_takes_the_grant_route() {\n    let tracker = Tracker::new(\"wpt-not-bash\");\n    let input = json!({\"command\": COMMENT});\n    let verdict = tracker.lead.ask_as(WORKER, &tracker.repo, \"mcp__x__run\", input);\n    assert_eq!(verdict.behavior, \"deny\");\n    assert!(!verdict.id().is_empty(), \"{}\", verdict.message);\n}\n```\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/eb82d5ab39b03585d4e8225a7b771d595e282549/tools/hooks-rs/src/worker_permission.rs#L333-L336",
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/worker_permission.rs",
+      "line": "320-325",
+      "area": "qa",
+      "confidence": "medium",
+      "tag": "important",
+      "description": "Test adequacy: the guard `.filter(|name| !name.is_empty())` on `AGENT_WORKER` is not pinned. `a_session_that_is_no_worker_gets_no_decision` only leaves the variable unset. The bad-name list in `a_name_that_is_no_worker_name_is_denied_with_no_request` (\"lead\", \"W5-12\", ..., \"w5-0\") has no \"\" entry. If the filter is dropped, an empty `AGENT_WORKER=` (a launcher or shell that exports it blank, in a session that is no worker) falls through to `issue_of(\"\")`, which is None, so the hook denies every call in that session instead of staying silent. The suite passes that mutant.",
+      "body": "The test harness `hook()` calls `env_clear()` (`tests/common/mod.rs:39-47`), so `AGENT_WORKER` is only ever unset or set to a name, never set to an empty string. If someone drops the empty-name filter, the suite still passes, but a session that exports `AGENT_WORKER=` would have every call denied. The hook is meant to sit in settings that every session reads, so that is a real input.\n\n```rust\n#[test]\nfn an_empty_agent_worker_gets_no_decision() {\n    let payload = json!({\"tool_name\": \"Bash\", \"tool_input\": {\"command\": \"ls\"}}).to_string();\n    let mut command = hook(\"worker-permission\");\n    command.env(\"AGENT_WORKER\", \"\");\n    let out = run(&mut command, &payload);\n    assert_eq!((out.code, out.stdout.as_str()), (0, \"\"));\n}\n```\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/eb82d5ab39b03585d4e8225a7b771d595e282549/tools/hooks-rs/src/worker_permission.rs#L320-L325",
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/worker_permission.rs",
+      "line": "401-403",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The worker hook accepts a relative `AGENT_APPROVED_PLANS` and resolves it against the hook's cwd (possibly the worker's worktree, where the worker can write its own plan line); `push_gate.rs:693` refuses a relative path for exactly that reason, so add the same `is_absolute` filter.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/grant.rs",
+      "line": "84",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "`std::fs::write(grants.join(id), ...)` creates the grant file before filling it, so a worker retry that renames it in that gap reads it empty, fails the worker match and deletes the grant while `grant allow` still prints \"granted\"; write a temp file in `grants/` and rename it into place.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/worker_permission.rs",
+      "line": "436-439",
+      "area": "security",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "The inbox line cuts the call at 300 characters with no marker (`.chars().take(300)`), so a padded harmless prefix can push the dangerous part out of view and the lead sees a complete-looking call; append a marker such as \"...[cut; grant show has the whole call]\" when it truncates.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/tests/common/mod.rs",
+      "line": "284-295",
+      "area": "simplicity",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "`Lead::assert_grant_route` has no caller (the tests call the `Plan` and `Tracker` methods of the same name), and the file's `#![allow(dead_code)]` hides it; delete it (-13 lines).",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/worker_permission.rs",
+      "line": "50-56",
+      "area": "simplicity",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "`common_dir` here and the new `agent_work` in `common.rs` (97-100) each spell out `git(dir, &[\"rev-parse\", \"--path-format=absolute\", \"--git-common-dir\"])`; move `common_dir` into `common.rs` and call it from both (about -11 +8 lines).",
+      "body": null,
+      "suggestion": null
+    }
+  ],
+  "refuted_findings": [
+    {
+      "file": "tools/hooks-rs/src/worker_permission.rs",
+      "line": "413-429",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "important",
+      "description": "A grant is only a file named `<id>` holding `<worker>\\n` inside a plain directory under `$HOME`. The worker learns the id from the deny message and already knows its own name. So any write the worker can make into `<state>/grants/` lets it approve itself, including a call with `dangerouslyDisableSandbox: true`. Two more paths share this cause: a forged `requests/<id>.json` makes `grant show` print a call other than the one `allow` grants, and forged `lead-inbox.txt` lines.",
+      "refutation": "The finding assumes the worker can write the state directory, which the design already rules out. The default approved-plans file lives in that same directory (`work.join(\"approved-plans\")`, worker_permission.rs:403), and push_gate requires the plans file to be one the worker cannot write. A worker that could write there could forge the plans too. Keeping that directory out of the worker's reach is the launcher's job, and the launcher is not in this PR. The grant mechanism itself is not at fault."
+    }
+  ],
+  "process_issues": [],
+  "comments_posted_actual": 9,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 6.062425300000001,
+  "duration_ms": 604280,
+  "num_turns": 17,
+  "tokens": {
+    "input": 18,
+    "output": 26501,
+    "cache_read": 417275,
+    "cache_creation": 68825,
+    "total": 512619
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 182,
+      "output": 144562,
+      "cache_read": 2862221,
+      "cache_creation": 391417,
+      "cost_usd": 5.627972200000002
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 40,
+      "output": 11704,
+      "cache_read": 375556,
+      "cache_creation": 111911,
+      "cost_usd": 0.4344531000000001
+    }
+  ],
+  "permission_denials": []
+}
