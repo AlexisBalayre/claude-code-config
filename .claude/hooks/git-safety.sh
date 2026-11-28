@@ -5,7 +5,9 @@
 set -euo pipefail
 
 INPUT=$(cat)
-COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
+# jq exits 5 on a payload it cannot parse, which Claude Code treats as a
+# non-blocking error: only exit 2 stops the command.
+COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty') || exit 2
 
 # If there's no command, don't block.
 if [ -z "$COMMAND" ]; then
