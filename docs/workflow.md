@@ -31,7 +31,7 @@ scripts/worktree-create.sh my-feature   # .worktrees/my-feature on branch featur
        ├─ Stop hook gates every response     (format/lint dirty files · typecheck)
        ├─ convention-checker before commit   (≥3 source files changed)
        ├─ commit (pre-commit runs TEST_CMD; lands on feature/ branch, never main)
-       └─ open PR  →  /pr-description  →  /pr-ci-review
+       └─ open PR  →  /pr-description  →  CI review (pr-ci-review)  →  /address-review-comments
 scripts/worktree-remove.sh my-feature   # the worktree, then its branch once no work is lost
 scripts/worktree-remove.sh --merged     # the same for every worktree whose tip a merged PR shipped
 ```
@@ -48,6 +48,17 @@ scripts/worktree-remove.sh --merged     # the same for every worktree whose tip 
 | Context survival | `.claude/hooks/post-compact-state.sh` | Re-injects the session's directory, the project checkout's branch, worktrees and open PRs after compaction. |
 | Visibility | `.claude/statusline.sh` | Shows the active worktree branch, context usage, and cost in the statusline. |
 | `CLAUDE.md` | repo root | States the rule in always-on context: PRs only, worktrees only, never the trunk. |
+
+## The review pipeline
+
+Every PR is reviewed in CI by `.github/workflows/claude-code-review.yml`; nothing runs the paid panel by hand.
+
+1. A deterministic preflight (`tools/review`) checks the head, resolves the merge base and decides the mode: a first review is full, a push after it gets an incremental review of the delta.
+2. The `pr-ci-review` skill orchestrates: it spawns only the `review-*` agents whose area the change touches (`.claude/agents/README.md`), consolidates their findings, and has `review-validator` try to refute each `important`.
+3. The model has no write channel. It emits a structured record, and the poster script renders it: each `important` as an inline comment, minors and refuted findings in collapsed sections of one review, and a `claude-review` commit status on the head.
+4. Each run's record lands on the `ci/review-metrics` orphan branch, which the `tooling` skill's retro mode reads.
+
+A comment steers a round: `@claude review [quick|deep|full] [areas]`. A quick or area-restricted round is partial and leaves the status to a full pass. The round and merge rules (importants block, minors never do, when a PR is ready) are in `.claude/skills/pr-ci-review/REVIEW.md`; `/address-review-comments` works the open threads with you deciding each call. `claude-review-base-change.yml` marks a retargeted PR's head pending, and `pr-size.yml` warns at 400 added production lines and fails at 800.
 
 ## Dispatching agents into worktrees
 

@@ -31,7 +31,7 @@ the model buys three guarantees a model-posted review cannot make:
 | `review-preflight.script.ts` | before the model | Asserts the tree is the PR's clean current head, resolves the merge base, and decides **full vs. incremental** against the prior record on `ci/review-metrics` (same-SHA retriggers skip; rebases, force-pushes, and merge-bearing deltas resolve to full; a quick or area-restricted review is never the prior). It also parses the depth and areas a `@claude review` comment asks for. |
 | `print-schema.script.ts` | before the model | Emits the structured-output contract as JSON Schema for `--json-schema`, generated from the zod source so the contract cannot drift. |
 | `post-review.script.ts` | after the model, `always()` | The review's only writer: posts one review with anchored inline comments (falling back to per-comment posting if the batch 422s), and pins the `claude-review` commit status. On a `@claude review` comment, it also picks the reaction the workflow leaves there. |
-| `review-metrics.script.ts` | after the poster, `always()` | Builds the normalized run record (findings, refutations, mode, requested depth and areas, reviewers returned, cost and its split by model, the orchestrator's tokens, the tool calls its permission rules refused, `is_error` with its `incomplete_reason`) from the model output + execution log + poster hand-off; the workflow's second job appends it to the `ci/review-metrics` orphan branch for `/review-retro`. |
+| `review-metrics.script.ts` | after the poster, `always()` | Builds the normalized run record (findings, refutations, mode, requested depth and areas, reviewers returned, cost and its split by model, the orchestrator's tokens, the tool calls its permission rules refused, `is_error` with its `incomplete_reason`) from the model output + execution log + poster hand-off; the workflow's second job appends it to the `ci/review-metrics` orphan branch for the `tooling` skill's retro mode. |
 
 ## Threat model, in short
 
@@ -39,7 +39,7 @@ CI review executes an LLM on untrusted PR content, so the defenses do not rely o
 behaving: claude-code-action restores startup-read config (`.claude/`, `CLAUDE.md`,
 `.mcp.json`, …) from the base branch before the model starts (the workflow extends this to
 `AGENTS.md`), preserving the PR's copies unexecuted under `.claude-pr/` (`AGENTS.md`'s under
-`.claude-pr-agents/`) for reviewers to read;
+`.claude-pr-agents/`); reviewers read the PR's versions with `git show HEAD:<path>`;
 the model's permissions come from managed settings written before it starts, which discard
 every repo and skill grant and allow only read verbs, with no `git checkout`/`git fetch`
 (which could revert that restore); its shell runs in a sandbox that cannot write outside the
@@ -85,7 +85,7 @@ PR and deletes its branches; `results.json` is rewritten after each case, and th
 recall over the planted cases and how many clean cases drew an important finding. A case with a
 `spec` opens it as an issue whose title is the PR's, and the PR's body only closes it, with its
 commits squashed under a bare subject, so the requirements reach the reviewer through the issue
-alone; that is what spawns the spec reviewer. The issue is deleted afterwards, which takes admin
+alone; that is what spawns the requirements reviewer. The issue is deleted afterwards, which takes admin
 rights on the repo: without them it is only closed, and the run prints the failed cleanup. `--budget`
 caps the spend (default $10); a case whose run reports no cost is charged its cap (up to $5).
 `--pipeline` picks whose `.claude/` and lock review, so two versions of the protocol score on the

@@ -1,8 +1,8 @@
-# The CI half of the /pr-ci-review pipeline (.claude/skills/pr-ci-review):
+# The CI review pipeline (.claude/skills/pr-ci-review):
 # a deterministic preflight resolves the head/mode, the model reviews and emits
 # a structured record, and a poster script renders that record to the PR (the
 # model itself has no write channel). Each run's record is appended to the
-# `ci/review-metrics` orphan branch for the /review-retro skill to mine.
+# `ci/review-metrics` orphan branch for the `tooling` skill's retro mode to mine.
 #
 # Setup for your repo (App install, secret, metrics branch): the commands live
 # once, under "The CI review pipeline" in README.md.
@@ -81,7 +81,7 @@ jobs:
       # that cannot resolve and reviewers fall back to `git diff HEAD~1 HEAD`, which
       # silently reviews only the last commit of a multi-commit PR.
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         # persist-credentials off: this job's token never lands in .git, rather
         # than relying on the action to strip checkout's header before the model
         # starts, which it does best-effort (a failure is logged and the run goes
@@ -105,7 +105,7 @@ jobs:
           package_json_file: tools/review/package.json
 
       - name: Set up Node
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
@@ -321,7 +321,7 @@ jobs:
         uses: anthropics/claude-code-action@374f254f5efaf968abfe15d399fd90972e8138b9 # v1.0.251
         # The reviewer manifests keep their `opus` / `sonnet` aliases; these pin
         # the aliases to exact ids, so a Claude Code bump cannot move a tier
-        # silently, while a local /pr-ci-review still follows the local defaults.
+        # silently, while a local session that spawns them follows its own defaults.
         env:
           ANTHROPIC_DEFAULT_OPUS_MODEL: claude-opus-5-5
           ANTHROPIC_DEFAULT_SONNET_MODEL: claude-sonnet-5-5
@@ -426,7 +426,7 @@ jobs:
 
       - name: Upload review metrics
         if: always() && steps.pr-head.outputs.skip != 'true' && steps.preflight.outputs.skip != 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: review-metrics
           path: ${{ runner.temp }}/review-metrics.json
@@ -452,7 +452,7 @@ jobs:
       - name: Download review metrics
         id: download
         continue-on-error: true
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: review-metrics
           path: ${{ runner.temp }}/review-metrics

@@ -69,9 +69,9 @@ describe("the review a `@claude review` comment asked for", () => {
   it("is recorded with the run", () => {
     const { record } = runScript("review-metrics.script.ts", {
       REVIEW_STRUCTURED_OUTPUT: verdict(),
-      REVIEW_COMMENT: "@claude review quick security docs",
+      REVIEW_COMMENT: "@claude review quick security quality",
     });
-    expect(JSON.parse(record)).toMatchObject({ review_depth: "quick", review_areas: ["security", "docs"] });
+    expect(JSON.parse(record)).toMatchObject({ review_depth: "quick", review_areas: ["security", "quality"] });
   });
 
   it("records as a standard review of the gated areas when no comment asked", () => {

@@ -1,0 +1,59 @@
+name: PR Size
+
+# Warns at 400 production lines and fails at 800, or above 1,000 for a
+# *.md-only PR: the verdict scripts/added-lines.sh gives scripts/pre-push. CI
+# has no waiver, and the job is no required check, so a branch the user waived
+# shows red here and still merges.
+on:
+  pull_request:
+    # edited for a base retarget, which changes what the PR adds. Every edit
+    # recounts: a job skipped on a title edit would become the check shown.
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+
+jobs:
+  pr-size:
+    name: PR size
+    concurrency:
+      group: pr-size-${{ github.ref }}
+      cancel-in-progress: true
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # The merge commit, not the head: a branch cut before added-lines.sh
+      # existed still runs this workflow, and the merged tree always holds it.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Count production lines
+        env:
+          # Through env, never inline in the script: a branch name is PR text.
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          # HEAD^2 is the PR head. The base is read from origin, not HEAD^1: after a
+          # retarget, GitHub may not have rebuilt the merge commit yet. By its full
+          # ref: the checkout fetches tags, and a tag named origin/<base> resolves first.
+          base=$(git merge-base "refs/remotes/origin/$BASE_REF" HEAD^2)
+          counted=$(bash scripts/added-lines.sh "$base" HEAD^2)
+          read -r level added fail_at <<<"$counted"
+          echo "PR adds $added production lines over $BASE_REF: $level (warn at 400, fail at $fail_at)."
+          if [ "$level" != pass ]; then
+            if [ "$level" = fail ]; then
+              echo "::error::This PR adds $added production lines over $BASE_REF; the cap fails at $fail_at. Split it; CI has no waiver."
+            else
+              echo "::warning::This PR adds $added production lines over $BASE_REF; from 400, the PR body says why it can't split."
+            fi
+            {
+              echo "### $added production lines over \`$BASE_REF\` ($level, fails at $fail_at)"
+              echo ""
+              echo "| Added | File |"
+              echo "| --: | -- |"
+              # awk, not head: head exits early, and sort's SIGPIPE would fail the step under pipefail.
+              tail -n +2 <<<"$counted" | sort -rn | awk -F'\t' 'NR <= 5 { print "| " $1 " | `" $2 "` |" }'
+            } >>"$GITHUB_STEP_SUMMARY"
+          fi
+          [ "$level" != fail ]

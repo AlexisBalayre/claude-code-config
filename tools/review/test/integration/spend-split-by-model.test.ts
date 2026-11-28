@@ -5,8 +5,8 @@ import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const VERDICT = JSON.stringify({
-  reviewers_spawned: ["conventions"],
-  reviewers_returned: ["conventions"],
+  reviewers_spawned: ["quality"],
+  reviewers_returned: ["quality"],
   review_mode: "full",
   incremental_from_sha: null,
   prior_importants: [],

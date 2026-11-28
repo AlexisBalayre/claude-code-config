@@ -2,6 +2,9 @@
 # version the CI review runs (the action hardcodes it), and the action cuts a
 # release within minutes of each Claude Code release. Dependabot rewrites the
 # SHA and its `# vX.Y.Z` comment together.
+# The 7-day cooldown lets a compromised release surface before it runs with
+# the review's secrets, so a bump trails its release by a week. Security
+# updates skip the cooldown.
 # The review job is owner-only, so it skips a Dependabot PR: the first review
 # after merging a bump is that bump's real test.
 version: 2
@@ -10,5 +13,7 @@ updates:
     directory: /
     schedule:
       interval: daily
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "chore(ci)"
