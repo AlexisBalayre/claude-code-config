@@ -141,3 +141,35 @@ pub fn path_with(dirs: &[&Path]) -> std::ffi::OsString {
     let dirs = dirs.iter().map(|dir| dir.to_path_buf());
     std::env::join_paths(dirs.chain(std::env::split_paths(&inherited))).expect("join PATH")
 }
+
+/// Build the PreToolUse payload of a Bash call made from `cwd`.
+pub fn bash_payload(cwd: &str, command: &str) -> String {
+    serde_json::json!({"tool_input": {"command": command}, "cwd": cwd}).to_string()
+}
+
+/// Name a PreToolUse decision: "none", "ask", or the exit code or output that is neither.
+pub fn decision(out: &Output) -> String {
+    if out.code != 0 {
+        return format!("exit {}", out.code);
+    }
+    if out.stdout.is_empty() {
+        return "none".to_owned();
+    }
+    let output: serde_json::Value = serde_json::from_str(&out.stdout).unwrap_or_default();
+    if output["hookSpecificOutput"]["permissionDecision"] == "ask" {
+        "ask".to_owned()
+    } else {
+        format!("other: {}", out.stdout)
+    }
+}
+
+/// Assert what `gate` decides for a Bash call, and that its output holds `reason`.
+pub fn expect_decision(gate: &mut Command, want: &str, cwd: &str, command: &str, reason: &str) {
+    let out = run(gate, &bash_payload(cwd, command));
+    assert_eq!(decision(&out), want, "command: {command:?}");
+    assert!(
+        out.stdout.contains(reason),
+        "command: {command:?}: want a reason holding {reason:?}, got {}",
+        out.stdout
+    );
+}

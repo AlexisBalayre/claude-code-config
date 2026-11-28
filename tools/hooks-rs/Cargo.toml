@@ -9,6 +9,7 @@ name = "claude-hooks"
 path = "src/main.rs"
 
 [dependencies]
+libc = "0.2"
 regex-lite = "0.1"
 serde_json = "1"
 
