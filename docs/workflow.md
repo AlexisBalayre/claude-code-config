@@ -60,6 +60,8 @@ Every PR is reviewed in CI by `.github/workflows/claude-code-review.yml`; nothin
 3. The model has no write channel. It emits a structured record, and the poster script renders it: each `important` as an inline comment, minors and refuted findings in collapsed sections of one review, and a `claude-review` commit status on the head.
 4. Each run's record lands on the `ci/review-metrics` orphan branch, which the `tooling` skill's retro mode reads.
 
+A comment steers a round: `@claude review [quick|deep|full] [areas]`. A quick or area-restricted round is partial and leaves the status to a full pass. The round and merge rules (importants block, minors never do, when a PR is ready) are in `.claude/skills/pr-ci-review/REVIEW.md`; `/address-review-comments` works the open threads with you deciding each call. `claude-review-base-change.yml` marks a retargeted PR's head pending, and `pr-size.yml` warns at 400 added production lines and fails at 800.
+
 `.github/workflows/pr-state-labels.yml` shows in the PR list what each open PR waits on. A draft carries no label; any other PR carries exactly one review label, plus the conflict label when it cannot merge:
 
 | Label | Meaning |
@@ -77,8 +79,6 @@ gh label create "Changes Requested" --color D93F0B
 gh label create "Approved" --color 0E8A16
 gh label create "Needs Conflict Resolution" --color B60205
 ```
-
-A comment steers a round: `@claude review [quick|deep|full] [areas]`. A quick or area-restricted round is partial and leaves the status to a full pass. The round and merge rules (importants block, minors never do, when a PR is ready) are in `.claude/skills/pr-ci-review/REVIEW.md`; `/address-review-comments` works the open threads with you deciding each call. `claude-review-base-change.yml` marks a retargeted PR's head pending, and `pr-size.yml` warns at 400 added production lines and fails at 800.
 
 ## Releases
 

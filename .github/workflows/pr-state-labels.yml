@@ -2,8 +2,9 @@ name: PR State Labels
 
 # Keeps four managed labels on each open PR in step with its real state, so the
 # PR list shows what each PR waits on. Every run refetches the PR and computes
-# the whole desired set, so whichever event fired, the result is the same. Labels outside the managed set are never touched. A draft carries
-# none. Needs Conflict Resolution means merge conflicts, not behind the base.
+# the whole desired set, so whichever event fired, the result is the same.
+# Labels outside the managed set are never touched. A draft carries none.
+# Needs Conflict Resolution means merge conflicts, not behind the base.
 #
 # The review label reads reviews from people with write access, and the
 # claude-review commit status on the head: any changes verdict wins, then any
@@ -170,7 +171,7 @@ jobs:
               });
               // A re-request is the author asking that reviewer to look again,
               // so their earlier verdict no longer stands.
-              const reRequested = new Set((pr.requested_reviewers ?? []).map((u) => u.login));
+              const reRequested = new Set(pr.requested_reviewers.map((u) => u.login));
               const latest = new Map();
               for (const r of reviews) {
                 if (!r.user || r.user.login === pr.user.login) continue;
@@ -229,9 +230,11 @@ jobs:
                   }
                 }
               } catch (e) {
-                // Only a per-PR event can carry a fork or Dependabot read-only
+                // Only a fork or Dependabot PR's own event carries a read-only
                 // token; elsewhere a 403 is a real failure, such as a rate limit.
-                if (e.status !== 403 || !context.payload.pull_request) throw e;
+                const head = context.payload.pull_request?.head;
+                const readOnly = head && (head.repo?.full_name !== `${owner}/${repo}` || context.actor === "dependabot[bot]");
+                if (e.status !== 403 || !readOnly) throw e;
                 core.notice(`PR #${number}: read-only token (fork or Dependabot PR); labels left as they are.`);
                 return;
               }
@@ -252,7 +255,17 @@ jobs:
               if (failures) core.setFailed(`${failures} of ${numbers.length} PRs failed to reconcile.`);
             }
 
-            async function sweep() {
+            // Only a pull_request-triggered run lists its own PR. A review a PR
+            // comment requested runs from main, and GitHub lists the PRs whose
+            // head is main there, not the commented one.
+            const run = context.payload.workflow_run;
+            const reviewRunPrs = run?.event === "pull_request" ? run.pull_requests.map((p) => p.number) : [];
+            if (context.payload.pull_request) {
+              await reconcile(context.payload.pull_request.number, PER_PR_BACKOFF_MS);
+            } else if (reviewRunPrs.length) {
+              await reconcileAll(reviewRunPrs, PER_PR_BACKOFF_MS);
+            } else {
+              // A push to main, the schedule, or a review requested by PR comment.
               // Oldest first, so the longest-lived (most likely conflicted) PRs
               // are not starved when a run is cut short.
               const prs = await github.paginate(github.rest.pulls.list, {
@@ -266,18 +279,4 @@ jobs:
                 prs.map((p) => p.number),
                 SWEEP_BACKOFF_MS,
               );
-            }
-
-            // Only a pull_request-triggered run lists its own PR. A review a PR
-            // comment requested runs from main, and GitHub lists the PRs whose
-            // head is main there, not the commented one.
-            const run = context.payload.workflow_run;
-            const reviewRunPrs = run?.event === "pull_request" ? run.pull_requests.map((p) => p.number) : [];
-            if (context.payload.pull_request) {
-              await reconcile(context.payload.pull_request.number, PER_PR_BACKOFF_MS);
-            } else if (reviewRunPrs.length) {
-              await reconcileAll(reviewRunPrs, PER_PR_BACKOFF_MS);
-            } else {
-              // A push to main, the schedule, or a review requested by PR comment.
-              await sweep();
             }
