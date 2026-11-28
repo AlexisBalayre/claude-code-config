@@ -5,8 +5,8 @@ edition = "2021"
 publish = false
 
 [[bin]]
-name = "git-safety"
-path = "src/git_safety.rs"
+name = "claude-hooks"
+path = "src/main.rs"
 
 [dependencies]
 regex-lite = "0.1"

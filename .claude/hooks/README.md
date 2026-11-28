@@ -24,3 +24,9 @@ check off, so every hook no-ops harmlessly until the project is adapted.
 **Configure / disable:** edit the entry under `hooks` in `settings.json`. Scripts must stay
 executable (`chmod +x`). Each hook's hand-run cases live in `tests/hooks/`:
 `bash tests/hooks/<name>.test.sh`. To add a hook, see [`.claude/README.md`](../README.md) ("New hook").
+
+**Rust port, in progress:** the hooks are moving into one binary, `claude-hooks <hook-name>`, built
+from [`tools/hooks-rs`](../../tools/hooks-rs). It holds `git-safety`, `frozen-paths`,
+`tool-result-size`, `protect-generated` and `validate-file-naming` so far; `settings.json` still
+calls the shell files until every hook is ported. Its cases are `cargo test --release` there, and
+the `Hooks` workflow runs them with clippy on each PR that touches the crate.

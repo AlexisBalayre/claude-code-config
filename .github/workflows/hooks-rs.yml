@@ -1,0 +1,42 @@
+name: Hooks
+
+# The static gate of tools/hooks-rs: format, clippy with warnings as errors,
+# and the integration tests, on both systems the binary ships for.
+on:
+  pull_request:
+    paths:
+      - tools/hooks-rs/**
+      - .github/workflows/hooks-rs.yml
+
+permissions:
+  contents: read
+
+jobs:
+  hooks-rs:
+    name: Hooks (${{ matrix.os }})
+    concurrency:
+      group: hooks-rs-${{ matrix.os }}-${{ github.ref }}
+      cancel-in-progress: true
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: tools/hooks-rs
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # rustup installs the toolchain rust-toolchain.toml pins on the first call.
+      - name: Format
+        run: cargo fmt --check
+
+      - name: Clippy
+        run: cargo clippy --release --locked --all-targets -- -D warnings
+
+      - name: Test
+        run: cargo test --release --locked
