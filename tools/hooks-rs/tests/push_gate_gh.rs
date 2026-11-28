@@ -96,6 +96,29 @@ fn asks_for_gh_api_calls_that_merge_or_get_rewritten() {
     ]);
 }
 
+// Each of these moves a branch on origin with no push, so the push gate never sees it.
+#[test]
+fn asks_for_gh_api_calls_that_write_a_ref_or_a_file() {
+    assert_asks(&[
+        "gh api -X PATCH repos/o/r/git/refs/heads/main -f sha=abc -F force=true",
+        "gh api repos/o/r/git/refs -f ref=refs/heads/x -f sha=abc",
+        "gh api --method DELETE repos/o/r/git/refs/heads/x",
+        "gh api -XDELETE repos/o/r/git/refs/heads/x",
+        "gh api -iXDELETE repos/o/r/git/refs/heads/x",
+        "gh api --method=PUT repos/o/r/contents/README.md --field message=m",
+        "gh api repos/o/r/contents/README.md -X PUT --raw-field message=m",
+        r#"gh api "repos/o/r/contents/README.md" '-X' PUT"#,
+        "gh api -X PUT repos/o/r/pulls/5/update-branch",
+        "gh api repos/o/r/branches/x/rename -f new_name=main",
+        r#"gh api graphql -f query='mutation{createRef(input:{name:"refs/heads/x"}){clientMutationId}}'"#,
+        r#"gh api graphql -f query='mutation{updateRef(input:{refId:"x",force:true}){clientMutationId}}'"#,
+        r#"gh api graphql -f query='mutation{updateRefs(input:{repositoryId:"x"}){clientMutationId}}'"#,
+        r#"gh api graphql -f query='mutation{deleteRef(input:{refId:"x"}){clientMutationId}}'"#,
+        r#"gh api graphql -f query='mutation{createCommitOnBranch(input:{branch:{branchName:"main"}}){clientMutationId}}'"#,
+        r#"gh api graphql -f query='mutation{updatePullRequestBranch(input:{pullRequestId:"x"}){clientMutationId}}'"#,
+    ]);
+}
+
 #[test]
 fn asks_for_token_alias_extension_sync_and_mentions() {
     assert_asks(&[
@@ -334,6 +357,11 @@ fn defers_for_reads_and_the_listed_gh_calls() {
         "gh api repos/{owner}/{repo}/pulls/5/comments --paginate",
         "gh api repos/{owner}/{repo}",
         "gh api repos/o/r/branches/merge-queue",
+        "gh api repos/o/r/contents/README.md --jq .content",
+        "gh api 'repos/o/r/contents/docs?ref=main' -H 'Accept: application/vnd.github.raw'",
+        "gh api repos/o/r/git/ref/heads/main --jq .object.sha",
+        "gh api repos/o/r/git/refs/heads/main",
+        "gh api repos/o/r/git/matching-refs/heads/feature",
         r#"gh api search/issues -f q="is:pr [bot] *""#,
         r#"gh api repos/o/r/pulls/5 --jq '.[] | "\(.id) $x"' | head -5"#,
         r#"gh api repos/o/r/pulls/5 > "$TMPDIR/pr.json" && echo $?"#,

@@ -33,3 +33,9 @@ side of `scripts/`: `pre-commit`, `pre-push`, `added-lines`, `check-dashes`, `wo
 `worktree-remove`. `settings.json` and the git hooks still call the shell files until every one is
 ported. Its cases are `cargo test --release` there, and
 the `Hooks` workflow runs them with clippy on each PR that touches the crate.
+
+The Rust `push-gate` asks in three cases `push-gate.sh` lets through:
+
+- `<branch>` is not the local branch `refs/heads/<branch>`: a symbolic ref, a tag or `heads/<name>`, which git pushes to another ref.
+- A `gh api` call writes a ref or a file (`git/refs`, `contents`, `update-branch`, a branch `rename`, or a GraphQL ref mutation). A read of the same paths passes.
+- Origin's push URL is not one `PUSH_GATE_REMOTES` lists. The gate looks a branch up on origin from outside the sandbox, at a URL the agent can set, so it reaches only the URLs that variable names in the `env` of `settings.json`. Entries are separated by spaces; each is a whole URL, or a prefix ending in `/` or `:` (`git@github.com:`), spelt as `git remote get-url --push origin` prints it. Without the variable, every push of a branch the plans do not list asks.
