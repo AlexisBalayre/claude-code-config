@@ -1,30 +1,28 @@
 ---
 name: wiz
 disable-model-invocation: true
-allowed-tools: mcp__wiz__discover, mcp__wiz__execute
-description: Investigate the project's cloud security posture through the Wiz MCP (read-only), routing each query to the right domain and scoping to the project's own resources.
+allowed-tools: mcp__wiz__discover, mcp__wiz__execute, Read, Grep, Glob, Bash(jq:*)
+description: Investigate the project's Wiz cloud security findings read-only, or fix the open ones in one PR.
 ---
 
 # Wiz (cloud security)
 
-The Wiz MCP exposes ~250 tools across 24 security domains behind two gateway tools. You never call a Wiz tool directly: `discover` finds it, `execute` runs it. This skill is read-only: investigate, never mutate.
+`/wiz <mode> [args]`. Read the mode's file in this folder, then follow it.
+
+| Mode | File | Use |
+| -- | -- | -- |
+| `audit [question]` | [AUDIT.md](AUDIT.md) | answer a question about the project's security posture |
+| `fix [--cve\|--sast]` | [FIX.md](FIX.md) | triage open findings, auto-fix the safe ones in one PR, escalate the rest |
+
+With no mode, or one not in the table, list the modes and ask which one.
+
+The Wiz MCP exposes its tools behind two gateway tools. You never call a Wiz tool directly: `discover` finds it, `execute` runs it. Both modes are read-only on Wiz: investigate, never mutate.
 
 > **Setup:** this skill needs the Wiz MCP server enabled in `.claude/settings.local.json` and
 > your own Wiz resource IDs in `.env` (see `.env.example`): `WIZ_REPO_BRANCH_ID` (the
 > default-branch REPOSITORY_BRANCH resource for SAST) and `WIZ_CONTAINER_REPO_IDS` (the
 > container-repository UUIDs for your images). Resolve them once per the "Resolve to IDs"
-> section below, then fill them in — never hardcode real UUIDs in the repo.
-
-## The loop
-
-Every query takes the same four steps:
-
-1. **Route.** Call `discover()` with no argument to list the domains. Pick the one domain that owns the answer by the *type of finding* you want, not by nouns in the question (see Routing traps).
-2. **Spec.** Call `discover(domain)` for the exact tool `name` and its parameter schema. Read it: params that sound singular are usually **arrays** (`group_by`, `severity`, `status`, `asset_name`, `container_repository`), some are **required** (e.g. `list_issues_grouped` needs `group_by` + `type`), and the `first` / `limit` cap differs per tool (often 20). Never guess.
-3. **Query.** Call `execute(tool_name, parameters)` with the exact `name` from step 2, scoped per the project section below. If `execute` rejects the name, re-run `discover(domain)` to confirm spelling (some names repeat across domains).
-4. **Summarize.** A result too large for one response is auto-saved to a `tool-results/*.txt` file instead of returned. Parse it with jq or python (or hand the file to a subagent), never re-read it whole. Report a ranked summary (severity, then affected resource) with the Wiz finding IDs so the user can open each in the portal. Never paste raw JSON back.
-
-Prefer a `*_grouped` tool with a small `first` over a raw list: fewer tokens, and it answers "where is the load" directly.
+> section below, then fill them in. Never hardcode real UUIDs in the repo.
 
 ## Routing traps
 
@@ -47,7 +45,7 @@ The fastest UUID source is a **Wiz portal URL**: its hash fragment encodes the e
 Typically the project's code and images live under the source host and container registry (e.g. **GitHub / ghcr.io**), not the cloud account; only the running workloads are on the cloud provider (`cloud_platform: ["AWS"]` or equivalent, plus your prod account, cluster, and namespace). So a cloud-platform filter **hides** the image and SAST findings: scope those by the IDs below, not by cloud platform.
 
 - **Source repo (SAST → `codesec` / `list_sast_findings`)**: `resource_id: ["${WIZ_REPO_BRANCH_ID}"]` (the default-branch REPOSITORY_BRANCH resource). Add `is_default_branch: true`.
-- **Container images (CVEs → `vulnerabilities`)**: filter `container_repository` by the UUIDs in `${WIZ_CONTAINER_REPO_IDS}` — one per image the project ships.
+- **Container images (CVEs → `vulnerabilities`)**: filter `container_repository` by the UUIDs in `${WIZ_CONTAINER_REPO_IDS}`, one per image the project ships.
 
 Default `severity` to `["CRITICAL", "HIGH"]`, `status` to `["OPEN"]`, and add `has_fix: true` when the goal is to fix (only fixable findings are actionable). Per finding, `layerMetadata.isBaseLayer` and `artifactType.group` (`OS_PACKAGE` vs `CODE_LIBRARY`) say whether the fix is a base-image bump or a dependency bump.
 
@@ -64,6 +62,6 @@ Wiz findings, SAST especially, carry false positives; verify against the code be
 
 ## Read-only guardrail
 
-This skill only investigates. Execute only read tools: names beginning `list_`, `get_`, or `search_`, plus `discover`.
+Execute only read tools: names beginning `list_`, `get_`, or `search_`, plus `discover`.
 
 Refuse any mutating tool: anything that creates, changes, resolves, assigns, deletes, reports, or configures (creating a pentest finding, an automation or remediation rule, a Jira or ServiceNow ticket, changing an issue's status). If the user wants one, say it is out of scope for this skill and point them to the Wiz portal.

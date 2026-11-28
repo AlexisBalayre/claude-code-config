@@ -1,17 +1,6 @@
 # When to Mock
 
-Mock at **system boundaries** only:
-
-- External APIs (payment, email, etc.)
-- Databases (sometimes - prefer test DB)
-- Time/randomness
-- File system (sometimes)
-
-Don't mock:
-
-- Your own classes/modules
-- Internal collaborators
-- Anything you control
+What to mock is set by `docs/conventions/testing.md`. This file covers only how to shape an external-boundary interface so it is easy to mock.
 
 ## Designing for Mockability
 

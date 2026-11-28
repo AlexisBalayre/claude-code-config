@@ -5,9 +5,9 @@ description: Test-driven development. Use when the user wants to build features 
 
 # Test-Driven Development
 
-TDD is the red → green loop. This skill is the reference that makes that loop produce tests worth keeping: what a good test is, where tests go, the anti-patterns, and the rules of the loop. Every section applies on every cycle: consult them before and during the loop, not after.
+TDD is the red → green loop. This skill is the reference that makes that loop produce tests worth keeping: what a good test is, where tests go, the anti-patterns, and the rules of the loop.
 
-When exploring the codebase, read `docs/glossary.md` so test names and interface vocabulary match the project's domain language, and respect the ADRs in `docs/adr/` for the area you're touching.
+When exploring the codebase, grep `docs/glossary.md` for the term so test names and interface vocabulary match the project's language, and respect ADRs in the area you're touching.
 
 ## What a good test is
 
@@ -17,9 +17,9 @@ See [tests.md](tests.md) for examples and [mocking.md](mocking.md) for mocking g
 
 ## Seams: where tests go
 
-A **seam** is the public boundary you test at: the interface where you observe behavior without reaching inside. Tests live at seams, never against internals.
+Tests live at **seams** (`codebase-design`'s term) and observe behavior through the interface there, never internals.
 
-**Test only at pre-agreed seams.** Before writing any test, write down the seams under test and confirm them with the user. No test is written at an unconfirmed seam. You can't test everything, so agreeing the seams up front is how testing effort lands on the critical paths and complex logic instead of every edge case.
+**Test only at pre-agreed seams.** Before writing any test, write down the seams under test and confirm them with the user. In a worker, the Done-when items the user approved with the Design or Approach are the seams (`agent-workflow` §2): ask no separate question. No test is written at an unconfirmed seam. You can't test everything, so agreeing the seams up front is how testing effort lands on the critical paths and complex logic instead of every edge case.
 
 Ask: "What's the public interface, and which seams should we test?" Give each proposed seam a one-line note on what it catches and what it misses.
 
@@ -33,6 +33,6 @@ When the shape of that interface is itself in question (how deep the module is, 
 
 ## Rules of the loop
 
-- **Red before green.** Write the failing test first, then only enough code to pass it. Don't anticipate future tests or add speculative features.
+- **Red before green.** Write the failing test first, then only enough code to pass it.
 - **One slice at a time.** One seam, one test, one minimal implementation per cycle.
-- **Refactoring is not part of the loop.** It belongs to the review stage (Claude Code's `/simplify` command and the `pr-ci-review` skill), not the red → green implementation cycle.
+- **Refactoring is not part of the loop.** It belongs to the review stage (`/simplify`, `/code-review`, and this repo's PR review pipeline), not the red → green implementation cycle.

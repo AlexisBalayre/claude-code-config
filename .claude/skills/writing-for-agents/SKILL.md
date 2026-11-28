@@ -1,6 +1,6 @@
 ---
 name: writing-for-agents
-description: Writing documents for agents. Use when creating or editing skills, or modifying AGENTS.md or CLAUDE.md.
+description: Writing documents for agents. Use when creating or editing a skill, an agent in `.claude/agents/`, AGENTS.md or CLAUDE.md.
 ---
 
 Reference for writing any document an agent consumes: a skill, an `AGENTS.md` / `CLAUDE.md`, a doc reached by a pointer. The packaging differs; the writing does not: the same levers make each one predictable, since the agent takes the same _process_ every run rather than producing the same output.
@@ -16,6 +16,7 @@ A pointer does two jobs: state what the material is, and list the **branches** t
 - **Front-load the leading word**: the pointer is where it does its triggering work.
 - **One trigger per branch.** Synonyms that rename a single branch are one branch written twice; collapse them and keep only genuinely distinct branches.
 - **Cut identity the body already carries.**
+- **Don't overlap another pointer's triggers.** If two skills both fire on "create a route", narrow both ("create a frontend route" vs "create an API route") or the agent will pick wrong half the time.
 
 ## The two loads
 
@@ -78,15 +79,15 @@ You win twice: fewer tokens, and a sharper hook for the agent to hang its thinki
 - Keep each meaning in a **single source of truth**: one authoritative place, so changing the behaviour is a one-place edit. **Duplication** (the same meaning in more than one place) costs maintenance and tokens, and inflates a meaning's prominence on the ladder past its real rank. (The accidental inverse of a leading word, which repeats a token on purpose, never the meaning.)
 - The **environment** is a source of truth too (`package.json` scripts, config files, the directory layout, `--help` output), and a document that restates it is a **cache**: a copy of a lookup, earning its load only when the lookup is expensive. Cache what the agent cannot find by looking: the unwritten convention, the reason behind a choice, the gotcha no config confesses. Leave the one-file, one-command lookups to the environment, where they cannot go stale.
 - Check every line for **relevance**: does it still bear on what the document does? A line loses relevance by never bearing on the task (mere exposition, or a branch that should be disclosed) or by going stale as the behaviour or world it describes changes. Shorter documents are easier to keep relevant. Without a pruning discipline the default fate is **sediment**: stale layers that settle because adding feels safe and removing feels risky, until you must core down through them to find what is still live.
-- Hunt **no-ops** sentence by sentence: an instruction the model already obeys by default pays load to say nothing. The test (does it change behaviour versus the default?) is model-relative, not reader-relative: two people disagreeing about a no-op disagree about the default, and settle it by running the document, not by debate. When a sentence fails, delete the whole sentence rather than trim words from it. The test also grades leading words: a word too weak to beat the default (_be thorough_ when the agent is already thorough-ish) is a no-op, and the fix is a stronger word (_relentless_), not a different technique.
+- Hunt **no-ops** sentence by sentence: an instruction the model already obeys by default pays load to say nothing. The test (does it change behaviour versus the default?) is model-relative, not reader-relative: two people disagreeing about a no-op disagree about the default, and settle it by running the document, not by debate. When a sentence fails, delete the whole sentence rather than trim words from it. The test also grades leading words: a word too weak to beat the default (_be thorough_ when the agent is already thorough-ish) is a no-op, and the fix is a completion criterion with more demand ("every modified model accounted for"), not a louder word.
 
 ## House rules for this repo
 
-- **Skill names are kebab-case and match their directory**; the `name` frontmatter equals the folder name. Gerund-style names (`diagnosing-bugs`, `writing-for-agents`) and imperative ones (`find-dead-code`) are both fine.
-- **Hardcode repo specifics; source machine specifics from config.** Skills bake in doc paths and take the project's commands from `.claude/project.env` (`LINT_CMD`, `TYPECHECK_CMD`, `TEST_CMD`, ...) rather than naming a toolchain; tracker metadata (`TRACKER_TEAM_ID`, `TRACKER_PROJECT_ID`, `TRACKER_ASSIGNEE_ID`, ...) and other per-machine values come from `.env` keys (see `.env.example` and the setup note in `to-tickets`).
+- **Skill names are kebab-case and match their directory.** New skills take imperative names (`diagnose`, `resolve-merge-conflicts`, `audit`); a skill that tracks an upstream original keeps its upstream name (`writing-for-agents`).
+- **Hardcode repo specifics; source machine specifics from config.** Skills bake in doc paths and take the project's commands from `.claude/project.env` (`LINT_CMD`, `TYPECHECK_CMD`, `TEST_CMD`, ...) rather than naming a toolchain; tracker metadata (`TRACKER_TEAM_ID`, `TRACKER_PROJECT_ID`, `TRACKER_ASSIGNEE_ID`, ...) and other per-machine values come from `.env` keys (see `.env.example` and `file-ticket`'s tracker metadata section).
 - **Point at the repo's docs, never a parallel store.** The domain language lives in `docs/glossary.md`, `docs/conventions/`, `docs/explanation/`, and `docs/adr/`; documents reference those (the way `domain-modeling` does), and never create a `CONTEXT.md`.
 - **`AGENTS.md` is tool-neutral; `CLAUDE.md` is the Claude Code layer** that imports it (`@AGENTS.md`) and adds only what is Claude Code-specific. Area conventions live once in `docs/conventions/<area>.md` and reach Claude Code through a pure loader in `.claude/rules/`, so neither file restates them.
 - **Default new skills to user-invoked** (`disable-model-invocation: true`). Keep model-invocation only when natural task phrasing must trigger the skill, or another skill calls it.
-- **Scope tools with `allowed-tools`** frontmatter when a skill touches external systems (issue trackers, code-quality platforms).
+- **Scope tools with `allowed-tools`** frontmatter when a skill touches external systems (see `tickets`, `wiz` for the pattern).
 - **No em/en dashes in prose you write** (titles exempt); use commas, colons, or parentheses.
-- **Description limits**: third person, max 1024 chars, and one line for user-invoked skills.
+- **Description limits**: imperative or third person, never first or second person; max 1024 chars, and one line for user-invoked skills.

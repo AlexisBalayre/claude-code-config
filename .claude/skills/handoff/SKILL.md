@@ -1,16 +1,48 @@
 ---
 name: handoff
-description: Compact the current conversation into a handoff document for another agent to pick up.
+description: Write or update this session's handoff so a fresh agent can resume the work. Use when a worker or lead writes or updates its handoff or STATUS lines, or before a session ends.
 argument-hint: "What will the next session be used for?"
-disable-model-invocation: true
 ---
 
-Write a handoff document summarising the current conversation so a fresh agent can continue the work. Save to the temporary directory of the user's OS (`$TMPDIR`, else `/tmp`; `%TEMP%` on Windows) - not the current workspace.
+Write the handoff to `$AGENT_WORK/handoffs/<YYYY-MM-DD>-<session-name>.md`, dated by `date` (local time). A worker's file uses `<SESSION_PREFIX><handle>` (both set in `setup-agent-env`'s params) in place of its session name, the name `board.sh` reads. That folder is machine-local, outside the repo; if `AGENT_WORK` is unset or the folder does not exist, ask the user where handoffs go. If today's file exists, update it in place: rewrite the sections, keep the dated lines under `## Status`.
 
-Include a "suggested skills" section in the document, naming which skills the next agent should call the Skill tool for.
+In a multi-session run, the lead is the session that hands out work and relays to the user; the `agent-workflow` skill holds its rules and the STATUS line's. A solo session leaves the lead out.
 
-Do not duplicate content already captured in other artifacts (specs, plans, ADRs, issues, commits, diffs). Reference them by path or URL instead.
+Use this shape:
 
-Redact any sensitive information, such as API keys, passwords, or personally identifiable information.
+```markdown
+# <session-name> handoff, <YYYY-MM-DD HH:MM>
 
-If the user passed arguments, treat them as a description of what the next session will focus on and tailor the doc accordingly.
+For the next <session-name>. Trust `git`/`gh` over any line here. <Who the lead is and how to reach them, if any.>
+
+## Clean point
+
+<What is running, uncommitted, or held (a lock) right now. "Idle" if nothing.>
+
+## Done
+
+- <Ticket or PR: outcome, head sha or merge sha, worktree kept or not.>
+
+## Open threads
+
+- <Each in-flight item: where it stands, the exact next action, and whose go it waits on.>
+
+## Rules learned
+
+- <A correction the user or lead gave this session that no repo doc, skill or memory file holds yet.>
+
+## Next step
+
+<One line.>
+
+## Status
+
+<STATUS lines, `agent-workflow` WORKER.md §5>
+```
+
+- Name the shas, PR numbers, worktree paths and draft paths; point at plans, ADRs, tickets and commits rather than copying them.
+- Name the skills the next session should load, in `## Next step`.
+- Redact secrets and personal data.
+- If the user passed arguments, treat them as the next session's focus and tailor `## Open threads` and `## Next step` to it.
+
+Done when today's file is at the path above with every section that has content filled (Clean point `Idle` when nothing runs), `## Next step` names the skills to load, and the header time came from `date`.
