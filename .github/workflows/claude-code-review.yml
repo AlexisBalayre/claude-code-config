@@ -163,6 +163,8 @@ jobs:
       # the head SHA already has a non-errored, complete record (a synchronize
       # retrigger with nothing new), except on an explicit `@claude review`,
       # whose words it parses into the depth and areas the model is handed.
+      # A pull_request run whose copy of this file differs from the default
+      # branch's also skips, with a pending status: the action refuses such a run.
       # The merge base is resolved here, while the checkout is still complete:
       # claude-code-action restores the PR's config paths from the base branch
       # with a `--depth=1` fetch, which grafts `origin/<base>` parentless. From
@@ -178,6 +180,7 @@ jobs:
           REVIEW_TRIGGER: ${{ github.event_name == 'issue_comment' && 'comment' || github.event.action }}
           # Through env, never inline in a script: the comment is free text.
           REVIEW_COMMENT: ${{ github.event.comment.body }}
+          REVIEW_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         working-directory: ${{ env.REVIEW_TOOLING }}
         run: node node_modules/tsx/dist/cli.mjs src/review-preflight.script.ts
 
@@ -234,6 +237,10 @@ jobs:
           if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
             sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           fi
+          # Fail here, before the model is billed for finding out: a runner image
+          # that cannot nest user namespaces fails every Bash call of the review.
+          bwrap --unshare-user --ro-bind / / --dev /dev --proc /proc \
+            bwrap --unshare-user --unshare-net --ro-bind / / --dev /dev --proc /proc true
 
       # Managed settings are the one rule source no repo file can widen: with
       # allowManagedPermissionRulesOnly, the grants written for local use (the
