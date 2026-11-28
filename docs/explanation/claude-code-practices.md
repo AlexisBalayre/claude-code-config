@@ -39,7 +39,6 @@ A row with a path is enforced or wired by this template. A row without one is a 
 | Read files with the Read tool, not `cat` or `sed`. | Shell reads fire no path rule, so the area's conventions never load. MCP results fire none either. | `CLAUDE.md` |
 | Warn on oversized tool results. | One large log stays in context for the rest of the session. The hook names a cheaper call. | `.claude/hooks/tool-result-size.sh` |
 | Batch independent reads in one message. | Each turn re-reads the whole context: three parallel reads cost one re-read, three sequential reads cost three. | |
-| Use a code graph for call paths, Read for detail. | A callers query returns call sites without the noise of a text search. | `mcp__codegraph` in `.claude/settings.json` |
 | Start each session with its cwd inside its worktree. | A session whose cwd sits outside its worktree can load the same rule twice. | |
 
 ## Tokens and usage

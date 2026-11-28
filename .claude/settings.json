@@ -15,7 +15,6 @@
       "Edit",
       "Write",
       "Agent(*)",
-      "mcp__codegraph",
       "Bash(scripts/worktree-create.sh *)",
       "Bash(scripts/worktree-remove.sh *)",
       "Bash(bash scripts/verify.sh)",

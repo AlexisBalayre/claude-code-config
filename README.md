@@ -139,7 +139,7 @@ their own worktree. Read the full loop in **[`docs/workflow.md`](docs/workflow.m
    ```bash
    git clone https://github.com/AlexisBalayre/claude-code-config.git
    cd claude-code-config
-   cp -R .claude AGENTS.md CLAUDE.md docs scripts .mcp.json ../your-repo/
+   cp -R .claude AGENTS.md CLAUDE.md docs scripts tests ../your-repo/
    # optional: the CI review pipeline
    cp -R .github tools ../your-repo/
    chmod +x ../your-repo/.claude/hooks/*.sh ../your-repo/.claude/statusline.sh ../your-repo/scripts/*
@@ -154,9 +154,6 @@ their own worktree. Read the full loop in **[`docs/workflow.md`](docs/workflow.m
    Re-run it whenever the project grows a new area.
 3. **Opt into your tools.** Copy `.claude/settings.local.json.example` to
    `.claude/settings.local.json` (gitignored) and add your personal permissions / MCP servers.
-   The shipped [`.mcp.json`](.mcp.json) declares [CodeGraph](https://github.com/colbymchenry/codegraph),
-   a local symbol graph the agent queries instead of grepping; build its index once with
-   `npx @colbymchenry/codegraph@1.6.0 init` (new worktrees get their own automatically).
 4. **Personalize.** Copy `.env.example` to `.env` (gitignored) and fill in the values used by
    the personal-integration skills: your Obsidian vault path, issue-tracker IDs, SonarQube and Wiz IDs.
 
@@ -183,7 +180,6 @@ Everything project-specific lives in a few well-known places, so tuning is editi
 ├── AGENTS.md                  # tool-agnostic always-on memory (any coding agent)
 ├── CLAUDE.md                  # thin Claude Code layer: @AGENTS.md + Claude-only notes
 ├── .env.example               # personal-integration settings (vault path, tracker/Sonar/Wiz IDs)
-├── .mcp.json                  # CodeGraph MCP server (pinned, telemetry off)
 ├── .github/
 │   ├── CODEOWNERS             # default reviewer for every path
 │   └── workflows/
@@ -197,6 +193,9 @@ Everything project-specific lives in a few well-known places, so tuning is editi
 │   ├── verify.sh              # lint, typecheck and tests on the committed tree; stamps it green
 │   ├── pre-push               # refuses a push without a green stamp or above the PR size cap
 │   └── gate-lock.sh           # one heavy command at a time across worktrees
+├── tests/
+│   ├── scripts/               # shell harnesses for scripts/ (bash tests/scripts/<name>.test.sh)
+│   └── hooks/                 # shell harnesses for .claude/hooks/
 ├── .claude/
 │   ├── README.md              # architecture deep-dive (start here)
 │   ├── settings.json          # permissions + hook wiring

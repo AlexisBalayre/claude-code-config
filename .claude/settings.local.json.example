@@ -13,7 +13,6 @@
     ]
   },
   "enabledMcpjsonServers": [
-    "codegraph",
     "your-issue-tracker",
     "your-static-analysis"
   ]
