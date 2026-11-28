@@ -687,7 +687,8 @@ pub fn run() {
     // The agent sets that URL and the probe runs outside the sandbox, so a probe of any URL
     // would carry what the URL holds to any host: it reaches only a URL the user's settings
     // `env` lists, whole or by a prefix that ends the host: `/`, or `:` in the scp form alone,
-    // since in a URL `host:` can be followed by `x@other-host`.
+    // since in a URL `host:` is followed by a port. What follows the prefix is plain path
+    // characters, since git reads a later `@[host]` as the host and ssh takes the last `@`.
     let probed = std::env::var("PUSH_GATE_REMOTES").unwrap_or_default();
     let listed =
         git(path, &["remote", "get-url", "--push", "--all", "origin"]).is_some_and(|url| {
@@ -698,7 +699,10 @@ pub fn run() {
                         url == entry
                             || (entry.ends_with('/')
                                 || entry.ends_with(':') && !entry.contains("://"))
-                                && url.starts_with(entry)
+                                && url.strip_prefix(entry).is_some_and(|rest| {
+                                    rest.bytes()
+                                        .all(|c| c.is_ascii_alphanumeric() || b"._/-".contains(&c))
+                                })
                     }) && on_remote(&url, branch, start))
         });
     if !listed {

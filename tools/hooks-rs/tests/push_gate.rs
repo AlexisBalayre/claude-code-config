@@ -444,17 +444,43 @@ fn probes_no_url_the_settings_do_not_list() {
     }
 }
 
-// In a URL the text after `host:` can be `x@other-host`, which ssh and curl connect to.
+// In a URL the text after `host:` is a port, so the prefix does not end the host.
 #[test]
 fn probes_no_url_that_only_shares_a_url_prefix_ending_in_a_colon() {
     let fixture = Fixture::new("colon-prefix");
-    fixture.repo("colon", "ssh://git@example.invalid:x@other.invalid/un.git");
+    fixture.repo("colon", "ssh://git@example.invalid:other.invalid/un.git");
     let probed = fixture.at("probed");
     let mut gate = hook("push-gate");
     gate.env("PUSH_GATE_REMOTES", "ssh://git@example.invalid:")
         .env("GIT_SSH_COMMAND", format!("touch '{probed}'; exit 1 #"));
     expect_decision(&mut gate, "ask", &fixture.at("colon"), PUSH_X, "feature/x");
     assert!(!Path::new(&probed).exists(), "a probe started");
+}
+
+// git reads a later `@[host]` as the host, and ssh connects to what follows the last `@`.
+#[test]
+fn probes_no_url_that_names_another_host_after_a_listed_prefix() {
+    let fixture = Fixture::new("second-host");
+    let probed = fixture.at("probed");
+    for (repo, remotes, url) in [
+        (
+            "scp",
+            "git@example.invalid:",
+            "git@example.invalid:x@[other.invalid]:un.git",
+        ),
+        (
+            "url",
+            "ssh://git@example.invalid/",
+            "ssh://git@example.invalid/x@[other.invalid]/un.git",
+        ),
+    ] {
+        fixture.repo(repo, url);
+        let mut gate = hook("push-gate");
+        gate.env("PUSH_GATE_REMOTES", remotes)
+            .env("GIT_SSH_COMMAND", format!("touch '{probed}'; exit 1 #"));
+        expect_decision(&mut gate, "ask", &fixture.at(repo), PUSH_X, "feature/x");
+        assert!(!Path::new(&probed).exists(), "a probe started for {url}");
+    }
 }
 
 #[test]
