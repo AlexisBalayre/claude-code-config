@@ -24,8 +24,12 @@ pub fn xargs(cmd: &str, files: &[String]) -> (bool, Vec<u8>) {
         rest = tail;
         let mut run = Command::new("sh");
         run.args(["-c", &format!("{cmd} \"$@\""), "_"]).args(batch);
-        let Ok((mut child, file)) = spawn_captured(&mut run) else {
-            return (false, output);
+        let (mut child, file) = match spawn_captured(&mut run) {
+            Ok(spawned) => spawned,
+            Err(err) => {
+                output.extend(format!("xargs: sh: {err}\n").bytes());
+                return (false, output);
+            }
         };
         let status = child.wait();
         output.extend(captured_output(file));

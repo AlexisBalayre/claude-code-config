@@ -308,6 +308,16 @@ fn fails_when_any_lint_run_fails() {
 }
 
 #[test]
+fn says_why_when_a_lint_run_cannot_start() {
+    let repo = Repo::new("lint-no-tmp");
+    let missing = repo.0.path().join("missing");
+    let out = repo.verify(&[("TMPDIR", missing.to_str().expect("a UTF-8 temp path"))]);
+    assert_eq!(out.code, 1);
+    assert!(out.stderr.contains("xargs: sh: "), "{}", out.stderr);
+    assert!(last_line(&out).contains("lint"), "{}", out.stderr);
+}
+
+#[test]
 fn stamps_without_a_suite_when_none_is_configured() {
     let env =
         "SOURCE_EXTENSIONS=\"ts\"\nLINT_CMD=\"stub lint\"\nTYPECHECK_CMD=\"\"\nTEST_CMD=\"\"\n";
