@@ -29,7 +29,7 @@ Delegate to an `Explore` subagent on a large repo so file dumps stay out of cont
 
 ## 3. Confirm the profile
 
-Present in one message: the detected stack, the proposed `.claude/project.env` values, the list of areas with their path globs, and the questions the code could not answer (code owners, whether the automated PR review is wanted, which personal-integration tools are in use). Wait for answers before writing.
+Present in one message: the detected stack, the proposed `.claude/project.env` values, the list of areas with their path globs, and the questions the code could not answer (code owners, whether the automated PR review is wanted). Wait for answers before writing.
 
 ## 4. Project profile
 
@@ -67,10 +67,6 @@ Present a keep-or-delete table for every skill and agent, with a one-line reason
 | :-- | :---------- |
 | `migration-reviewer` agent | the project has no database schema or migrations |
 | CI review pipeline: `.github/workflows/claude-code-review.yml`, `tools/review/`, `pr-ci-review`, `review-retro`, the `review-*` agents | the repo is not on GitHub, or the user doesn't want automated PR review |
-| `obsidian-vault` + `daily-note` | the user doesn't use Obsidian |
-| `backfill-issues` | no issue-tracker MCP (`to-spec` / `to-tickets` fall back to local files, keep them) |
-| `fix-sonar` / `wiz` + `fix-wiz` | no SonarQube / no Wiz |
-| `prototype/UI.md` | the project has no UI (keep `LOGIC.md`) |
 
 Then drop the matching keys from `.env.example` and update every catalog: `.claude/skills/README.md`, `.claude/agents/README.md`, the counts and trees in `.claude/README.md` and `README.md`.
 

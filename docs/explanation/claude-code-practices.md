@@ -62,7 +62,7 @@ A row with a path is enforced or wired by this template. A row without one is a 
 | Cap the context early. | Compacting sooner keeps every call cheap. `CLAUDE_CODE_AUTO_COMPACT_WINDOW` sets the threshold for a session. | |
 | Re-inject live state after compaction. | The summary can be stale. A `SessionStart` hook on `compact` prints cwd, branch, worktrees and open PRs. Output from a `PreCompact` hook does not reach the summary. | `.claude/hooks/post-compact-state.sh` |
 | A new task gets a new session. | A long session compacts repeatedly, and each compaction costs a round of re-orientation. `/compact` is the tool inside a task. | |
-| Keep state in handoff files with dated status lines. | Files survive what context does not. After a resume, read every sha and PR state again instead of trusting memory. | `handoff` skill |
+| Keep state in handoff files with dated status lines. | Files survive what context does not. After a resume, read every sha and PR state again instead of trusting memory. | the companion plugin's `handoff` skill |
 | Memory ranks lowest and is re-verified. | Machine-local notes go stale. A rule every session needs belongs in the repo. | `AGENTS.md` §Precedence |
 
 ## Hooks and permissions

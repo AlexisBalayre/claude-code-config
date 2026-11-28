@@ -26,7 +26,7 @@ Sort each open thread into:
 For each *needs a decision* thread, investigate the reviewer's underlying concern, not just the symptom they pointed at, until you can lay out the realistic options with their trade-offs. Then route by what is actually in dispute:
 
 - **Correctness dispute** ("this finding is wrong / a false positive"): spawn a validator subagent that adversarially re-checks the finding against the actual code, given the user's rebuttal. One round only. It returns **concede** (a false positive, with a code-grounded reason) or **defend** (the issue holds, with the concrete evidence). Bias to concede when it cannot defend with evidence: the user raised the doubt, so the burden is on the finding.
-- **Design or approach decision**: route through the `/grilling` skill rather than settling it unilaterally; always provide your recommended answer. If the comment opens an architectural, ADR-worthy decision (hard to reverse, or it shifts a documented term or boundary), run `/domain-modeling` alongside, so the resolution lands in the repo's vocabulary or an ADR.
+- **Design or approach decision**: put it to the user one question at a time rather than settling it unilaterally (the companion plugin's `/grilling` skill does this when installed); always provide your recommended answer. If the comment opens an architectural, ADR-worthy decision (hard to reverse, or it shifts a documented term or boundary), record the resolution in `docs/glossary.md` or an ADR under `docs/adr/`.
 
 No code is written in this phase. The goal is alignment. The validator and the grilling session inform the decision; **the user is the final authority** on every thread.
 
