@@ -54,7 +54,10 @@ feat: this is prose in a body'
 expect '' 'a type that only starts with feat' v1.1.0 'feature: not a type'
 expect v0.1.0 'no tag yet: counted from 0.0.0 over all history' ''
 expect v1.1.1 'a commit no release covers yet' v1.1.0 'fix: a' && {
-  cd "$T/$n" && git tag nightly && git commit -q --allow-empty -m 'docs: b'
+  cd "$T/$n" && git tag nightly
+  got=$(bash "$NEXT")
+  [ "$got" = v1.1.1 ] || { echo "FAIL want=v1.1.1 got=$got  a tag on HEAD that is not a release"; failures=$((failures + 1)); }
+  git commit -q --allow-empty -m 'docs: b'
   got=$(bash "$NEXT")
   [ "$got" = v1.1.1 ] || { echo "FAIL want=v1.1.1 got=$got  a tag that is not a release is skipped"; failures=$((failures + 1)); }
   git commit -q --allow-empty -m 'feat: c' && git tag v1.2.0 && git switch -q --detach HEAD~1
