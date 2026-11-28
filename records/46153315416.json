@@ -1,0 +1,217 @@
+{
+  "schema_version": 7,
+  "timestamp": "2026-11-28T14:18:00.554Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "46153315416",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/46153315416",
+  "actor": "AlexisBalayre",
+  "commit_sha": "bf6ce9a672980fbe531259872a02531cd301f1d1",
+  "source": "pr",
+  "pr_number": 81,
+  "action": "review",
+  "reviewers_spawned": [
+    "correctness",
+    "correctness",
+    "correctness",
+    "security",
+    "security",
+    "qa",
+    "quality",
+    "simplicity"
+  ],
+  "reviewers_returned": [
+    "correctness",
+    "correctness",
+    "correctness",
+    "security",
+    "security",
+    "qa",
+    "quality",
+    "simplicity"
+  ],
+  "reviewers_skipped": [
+    "perf",
+    "requirements"
+  ],
+  "review_mode": "full",
+  "incremental_from_sha": null,
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [],
+  "findings": [
+    {
+      "file": "tools/hooks-rs/src/pre_push.rs",
+      "line": "60-64",
+      "area": "qa",
+      "confidence": "high",
+      "tag": "important",
+      "description": "Test adequacy: the size-waiver match `line == branch` is a guard no test pins; the suite passes if it waives any branch, or reads the wrong waiver file.",
+      "body": "**Test adequacy: no test pins the size-waiver match.**\n\n```rust\nstd::fs::read_to_string(&waiver).is_ok_and(|text| text.lines().any(|line| line == branch))\n```\n\nOnly one test touches the waiver: `waived_branch_over_the_cap_passes` (`tools/hooks-rs/tests/pre_push.rs` L310-316). It writes `.git/size-waiver` holding exactly the branch it pushes, from the main checkout. The tests that expect a block over the cap write no waiver file at all, so `waived()` is false whatever the predicate says. The whole suite still passes under each of these mutants:\n\n- **`.any(|_| true)`:** any non-empty waiver file waives every branch.\n- **`line == branch` replaced by `starts_with` or `contains`:** a waiver for `feature/a` then also waives `feature/ab`.\n- **`--git-common-dir` replaced by `--git-dir`:** in the main checkout both resolve to `.git`. No test pushes over the cap from a linked worktree, so nothing catches a worktree that misses the waiver the user wrote in the common dir.\n\nThe waiver is the only way past the size cap, and the comment at L44-46 says only the user writes it. A wrong match therefore either lets a push through silently or blocks a push the user waived.\n\n**Fix:** add two tests to `tests/pre_push.rs`:\n1. A waiver file that names other branches only (for example `size-waiver-other-2\\nother\\n`), with a push of `size-waiver-other` over the cap that must still be blocked.\n2. A push over the cap from a linked worktree whose waiver sits in the main `.git/size-waiver`, which must pass.\n\n<https://github.com/AlexisBalayre/claude-code-config/blob/bf6ce9a672980fbe531259872a02531cd301f1d1/tools/hooks-rs/src/pre_push.rs#L60-L64>",
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/worktree_create.rs",
+      "line": "6-13",
+      "area": "qa",
+      "confidence": "high",
+      "tag": "important",
+      "description": "Test adequacy: `valid_name`, the guard against leading-dash and `..` names (shared by worktree-remove), has no test; `valid_name`, the dir-exists guard, the usage guard, `WORKTREE_BRANCH_PREFIX` and `INSTALL_CMD` are all unexercised.",
+      "body": "**Test adequacy: no test exercises the worktree name guard.**\n\n```rust\n!name.is_empty() && !name.starts_with('-') && !name.contains(\"..\") && name.bytes().all(|b| b.is_ascii_alphanumeric() || b\"._-\".contains(&b))\n```\n\nEvery name the tests pass is valid:\n- `tests/worktree_create.rs` passes only `x`.\n- `tests/worktree_remove.rs` passes `x`, `z`, `v`, `u`, `w` and `C`, plus `--merged`, which never reaches the name check.\n\nSo the suite still passes if `valid_name` always returns `true`. That mutant lets `../x` or `-f` reach `format!(\".worktrees/{name}\")` and `git worktree add`, and lets `worktree-remove ../x` reach `git worktree remove`.\n\nThese checks have no test either:\n- **The dir-exists guard (L48-51):** no test creates the same worktree twice.\n- **The empty-argument usage exit (L36-39).**\n- **A custom `WORKTREE_BRANCH_PREFIX` (L47):** no fixture writes `.claude/project.env`, so a hardcoded `\"feature\"` passes.\n- **The `INSTALL_CMD` step (L69-76):** it never runs in any test.\n\nThe shell harness did not test these either, so no case was dropped in the port. But the checks are now one public function with two callers, and this PR adds its tests, so this is the place to pin them.\n\n**Fix:** add two cases to `tests/worktree_create.rs`:\n1. Each of `-f`, `../x`, `a/b` and `a b` exits 1 with `invalid worktree name` and creates no `.worktrees/` directory.\n2. Creating `x` twice fails with `already exists`.\n\n<https://github.com/AlexisBalayre/claude-code-config/blob/bf6ce9a672980fbe531259872a02531cd301f1d1/tools/hooks-rs/src/worktree_create.rs#L6-L13>",
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/pre_push.rs",
+      "line": "15",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "When stdin can't be read as UTF-8, pre-push lets the push through without checking any ref. `common::stdin()` returns None if `read_to_string` fails (for example, a pushed ref name holding non-UTF-8 bytes, which `git check-ref-format` allows). `unwrap_or_default()` then turns that into zero lines, so no verify-stamp or size-cap check runs and the hook exits 0. The shell original reads line by line and still checks every ref. Getting there takes a deliberately odd ref name, but it is a fail-open path on a gate that binds agents. Failing closed, e.g. `let Some(input) = stdin() else { exit(1) };`, would close it.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/worktree_remove.rs",
+      "line": "36-43, 162-163",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "remove_empty_dirs follows a symlinked .worktrees/<name> through read_dir, so a symlink pointing inside the main checkout makes the leftover sweep delete every empty directory under its target (pointing at the checkout root, that includes .git/refs/tags, .git/objects/info and, after pack-refs, possibly .git/refs itself), where the shell's `find -depth -type d -empty -delete` (default -P) does not follow the starting symlink and deletes nothing.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/worktree_create.rs",
+      "line": "30-34",
+      "area": "simplicity",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "The `or_default` config closure is pasted word for word here, in worktree_remove.rs L222-226, and inlined by hand in pre_push.rs L6-9 (git_safety.rs L35-37 has a fourth copy); one `Config::get_or(key, default)` method in common.rs would replace all of them (about -13 +9 lines).",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/worktree_remove.rs",
+      "line": "222-226",
+      "area": "simplicity",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "Second copy of the `or_default` config closure from worktree_create.rs L30-34; fold both into one `Config::get_or(key, default)` in common.rs.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/pre_push.rs",
+      "line": "6-9",
+      "area": "simplicity",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "GIT_TRUNK's empty-falls-back-to-`main` logic repeats the `or_default` closure of worktree_create.rs/worktree_remove.rs by hand; a shared `Config::get_or` would cover it.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/worktree_remove.rs",
+      "line": "36-43",
+      "area": "simplicity",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "`remove_empty_dirs` is a single-caller recursive reimplementation of the shell's `find \"$dir\" -depth -type d -empty -delete`; spawning `find` (as the module already spawns git and gh) would cut about 7 lines and also restore the shell's no-follow-symlink behaviour, at the cost of an external `find` dependency.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/added_lines.rs",
+      "line": "28, 74",
+      "area": "simplicity",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "`count` joins each row into a `\"{lines}\\t{path}\"` string that pre_push.rs L68-70 then splits and re-parses to sort; storing `rows: Vec<(u64, String)>` and sorting with `b.cmp(a)` keeps the same order with less code.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/added_lines.rs",
+      "line": "43-50",
+      "area": "simplicity",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The `while joined.contains(\"//\")` loop can only ever run once (the `{old => }` join yields exactly two slashes), so a single `joined.replace(\"//\", \"/\")` does the job. Separately, no test exercises this collapse or the leading-`/` strip (a `src/{tests => }/a.ts` rename), so removing them passes the suite.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/added_lines.rs",
+      "line": "72",
+      "area": "qa",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "A binary file (numstat `-`) is skipped but no test commits one; changing `lines != \"-\"` to counting it as 0 or panicking would pass.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/pre_push.rs",
+      "line": "68-80",
+      "area": "qa",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The blocked message's `Biggest files` top-5 sort, and the `rows` content, are never asserted (blocked tests only check `BLOCKED`); reversing the sort passes.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/tests/pre_push.rs",
+      "line": "148-172",
+      "area": "qa",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "No test pushes a branch absent from origin/main's history, i.e. where `merge-base` returns None and the size cap is silently skipped (`pre_push.rs` L52-54, `continue`). Pin it with a claude push from an unrelated-root orphan branch.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/worktree_create.rs",
+      "line": "37",
+      "area": "quality",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The usage strings name the shell scripts (`Usage: scripts/worktree-create.sh <name>` here, `scripts/worktree-remove.sh` in worktree_remove.rs L7) while added_lines.rs uses the subcommand form (`Usage: added-lines <base> <head>`); pick one style so the message matches how the binary is invoked once the scripts are rewired.",
+      "body": null,
+      "suggestion": null
+    }
+  ],
+  "refuted_findings": [],
+  "process_issues": [],
+  "comments_posted_actual": 2,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 4.181831699999999,
+  "duration_ms": 391682,
+  "num_turns": 17,
+  "tokens": {
+    "input": 16,
+    "output": 18170,
+    "cache_read": 390975,
+    "cache_creation": 57208,
+    "total": 466369
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 132,
+      "output": 93996,
+      "cache_read": 1520034,
+      "cache_creation": 301936,
+      "cost_usd": 3.865758799999999
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 20,
+      "output": 8653,
+      "cache_read": 165629,
+      "cache_creation": 85176,
+      "cost_usd": 0.3160729
+    }
+  ],
+  "permission_denials": []
+}
