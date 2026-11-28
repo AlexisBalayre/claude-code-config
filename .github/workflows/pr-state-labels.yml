@@ -1,0 +1,280 @@
+name: PR State Labels
+
+# Keeps four managed labels on each open PR in step with its real state, so the
+# PR list shows what each PR waits on. Every run refetches the PR and computes
+# the whole desired set, so whichever event fired, the result is the same. Labels outside the managed set are never touched. A draft carries
+# none. Needs Conflict Resolution means merge conflicts, not behind the base.
+#
+# The review label reads reviews from people with write access, and the
+# claude-review commit status on the head: any changes verdict wins, then any
+# approval, else Needs a Review.
+#
+# The claude-review status is written with GITHUB_TOKEN, whose events start no
+# workflow, so a finished Claude Code Review or Claude Review Base Change run
+# (workflow_run) is what brings its verdict here. A push to main can conflict
+# PRs that saw no event of their own, so it reconciles every open PR. GitHub
+# skips pull_request workflows on a conflicted PR, so a PR its own push
+# conflicts, or any later event on it, waits for a sweep: the hourly schedule
+# bounds that wait when main sees no push.
+#
+# The user creates the managed labels under the exact names in MANAGED
+# (docs/workflow.md has the commands): the run fails when one is missing, since
+# adding it would auto-create it.
+#
+# Advisory: never a required check. A conflicted PR gets no pull_request run,
+# and a required context that never reports deadlocks the PR. A fork or Dependabot
+# PR runs with a read-only token, so the run skips it; pull_request_target
+# would restore the write by handing a write token to fork-triggered runs.
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - ready_for_review
+      - converted_to_draft
+      - edited
+      - synchronize
+      - review_requested
+      - review_request_removed
+  pull_request_review:
+    types: [submitted, dismissed]
+  workflow_run:
+    workflows: [Claude Code Review, Claude Review Base Change]
+    types: [completed]
+  push:
+    # GIT_TRUNK of .claude/project.env; a workflow cannot read that file here.
+    branches: [main]
+  schedule:
+    - cron: "17 * * * *"
+
+permissions: {}
+
+jobs:
+  reconcile:
+    name: Reconcile PR state labels
+    # Every PR comment starts a Claude Code Review run; one that is no review
+    # request skips every job, so it carries no verdict worth a sweep.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion != 'skipped'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+      statuses: read
+    # Events on one PR serialize into a final reconcile, a review run's
+    # included. A running sweep is never cancelled: it would restart from the
+    # oldest PR and starve the tail. A newer sweep replaces a queued one, which
+    # it covers.
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.workflow_run.pull_requests[0].number || github.ref }}
+      cancel-in-progress: ${{ github.event.pull_request.number != '' || github.event.workflow_run.pull_requests[0].number != '' }}
+    steps:
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const MANAGED = {
+              needsReview: "Needs a Review",
+              changesRequested: "Changes Requested",
+              approved: "Approved",
+              needsConflictResolution: "Needs Conflict Resolution",
+            };
+            const MANAGED_NAMES = Object.values(MANAGED);
+            // mergeable is computed lazily: a GET can return null, which only
+            // schedules the computation. The sweep retries once so it fits the
+            // timeout across many PRs.
+            const PER_PR_BACKOFF_MS = [3000, 5000, 8000, 12000];
+            const SWEEP_BACKOFF_MS = [5000];
+            const { owner, repo } = context.repo;
+            const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+            const repoLabels = await github.paginate(github.rest.issues.listLabelsForRepo, {
+              owner,
+              repo,
+              per_page: 100,
+            });
+            const have = new Set(repoLabels.map((l) => l.name));
+            const missing = MANAGED_NAMES.filter((n) => !have.has(n));
+            if (missing.length) {
+              core.setFailed(
+                `Managed labels missing from ${owner}/${repo}: ${missing.join(", ")}. ` +
+                  "Create them under these exact names (docs/workflow.md).",
+              );
+              return;
+            }
+
+            async function pollPullForMergeability(number, backoff) {
+              let pr;
+              for (let attempt = 0; ; attempt++) {
+                ({ data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: number }));
+                if (pr.state !== "open" || pr.draft || pr.mergeable !== null) return pr;
+                if (attempt >= backoff.length) break;
+                await sleep(backoff[attempt]);
+              }
+              core.info(
+                `PR #${number}: mergeability unknown after retries; ` +
+                  `leaving "${MANAGED.needsConflictResolution}" as it is.`,
+              );
+              return pr;
+            }
+
+            // The description is written by setCommitStatus in
+            // tools/review/src/post-review.script.ts: a success says "no
+            // blocking issues" or "N important finding(s)". A failure is a
+            // review that errored and a pending one a retargeted PR, so
+            // neither is a verdict.
+            async function claudeVerdict(pr) {
+              const { data: statuses } = await github.rest.repos.listCommitStatusesForRef({
+                owner,
+                repo,
+                ref: pr.head.sha,
+                per_page: 100,
+              });
+              const latest = statuses.find((s) => s.context === "claude-review");
+              if (latest?.state !== "success") return null;
+              return /\d+ important finding\(s\)$/.test(latest.description ?? "")
+                ? "CHANGES_REQUESTED"
+                : "APPROVED";
+            }
+
+            // GitHub's review decision counts only reviewers with write access.
+            // The permission API, not author_association: GITHUB_TOKEN sees a
+            // member whose org membership is private as no MEMBER.
+            const writers = new Map();
+            async function canWrite(login) {
+              if (!writers.has(login)) {
+                let permission = "none";
+                try {
+                  ({ data: { permission } } = await github.rest.repos.getCollaboratorPermissionLevel({
+                    owner,
+                    repo,
+                    username: login,
+                  }));
+                } catch (e) {
+                  // A bot or removed account answers 404: no write access. Any
+                  // other error throws, uncached, so this PR keeps its labels:
+                  // counting it as no access would drop a writer's Changes
+                  // Requested and could label the PR Approved.
+                  if (e.status !== 404) throw e;
+                }
+                writers.set(login, permission === "admin" || permission === "write");
+              }
+              return writers.get(login);
+            }
+
+            async function reviewStateLabel(pr) {
+              const reviews = await github.paginate(github.rest.pulls.listReviews, {
+                owner,
+                repo,
+                pull_number: pr.number,
+                per_page: 100,
+              });
+              // A re-request is the author asking that reviewer to look again,
+              // so their earlier verdict no longer stands.
+              const reRequested = new Set((pr.requested_reviewers ?? []).map((u) => u.login));
+              const latest = new Map();
+              for (const r of reviews) {
+                if (!r.user || r.user.login === pr.user.login) continue;
+                if (r.state === "COMMENTED" || r.state === "PENDING") continue;
+                latest.set(r.user.login, r.state);
+              }
+              const verdicts = [];
+              for (const [login, state] of latest) {
+                if (reRequested.has(login) || state === "DISMISSED") continue;
+                if (await canWrite(login)) verdicts.push(state);
+              }
+              const claude = await claudeVerdict(pr);
+              if (claude) verdicts.push(claude);
+              if (verdicts.includes("CHANGES_REQUESTED")) return MANAGED.changesRequested;
+              if (verdicts.includes("APPROVED")) return MANAGED.approved;
+              return MANAGED.needsReview;
+            }
+
+            async function reconcile(number, backoff) {
+              const pr = await pollPullForMergeability(number, backoff);
+              // Labels on a merged or closed PR stay as its record.
+              if (pr.state !== "open") return;
+
+              const desired = new Set();
+              if (!pr.draft) {
+                desired.add(await reviewStateLabel(pr));
+                if (pr.mergeable === false) desired.add(MANAGED.needsConflictResolution);
+              }
+              // Read again just before writing: a sweep and a per-PR run share no
+              // concurrency group, so labels read with the PR may be stale, and
+              // a stale diff leaves two review labels.
+              const { data: fresh } = await github.rest.issues.listLabelsOnIssue({
+                owner,
+                repo,
+                issue_number: number,
+                per_page: 100,
+              });
+              const current = fresh.map((l) => l.name).filter((n) => MANAGED_NAMES.includes(n));
+              // Unknown mergeability keeps the conflict label rather than
+              // flapping it off and on across runs.
+              if (!pr.draft && pr.mergeable === null && current.includes(MANAGED.needsConflictResolution)) {
+                desired.add(MANAGED.needsConflictResolution);
+              }
+              const toAdd = [...desired].filter((n) => !current.includes(n));
+              const toRemove = current.filter((n) => !desired.has(n));
+              try {
+                if (toAdd.length) {
+                  await github.rest.issues.addLabels({ owner, repo, issue_number: number, labels: toAdd });
+                }
+                for (const name of toRemove) {
+                  try {
+                    await github.rest.issues.removeLabel({ owner, repo, issue_number: number, name });
+                  } catch (e) {
+                    // A concurrent run removed it first.
+                    if (e.status !== 404) throw e;
+                  }
+                }
+              } catch (e) {
+                // Only a per-PR event can carry a fork or Dependabot read-only
+                // token; elsewhere a 403 is a real failure, such as a rate limit.
+                if (e.status !== 403 || !context.payload.pull_request) throw e;
+                core.notice(`PR #${number}: read-only token (fork or Dependabot PR); labels left as they are.`);
+                return;
+              }
+              if (toAdd.length || toRemove.length) core.info(`PR #${number}: added [${toAdd.join(", ")}], removed [${toRemove.join(", ")}]`);
+            }
+
+            async function reconcileAll(numbers, backoff) {
+              // One failing PR must not abandon the rest.
+              let failures = 0;
+              for (const number of numbers) {
+                try {
+                  await reconcile(number, backoff);
+                } catch (e) {
+                  failures += 1;
+                  core.warning(`PR #${number}: ${e.message}`);
+                }
+              }
+              if (failures) core.setFailed(`${failures} of ${numbers.length} PRs failed to reconcile.`);
+            }
+
+            async function sweep() {
+              // Oldest first, so the longest-lived (most likely conflicted) PRs
+              // are not starved when a run is cut short.
+              const prs = await github.paginate(github.rest.pulls.list, {
+                owner,
+                repo,
+                state: "open",
+                direction: "asc",
+                per_page: 100,
+              });
+              await reconcileAll(
+                prs.map((p) => p.number),
+                SWEEP_BACKOFF_MS,
+              );
+            }
+
+            const reviewRunPrs = context.payload.workflow_run?.pull_requests.map((p) => p.number) ?? [];
+            if (context.payload.pull_request) {
+              await reconcile(context.payload.pull_request.number, PER_PR_BACKOFF_MS);
+            } else if (reviewRunPrs.length) {
+              await reconcileAll(reviewRunPrs, PER_PR_BACKOFF_MS);
+            } else {
+              // A push to main, the schedule, or a review requested by PR
+              // comment: that run starts from main, so it names no PR.
+              await sweep();
+            }
