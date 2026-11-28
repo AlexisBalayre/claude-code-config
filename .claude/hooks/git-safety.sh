@@ -5,7 +5,28 @@
 set -euo pipefail
 
 INPUT=$(cat)
-COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
+if command -v jq >/dev/null 2>&1; then
+  # jq exits 5 on a payload it cannot parse, which Claude Code treats as a
+  # non-blocking error: only exit 2 stops the command.
+  COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty') || {
+    echo "BLOCKED: git-safety could not read the hook payload." >&2
+    exit 2
+  }
+else
+  # The rules anchor on the command's end, so the command is cut out of the raw
+  # payload: with every escaped pair set aside, a `"` can only open or close a JSON
+  # string, and each becomes a line break.
+  nl=$'\n' tab=$'\t' mark=$'\x01' quote="'" backslash='\'
+  COMMAND=${INPUT//\\\\/$mark}
+  COMMAND=${COMMAND//\\\"/$quote}
+  COMMAND=${COMMAND//\"/$nl}
+  COMMAND=${COMMAND#*"${nl}command$nl:"}
+  COMMAND=${COMMAND#*"$nl"}
+  COMMAND=${COMMAND%%"$nl"*}
+  COMMAND=${COMMAND//\\n/$nl}
+  COMMAND=${COMMAND//\\t/$tab}
+  COMMAND=${COMMAND//$mark/$backslash}
+fi
 
 # If there's no command, don't block.
 if [ -z "$COMMAND" ]; then
