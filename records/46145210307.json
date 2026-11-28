@@ -1,0 +1,84 @@
+{
+  "schema_version": 6,
+  "timestamp": "2026-11-28T12:34:42.550Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "46145210307",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/46145210307",
+  "actor": "AlexisBalayre",
+  "commit_sha": "e7f9c0b4f894ff4ddfa316805014d67d021ab65e",
+  "source": "pr",
+  "pr_number": 73,
+  "action": "review",
+  "reviewers_spawned": [
+    "correctness",
+    "conventions",
+    "docs"
+  ],
+  "reviewers_returned": [
+    "correctness",
+    "conventions",
+    "docs"
+  ],
+  "reviewers_skipped": [
+    "security",
+    "context",
+    "maintainability",
+    "spec"
+  ],
+  "review_mode": "incremental",
+  "incremental_from_sha": "af1d43bfd4bed189bba410899f2f153548bb24fc",
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [],
+  "findings": [
+    {
+      "file": "scripts/check-agent-config.sh",
+      "line": "3",
+      "area": "docs",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "The header comment still says the full harness set runs when \"any file under scripts/, tests/ or .github/workflows/\" changes, but line 30 now only matches `scripts/* | tests/scripts/* | tests/hooks/* | .github/workflows/*`, so a change like `tests/unit/test_x.py` (the new test case) runs no harness. Change it to \"scripts/, tests/scripts/, tests/hooks/ or .github/workflows/\".",
+      "body": null,
+      "suggestion": null
+    }
+  ],
+  "refuted_findings": [],
+  "process_issues": [
+    {
+      "component": "platform",
+      "description": "`git show origin/ci/review-metrics:records/46144549165.json` failed in the Bash sandbox (`bwrap: Can't get type of source .../.git/config.worktree.lock: No such file or directory`). The prior round's importants were read from its posted review body instead (via `gh pr view 73 --json reviews`), which says \"No blocking issues found\", so prior_importants is empty."
+    }
+  ],
+  "comments_posted_actual": 0,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 0.7112719,
+  "duration_ms": 59695,
+  "num_turns": 11,
+  "tokens": {
+    "input": 9,
+    "output": 4919,
+    "cache_read": 194604,
+    "cache_creation": 34520,
+    "total": 234052
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 20,
+      "output": 7439,
+      "cache_read": 281231,
+      "cache_creation": 61628,
+      "cost_usd": 0.6168062000000001
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 10,
+      "output": 1758,
+      "cache_read": 59457,
+      "cache_creation": 28368,
+      "cost_usd": 0.0944657
+    }
+  ],
+  "permission_denials": []
+}
