@@ -86,6 +86,9 @@ struct ApiWord {
     bare: Vec<u8>,
     rewritten: bool,
     redirect_target: bool,
+    // These two hold for the whole call: a read of a ref or a file is routine, a write is not.
+    sends: bool,
+    ref_path: bool,
 }
 
 impl ApiWord {
@@ -127,6 +130,21 @@ impl ApiWord {
                     .any(|rest| !rest.first().is_some_and(|&c| is_word(c)))
         });
         let lower = word.to_ascii_lowercase();
+        self.sends |= ["--method", "--field", "--raw-field"]
+            .iter()
+            .any(|flag| word.starts_with(flag.as_bytes()))
+            || word.starts_with(b"-")
+                && !word.starts_with(b"--")
+                && word.iter().any(|c| b"XfF".contains(c));
+        self.ref_path |= [
+            &b"/git/refs"[..],
+            b"/contents",
+            b"/update-branch",
+            b"/rename",
+            b"/autofix/commits",
+        ]
+        .iter()
+        .any(|path| after(&lower, path).next().is_some());
         let merges = lower
             .strip_prefix(b"--input")
             .is_some_and(|rest| matches!(rest.first(), None | Some(b'=')))
@@ -143,6 +161,13 @@ impl ApiWord {
                 b"mergebranch",
                 b"enablepullrequestautomerge",
                 b"enqueuepullrequest",
+                b"updatepullrequestbranch",
+                b"createref",
+                b"updateref",
+                b"deleteref",
+                b"createcommitonbranch",
+                b"createlinkedbranch",
+                b"revertpullrequest",
             ]
             .iter()
             .any(|mutation| after(&lower, mutation).next().is_some());
@@ -151,8 +176,8 @@ impl ApiWord {
 }
 
 /// Reads a `gh api` call word by word to the end of its command: a merge path or mutation, a
-/// body from a file and anything the shell or `gh` would rewrite fail it, and so does a `(`,
-/// which zsh globs rewrite a word with.
+/// write to a ref or a file, a body from a file and anything the shell or `gh` would rewrite
+/// fail it, and so does a `(`, which zsh globs rewrite a word with.
 fn api_ok(text: &[u8]) -> bool {
     let mut arg = ApiWord::default();
     let mut at = 0;
@@ -215,7 +240,7 @@ fn api_ok(text: &[u8]) -> bool {
             }
         }
     }
-    text.get(at) != Some(&b'(') && arg.take()
+    text.get(at) != Some(&b'(') && arg.take() && !(arg.sends && arg.ref_path)
 }
 
 /// `auth status`, with nothing after it but `2>&1`, to the end of its command.
@@ -610,7 +635,7 @@ pub fn run() {
 
     // The scan reads the command with the newline a here-string ends it with.
     if gh_spelt(command.as_bytes()) && !gh_calls_ok(format!("{command}\n").as_bytes()) {
-        ask("a gh call that can merge or print the token needs the user's go, and so does a gh shape the gate does not list, a mention in text included.");
+        ask("a gh call that can merge, write a ref or print the token needs the user's go, and so does a gh shape the gate does not list, a mention in text included.");
     }
 
     // A push this misses runs unprompted under the settings' git allow rules, and aliases
@@ -628,6 +653,13 @@ pub fn run() {
     if std::env::set_current_dir(if cwd.is_empty() { "." } else { cwd }).is_err() || remapped(path)
     {
         ask(&format!("origin's config (remote.origin.push or mirror, push.default upstream or tracking, or a legacy remotes/ or branches/ file) can send '{branch}' to another ref, so it needs the user's go."));
+    }
+
+    // git resolves the word as rev-parse does and pushes to the ref it finds: the target of a
+    // symbolic ref, a tag, or the branch `heads/<name>` spells.
+    let full = format!("refs/heads/{branch}");
+    if git(path, &["rev-parse", "--symbolic-full-name", branch]).as_deref() != Some(&full) {
+        ask(&format!("'{branch}' is not the local branch {full} (a symbolic ref, a tag, another spelling of a branch, or no ref at all), so the push can land on another ref and needs the user's go."));
     }
 
     // The lead lists `<branch> <push url> ...` for a branch whose Design or Approach the user
@@ -652,14 +684,29 @@ pub fn run() {
     // The push goes to every push URL of origin (pushurl, pushInsteadOf), which can differ from
     // the fetch URL a plain `ls-remote origin` reads, so more than one asks. A
     // <transport>::<address> URL runs git-remote-<transport> from PATH, so it asks too.
+    // The agent sets that URL and the probe runs outside the sandbox, so a probe of any URL
+    // would carry what the URL holds to any host: it reaches only a URL the user's settings
+    // `env` lists, whole or by a prefix that ends the host: `/`, or `:` in the scp form alone,
+    // since in a URL `host:` is followed by a port. What follows the prefix is plain path
+    // characters, since git reads a later `@[host]` as the host and ssh takes the last `@`.
+    let probed = std::env::var("PUSH_GATE_REMOTES").unwrap_or_default();
     let listed =
         git(path, &["remote", "get-url", "--push", "--all", "origin"]).is_some_and(|url| {
             !url.contains('\n')
                 && !url.contains("::")
-                && (!trusted.is_empty() && url == trusted || on_remote(&url, branch, start))
+                && (!trusted.is_empty() && url == trusted
+                    || probed.split_ascii_whitespace().any(|entry| {
+                        url == entry
+                            || (entry.ends_with('/')
+                                || entry.ends_with(':') && !entry.contains("://"))
+                                && url.strip_prefix(entry).is_some_and(|rest| {
+                                    rest.bytes()
+                                        .all(|c| c.is_ascii_alphanumeric() || b"._/-".contains(&c))
+                                })
+                    }) && on_remote(&url, branch, start))
         });
     if !listed {
-        ask(&format!("'{branch}' is not on origin's push URL (a first push, a push after merge, several push URLs, a listing for another push URL, or origin unreachable or slow), so it needs the user's go."));
+        ask(&format!("'{branch}' is not on origin's push URL (a first push, a push after merge, several push URLs, a push URL neither the plans nor PUSH_GATE_REMOTES list, or origin unreachable or slow), so it needs the user's go."));
     }
 }
 
