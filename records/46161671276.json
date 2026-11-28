@@ -1,0 +1,237 @@
+{
+  "schema_version": 7,
+  "timestamp": "2026-11-28T15:53:53.271Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "46161671276",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/46161671276",
+  "actor": "AlexisBalayre",
+  "commit_sha": "0b978776fc4e5e6a116e75f27b0f30b06c0a4813",
+  "source": "pr",
+  "pr_number": 83,
+  "action": "review",
+  "reviewers_spawned": [
+    "correctness",
+    "correctness",
+    "correctness",
+    "security",
+    "security",
+    "qa",
+    "quality",
+    "simplicity"
+  ],
+  "reviewers_returned": [
+    "correctness",
+    "correctness",
+    "correctness",
+    "security",
+    "security",
+    "qa",
+    "quality",
+    "simplicity"
+  ],
+  "reviewers_skipped": [
+    "perf",
+    "requirements"
+  ],
+  "review_mode": "full",
+  "incremental_from_sha": null,
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [],
+  "findings": [
+    {
+      "file": "tools/hooks-rs/src/convention_spot_check.rs",
+      "line": "76-79",
+      "area": "qa",
+      "confidence": "high",
+      "tag": "important",
+      "description": "Test adequacy: no test has a changed file whose path matches a rule but whose content does not, so dropping the content regex (warn whenever the path matches) passes the whole suite.",
+      "body": "**Test adequacy: the content filter is never exercised.**\n\nMutant: replace `path.is_match(&file) && text.split_terminator('\\n').any(|line| content.is_match(line))` with `path.is_match(&file)`. Every test in `tools/hooks-rs/tests/convention_spot_check.rs` still passes.\n\nWhy no test catches it: every dirty file that matches a rule's path regex also contains `forbidden_call`. That covers `src/new.ts`, `src/a.ts` (modified) and `src/staged.ts`; `lib/out.ts` matches the `^lib/` rule's content as well. The non-violating `src/` files are never changed, so they never reach the check. Half of the hook's contract (warn only when the content matches) is untested. `tests/hooks/stop-hooks.test.sh` runs the shell hook, not the binary, so it does not cover this either.\n\nA test along these lines would catch it (adjust it to the file's `Fixture` API):\n\n```rust\n#[test]\nfn file_matching_the_path_but_not_the_content_is_silent() {\n    let fixture = Fixture::new(\"content-miss\");\n    write(&fixture.repo.join(\"src/new.ts\"), \"allowed_call(1);\\n\");\n    assert_silent(&fixture.spot_check(\"{}\"));\n}\n```\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/0b978776fc4e5e6a116e75f27b0f30b06c0a4813/tools/hooks-rs/src/convention_spot_check.rs#L75-L80",
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/quality_checks.rs",
+      "line": "80",
+      "area": "qa",
+      "confidence": "high",
+      "tag": "important",
+      "description": "Test adequacy: no quality-checks test deletes a tracked source file, so removing the `Path::new(file).is_file()` filter (which would hand the deleted path to the lint) passes the suite.",
+      "body": "**Test adequacy: the deleted-file filter is untested.**\n\nMutant: drop `&& Path::new(file).is_file()` from the `dirty` filter. A deleted tracked file still shows up in `git diff --name-only`, so the formatter and the lint would get a path that no longer exists, and every test in `tools/hooks-rs/tests/quality_checks.rs` would still pass.\n\nWhy no test catches it: the suite covers modified, untracked, staged and clean-tree cases. `no_dirty_source_file_runs_nothing` removes `wt/b.ts`, but that file is untracked, so git never lists it. The only committed source, `a.ts`, is never deleted.\n\nA test along these lines would catch it (adjust it to the file's `Fixture` API):\n\n```rust\n#[test]\nfn deleted_tracked_source_is_not_passed_to_the_tools() {\n    let fixture = Fixture::new(\"deleted\");\n    std::fs::remove_file(fixture.wt.join(\"a.ts\")).expect(\"delete the tracked file\");\n    let log = fixture.log_after(&stop(&fixture.wt));\n    let want = format!(\"{} stub lint b.ts\", fixture.wt.display());\n    assert!(has_line(&log, &want), \"want {want:?} in {log:?}\");\n}\n```\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/0b978776fc4e5e6a116e75f27b0f30b06c0a4813/tools/hooks-rs/src/quality_checks.rs#L74-L81",
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/comment_pruner.rs",
+      "line": "167-169",
+      "area": "correctness",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "The Rust check tells the agent to seal with `.claude/hooks/comment-pruner.sh seal`, but that script writes SHA-256 hashes while the Rust check reads raw comment text. Once settings.json runs `claude-hooks comment-pruner`, the seal it asks for can never match, so the same comments re-dispatch the pruner every turn until a commit. stop_hook_active only limits this to one dispatch per Stop cycle. Nothing is rewired in this PR, so this cannot happen yet; the message (and the test that checks it, tests/comment_pruner.rs:45) needs to point at the binary's own seal by the time it is wired.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/comment_pruner.rs",
+      "line": "125",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The port drops the shell's `[ -f \"$f\" ]` check on untracked files. An untracked symlink with a source extension pointing at `/dev/zero`, `/dev/urandom` or a FIFO makes the unsandboxed Stop hook read without limit (memory exhaustion) or hang until the hook timeout. The shell version skipped non-regular targets.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/comment_pruner.rs",
+      "line": "124-126",
+      "area": "correctness",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "Untracked files are appended with no separator (`added.extend(std::fs::read(file)...)`), so a file with no trailing newline joins its last line to the next file's first line. A sealed trailing comment can then come back as 'new' when only the other file is edited, causing one spurious dispatch (the shell's `cat` loop behaves the same).",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/convention_spot_check.rs",
+      "line": "55-58",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The shell hook matched a rule's content field with GNU `grep -E`, which treats an unescaped `{` that cannot start a valid interval as a literal. regex-lite rejects it, and `Regex::new(content).ok()?` then drops the whole rule with no message. A `spot-checks.tsv` rule written to the file's documented \"content ERE (grep -E)\" contract, such as `catch[[:space:]]*\\(.*\\)[[:space:]]*{[[:space:]]*}`, fired under the shell hook and silently never fires under the port. Either escape a `{` that is not followed by a digit, or state in the TSV header that patterns use regex-lite syntax.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/tests/convention_spot_check.rs",
+      "line": "107",
+      "area": "qa",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The deleted `src/gone.ts` holds no violation, so the test's claim that a deleted file is skipped cannot fail (the `is_file` guard in convention_spot_check.rs line 70 is untested).",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/quality_checks.rs",
+      "line": "11",
+      "area": "qa",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The new `xargs` emulation has no test: batching at 5000 files or 128 KiB, a failure in one batch not stopping later ones, the 255 abort, and the both-commands-empty early return are all untouched.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/tests/quality_checks.rs",
+      "line": "22-26",
+      "area": "simplicity",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "The new `script()` helper is identical to the existing `common::executable` (write the file, then chmod 0o755). Delete it, call `executable` at its 2 call sites (L58, L199), and drop the `PermissionsExt` import. -6 +0.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/tests/quality_checks.rs",
+      "line": "77-80, 202-206",
+      "area": "simplicity",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "`Fixture::path_with` re-implements the existing `common::path_with`, and the old-git test stacks a second hand-built `format!` PATH on top of it. Use `common::path_with` in both places. About -9 +2.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/tests/post_compact_state.rs",
+      "line": "33-35",
+      "area": "simplicity",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "`write` followed by `set_permissions(0o755)` is what `common::executable` already does. Call it instead and drop `PermissionsExt` from the imports. -3 +1.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/tests/quality_checks.rs",
+      "line": "228-249",
+      "area": "simplicity",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "`failing_lint_exits_2_with_at_most_40_output_lines` and `failing_lint_prints_the_last_40_lines_then_the_verdict` run the same failing-lint path. The second already pins stderr exactly (lines 161-200 plus the verdict), which implies \"at most 40\". Keep the second, add its missing exit-code check, and delete the first. -12 +1.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/tests/comment_pruner.rs",
+      "line": "127",
+      "area": "simplicity",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "`format!(\"{}{}\", out.stdout, out.stderr)` re-implements the existing `Output::text()` in `tests/common/mod.rs`; the same pattern sits in tests/convention_spot_check.rs:65 and tests/post_compact_state.rs:167, and the two `assert_silent` copies are byte-identical. Use `out.text()`; optionally move `assert_silent` into `common` (about -4).",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/convention_spot_check.rs",
+      "line": "37-42",
+      "area": "simplicity",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The `is_check` pre-scan repeats the comment and blank filtering that the `rules` parse (L45-61) already does. Parse first, then return when `rules.is_empty() || stop_hook_active()`. About -3 +1.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/comment_pruner.rs",
+      "line": "95, 99, 108-112",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "pre-existing",
+      "description": "The unsandboxed comment-pruner Stop hook runs a porcelain `git diff HEAD --unified=0` without `--no-ext-diff`/`--no-textconv` (as `check_dashes.rs` already passes), so a `diff.external` or textconv driver from the checkout's git config runs outside the sandbox; the index reads at L95/L99 can also run fsmonitor. The shell original does the same.",
+      "body": null,
+      "suggestion": null
+    }
+  ],
+  "refuted_findings": [],
+  "process_issues": [
+    {
+      "component": "quality",
+      "description": "review-quality reported reading only session.rs and the four new src modules: it did not read the new test files against docs/conventions/testing.md and did not list or read docs/adr/, so test-file convention and ADR conformance went unaudited this round."
+    }
+  ],
+  "comments_posted_actual": 2,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 4.4009367,
+  "duration_ms": 369127,
+  "num_turns": 17,
+  "tokens": {
+    "input": 16,
+    "output": 17711,
+    "cache_read": 333465,
+    "cache_creation": 69608,
+    "total": 420800
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 142,
+      "output": 97518,
+      "cache_read": 1658714,
+      "cache_creation": 315669,
+      "cost_usd": 4.0698398
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 36,
+      "output": 9182,
+      "cache_read": 226699,
+      "cache_creation": 86614,
+      "cost_usd": 0.33109689999999997
+    }
+  ],
+  "permission_denials": [
+    {
+      "tool": "Glob",
+      "input": "{\"pattern\":\"/home/runner/.cargo/registry/src/*/regex-lite-*/src/*.rs\"}"
+    }
+  ]
+}
