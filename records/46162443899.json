@@ -1,0 +1,78 @@
+{
+  "schema_version": 7,
+  "timestamp": "2026-11-28T15:57:51.261Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "46162443899",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/46162443899",
+  "actor": "AlexisBalayre",
+  "commit_sha": "4cb2092e22e6de6a56e1ae74928e3477147b421b",
+  "source": "pr",
+  "pr_number": 83,
+  "action": "review",
+  "reviewers_spawned": [
+    "qa",
+    "quality"
+  ],
+  "reviewers_returned": [
+    "qa",
+    "quality"
+  ],
+  "reviewers_skipped": [
+    "correctness",
+    "security",
+    "perf",
+    "simplicity",
+    "requirements"
+  ],
+  "review_mode": "incremental",
+  "incremental_from_sha": "0b978776fc4e5e6a116e75f27b0f30b06c0a4813",
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [
+    {
+      "file": "tools/hooks-rs/src/convention_spot_check.rs",
+      "line": "76-79",
+      "status": "resolved"
+    },
+    {
+      "file": "tools/hooks-rs/src/quality_checks.rs",
+      "line": "80",
+      "status": "resolved"
+    }
+  ],
+  "findings": [],
+  "refuted_findings": [],
+  "process_issues": [],
+  "comments_posted_actual": 0,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 0.5493278,
+  "duration_ms": 53324,
+  "num_turns": 11,
+  "tokens": {
+    "input": 12,
+    "output": 4063,
+    "cache_read": 251754,
+    "cache_creation": 39059,
+    "total": 294888
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 12,
+      "output": 4063,
+      "cache_read": 251754,
+      "cache_creation": 39059,
+      "cost_usd": 0.4441308
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 18,
+      "output": 2406,
+      "cache_read": 61835,
+      "cache_creation": 29967,
+      "cost_usd": 0.105197
+    }
+  ],
+  "permission_denials": []
+}
