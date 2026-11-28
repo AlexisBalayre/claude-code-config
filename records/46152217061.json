@@ -1,0 +1,141 @@
+{
+  "schema_version": 7,
+  "timestamp": "2026-11-28T14:02:03.956Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "46152217061",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/46152217061",
+  "actor": "AlexisBalayre",
+  "commit_sha": "45c01595b830832d8e07a518f0c5403d0177c266",
+  "source": "pr",
+  "pr_number": 79,
+  "action": "review",
+  "reviewers_spawned": [
+    "correctness",
+    "security",
+    "qa",
+    "quality"
+  ],
+  "reviewers_returned": [
+    "correctness",
+    "security",
+    "qa",
+    "quality"
+  ],
+  "reviewers_skipped": [
+    "perf",
+    "simplicity",
+    "requirements"
+  ],
+  "review_mode": "incremental",
+  "incremental_from_sha": "7f07fccaba12436cea9a529ba2c20ab01db4e443",
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [
+    {
+      "file": ".claude/hooks/git-safety.sh",
+      "line": "15-18, 62, 68",
+      "status": "resolved"
+    }
+  ],
+  "findings": [
+    {
+      "file": ".claude/hooks/git-safety.sh",
+      "line": "26",
+      "area": "qa",
+      "confidence": "high",
+      "tag": "important",
+      "description": "Test adequacy: no test fails if `COMMAND=${COMMAND//\\\\n/$nl}` is deleted.",
+      "body": "**Test adequacy: nothing pins the `\\n` decode in the no-jq branch.**\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/45c01595b830832d8e07a518f0c5403d0177c266/.claude/hooks/git-safety.sh#L26-L26\n\n```bash\nCOMMAND=${COMMAND//\\\\n/$nl}\n```\n\nNo payload in `tests/hooks/git-safety.test.sh` contains a JSON `\\n`. The force-push and `reset --hard` rules are substring matches, and the escaped-tab case (L40-41) only exercises the `\\t` line. So deleting this line leaves the whole suite green.\n\nThis line matters. It is the only thing that lets an end-anchored rule see a line break inside a multi-line command. Without it, `{\"tool_input\":{\"command\":\"git push origin main\\nls\"}}` leaves `git push origin main\\nls` with a literal backslash after `main`. The trunk rule needs `main` to be followed by a blank, the end of the line, or `[|&;]`, so it doesn't match and the hook exits 0. With jq, the same payload is blocked, because `jq -r` decodes the newline and `grep` matches line by line. The validator traced both paths and confirmed this.\n\n`docs/conventions/testing.md` §Principles: \"A bug fix lands with a regression test that fails without the fix.\"\n\n**Fix:** add a case to `tests/hooks/git-safety.test.sh` after L45:\n\n```bash\nexpect 2 'without jq, an escaped newline ends the line a rule anchors on' \"$T/bin\" \\\n  '{\"tool_input\":{\"command\":\"git push origin main\\nls\"}}'\n```",
+      "suggestion": null
+    },
+    {
+      "file": "tests/hooks/git-safety.test.sh",
+      "line": "34-45",
+      "area": "qa",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "Every no-jq payload puts `tool_input` first, so the `${nl}command$nl:` strip never runs on the real Claude Code shape (session_id, cwd, tool_name… before tool_input). Changes to the prefix handling, such as swapping `#*` for `##*`, would go unnoticed. Add a case such as `'{\"session_id\":\"a\\\"b\",\"cwd\":\"C:\\\\x\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git push origin main\"}}'` expecting 2.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tests/hooks/git-safety.test.sh",
+      "line": "46-51",
+      "area": "qa",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "The bare-push case only checks that `git push` on the trunk blocks. Nothing checks that a bare `git push` on a feature branch passes, so a change that blocked every bare push would leave the suite green. Add the same subshell case in a repo created with `git init -q -b feature/x`, expecting exit 0.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/hooks/git-safety.sh",
+      "line": "20, 28",
+      "area": "qa",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "No no-jq payload contains an escaped backslash (`\\\\`), so deleting the mark-and-restore steps (L20 and L28) passes the suite. No exit-code difference was found under today's rules, so this is an unpinned edge, not a defect. A case like `\"command\":\"echo C:\\\\\\\\\"` expecting 0 would pin it, and so would a payload with no `command` key.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/hooks/git-safety.sh",
+      "line": "16-18",
+      "area": "quality",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The new comment says \"with every escaped pair set aside\", but only `\\\\` and `\\\"` are set aside (`\\n` and `\\t` are decoded afterwards), and it doesn't say that an escaped quote becomes `'`. Suggested wording: \"with escaped backslashes and quotes set aside (an escaped quote becomes `'`)\".",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/hooks/git-safety.sh",
+      "line": "72",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "pre-existing",
+      "description": "The push-to-trunk rule doesn't catch a quoted refspec such as `git push origin \"main\"`. With jq the `\"` remains, and without jq it becomes `'`, and neither fits the rule's optional `src:` / `refs/heads/` prefix. The gap comes from the regex, not this delta.",
+      "body": null,
+      "suggestion": null
+    }
+  ],
+  "refuted_findings": [],
+  "process_issues": [
+    {
+      "component": "quality",
+      "description": "The quality reviewer did not read `docs/conventions/core.md` or the `ci-and-agent-config` skill checklist, so its convention checks used only the injected `testing.md`. Coverage of core.md's comment and Altitude clauses on this 31-line delta relies on its own judgment, not quoted text."
+    }
+  ],
+  "comments_posted_actual": 1,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 1.4042029999999999,
+  "duration_ms": 198562,
+  "num_turns": 13,
+  "tokens": {
+    "input": 16,
+    "output": 9990,
+    "cache_read": 344490,
+    "cache_creation": 50801,
+    "total": 405297
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 28,
+      "output": 25761,
+      "cache_read": 406240,
+      "cache_creation": 86036,
+      "cost_usd": 1.179163
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 20,
+      "output": 12061,
+      "cache_read": 58200,
+      "cache_creation": 39428,
+      "cost_usd": 0.22503999999999996
+    }
+  ],
+  "permission_denials": []
+}
