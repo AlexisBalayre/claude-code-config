@@ -181,7 +181,7 @@ Shell scripts that run outside the LLM loop on lifecycle events. Zero context co
 
 A `Stop` hook's exit-0 output never reaches the model, so an advisory `Stop` hook does nothing: block or stay silent. Each `Stop` block costs a turn, and consecutive blocks are capped. `"onFailure": "block"` in `settings.json` makes a hook's crash or timeout block instead of pass.
 
-**Project profile:** hooks never hardcode a toolchain. They source `.claude/project.env` (committed), and an empty key turns its check off. `.env` (gitignored) is only for personal-integration skills.
+**Project profile:** hooks never hardcode a toolchain. They source `.claude/project.env` (committed), and an empty key turns its check off. `.env` (gitignored) holds personal keys such as `TRACKER_ISSUE_PREFIX`, which `pr-description` reads.
 
 **When to add a hook:** For deterministic checks that should always run. If it doesn't need LLM reasoning, it's a hook.
 

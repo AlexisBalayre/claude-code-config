@@ -5,7 +5,7 @@ description: Checklist for a change to `.github/workflows/`, `.claude/hooks/`, `
 
 # CI and agent-config changes
 
-Follow-up fixes on CI, hook and shell PRs fall into three classes: a command shape the parser missed, a macOS against ubuntu difference, and runner state only a live run shows. `scripts/check-agent-config.sh` runs `bash -n` and the shell harnesses in CI (all of them) and in `scripts/verify.sh` (the ones the change can affect). This skill covers the three classes that check cannot see. Work through each section the change touches.
+Follow-up fixes on CI, hook and shell PRs fall into three classes: a command shape the parser missed, a macOS against ubuntu difference, and runner state only a live run shows. `scripts/check-agent-config.sh` runs `bash -n` and the shell harnesses the change can affect from `scripts/verify.sh`; no CI job runs them, so that local gate is the only one. This skill covers the three classes that check cannot see. Work through each section the change touches.
 
 ## 1. Harness case first
 
@@ -47,6 +47,6 @@ Done when the job log shows each changed step doing its work, rather than only a
 
 ## 4. Hooks and settings
 
-Edit hook scripts in your worktree. `.claude/settings*.json` is the user's: the Edit and Write tools are denied on it, so hand the user the exact change. The user reviews the diff on the PR before merge. Change the harnesses beside the hooks with them, and the row of the hook table in `.claude/README.md` whose behaviour the change moves.
+Edit hook scripts in your worktree. `.claude/settings*.json` is the user's: the Edit and Write tools are denied on it, so hand the user the exact change. The user reviews the diff on the PR before merge. Change the harnesses in `tests/hooks/` with them, and the row of the hook tables in `.claude/README.md` and `.claude/hooks/README.md` whose behaviour the change moves.
 
 Done when the harnesses pass and the README row matches the new behaviour.

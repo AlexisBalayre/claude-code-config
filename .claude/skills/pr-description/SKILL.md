@@ -69,12 +69,12 @@ When a schema definition or a migration changed, add one line per migration file
    ```sh
    git fetch origin <trunk>
    git branch --show-current                                   # MUST NOT be the trunk; abort if it is
-   git log origin/main..HEAD --pretty=format:'%h %s%n%b'       # commits on this branch
-   git diff origin/main...HEAD --stat                          # changed files + churn
+   git log origin/<trunk>..HEAD --pretty=format:'%h %s%n%b'    # commits on this branch
+   git diff origin/<trunk>...HEAD --stat                       # changed files + churn
    gh pr view --json number,url,state,title,body 2>/dev/null   # non-zero exit = no PR yet
    ```
 
-   Read the diff for the key files (`git diff origin/main...HEAD -- <path>`); on large diffs lean on `--stat` plus the important files. Generated files (`GENERATED_PATHS_REGEX` in `.claude/project.env`) can dwarf the change: report the code churn without them.
+   Read the diff for the key files (`git diff origin/<trunk>...HEAD -- <path>`); on large diffs lean on `--stat` plus the important files. Generated files (`GENERATED_PATHS_REGEX` in `.claude/project.env`) can dwarf the change: report the code churn without them.
 
 2. **Ground in the tracker (read-only).** Grep branch + commit subjects for `<KEY>-\d+`. If found, fetch the issue and its parent with `mcp__linear-server__get_issue` for its Goal, its `## Done when` items (the PR's `## Done` copies them), the canonical link, and whether this merge finishes the ticket. NEVER call any `save_*` tool. No id: derive from diff + commits.
 

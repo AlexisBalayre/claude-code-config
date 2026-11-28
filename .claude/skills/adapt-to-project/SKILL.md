@@ -29,7 +29,7 @@ Delegate to an `Explore` subagent on a large repo so file dumps stay out of cont
 
 ## 3. Confirm the profile
 
-Present in one message: the detected stack, the proposed `.claude/project.env` values, the list of areas with their path globs, and the questions the code could not answer (code owners, whether the automated PR review is wanted, which personal-integration tools are in use). Wait for answers before writing.
+Present in one message: the detected stack, the proposed `.claude/project.env` values, the list of areas with their path globs, and the questions the code could not answer (code owners, whether the automated PR review is wanted). Wait for answers before writing.
 
 ## 4. Project profile
 

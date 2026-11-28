@@ -61,8 +61,8 @@ isolation: worktree   # in an agent definition or Agent tool call
 ```
 
 The agent gets a temporary worktree, does its work, and the worktree is cleaned up if nothing
-changed. This pairs well with the `find-dead-code` rule of thumb: *open a worktree per
-category; do not bundle unrelated removals into one PR.*
+changed. A rule of thumb for removals: *open a worktree per category; do not bundle unrelated
+removals into one PR.*
 
 ## Adapting it
 

@@ -43,4 +43,4 @@ claude plugin install mattpocock-skills@claude-plugins-official
 Two things differ from the plugin's defaults in a repo built from this template:
 
 - **Domain language.** The plugin's skills look for a `CONTEXT.md`. Here the vocabulary lives in `docs/glossary.md` and decisions in `docs/adr/`; tell the plugin's setup skill to use those paths.
-- **Tracker.** This template's skills read the `TRACKER_*` keys in `.env`. The plugin keeps its own tracker setting; point both at the same project.
+- **Tracker.** `pr-description` reads `TRACKER_ISSUE_PREFIX` from `.env`. The plugin keeps its own tracker setting; point both at the same project.
