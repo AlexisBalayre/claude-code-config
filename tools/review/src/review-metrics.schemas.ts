@@ -15,11 +15,11 @@ import { z } from "zod";
 export const REVIEWER_AREAS = [
   "correctness",
   "security",
-  "conventions",
-  "context",
-  "maintainability",
-  "docs",
-  "spec",
+  "qa",
+  "perf",
+  "quality",
+  "simplicity",
+  "requirements",
 ] as const;
 
 export const reviewerAreaSchema = z.enum(REVIEWER_AREAS);
@@ -32,11 +32,11 @@ const confidenceSchema = z.enum(["high", "medium"]);
 const processComponentSchema = z.enum([
   "correctness",
   "security",
-  "conventions",
-  "context",
-  "maintainability",
-  "docs",
-  "spec",
+  "qa",
+  "perf",
+  "quality",
+  "simplicity",
+  "requirements",
   "consolidator",
   "validator",
   "orchestrator",

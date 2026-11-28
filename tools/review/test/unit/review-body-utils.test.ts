@@ -20,11 +20,11 @@ function summary(overrides: Partial<ReviewSummary> = {}): ReviewSummary {
   const spawned: ReviewSummary["reviewers_spawned"] = overrides.reviewers_spawned ?? [
     "correctness",
     "security",
-    "conventions",
-    "context",
-    "maintainability",
-    "docs",
-    "spec",
+    "qa",
+    "perf",
+    "quality",
+    "simplicity",
+    "requirements",
   ];
   return {
     reviewers_spawned: spawned,
@@ -254,14 +254,14 @@ describe("bodyLines", () => {
 
   it("keeps the plain clean-bill line when the record is empty", () => {
     expect(bodyLines(summary(), null, [], 0)).toEqual([
-      "No issues found. Checked correctness, security, conventions, context, maintainability, docs, spec.",
+      "No issues found. Checked correctness, security, qa, perf, quality, simplicity, requirements.",
     ]);
   });
 
   it("names the skipped areas", () => {
-    const rendered = bodyLines(summary({ reviewers_spawned: ["correctness", "docs"] }), null, [], 0).join("\n");
-    expect(rendered).toContain("Checked correctness, docs.");
-    expect(rendered).toContain("Skipped security, conventions, context, maintainability.");
+    const rendered = bodyLines(summary({ reviewers_spawned: ["correctness", "quality"] }), null, [], 0).join("\n");
+    expect(rendered).toContain("Checked correctness, quality.");
+    expect(rendered).toContain("Skipped security, qa, perf, simplicity.");
   });
 
   it("counts anchored importants and lists unanchored ones", () => {

@@ -1,12 +1,12 @@
 ---
 name: address-review-comments
-description: Analyze, decide on, challenge, and implement a PR's open review comments end to end, with a human in the loop. Use when addressing PR review feedback, responding to reviewer comments, or when the user says "address review comments".
-argument-hint: "[PR number — defaults to the current branch's PR]"
+description: Works a PR's open review comments end to end with the human deciding each call. Use when addressing a PR's review comments.
+argument-hint: "[PR number (defaults to the current branch's PR)]"
 ---
 
 # Address review comments
 
-Take the open review comments on a PR from "what is the reviewer really asking" through to an implemented, replied-to resolution. You steer; the human decides every judgment call. Handles every open thread, human or bot. Closed and resolved threads are context only.
+Take the open review comments on a PR from "what is the reviewer really asking" through to an implemented resolution. You steer; the human decides every judgment call. Handles every open thread, human or bot. Closed and resolved threads are context only.
 
 ## Process
 
@@ -14,12 +14,16 @@ Take the open review comments on a PR from "what is the reviewer really asking" 
 
 Resolve the PR (the argument, or the current branch's PR via `gh pr view`). Pull its open review threads through `gh` / the GraphQL API: each comment with its file, line, author, body, and thread state. Resolved threads are context, not work. Always read the **actual current code**, not your recollection of it; the user may have changed it.
 
+Done when every open thread is listed with its file, line, author and the current code it points at.
+
 ### 2. Triage
 
 Sort each open thread into:
 
-- **settled** — a pure mechanical fix, or the author already agreed an approach in-thread. Goes straight to implementation.
-- **needs a decision** — everything else.
+- **settled**: a pure mechanical fix, or the author already agreed an approach in-thread. Goes straight to implementation.
+- **needs a decision**: everything else.
+
+Done when every thread is settled or needs a decision.
 
 ### 3. Decide (no code yet)
 
@@ -30,26 +34,31 @@ For each *needs a decision* thread, investigate the reviewer's underlying concer
 
 No code is written in this phase. The goal is alignment. The validator and the grilling session inform the decision; **the user is the final authority** on every thread.
 
+Done when each needs-a-decision thread has its options and a recommendation.
+
 ### 4. Checkpoint
 
-If anything went through step 3, present a per-thread summary — the concern, the options considered, the decision reached, and the concrete change or an explicit "leave as-is" with rationale — and get the user's sign-off before implementing. When every thread was already settled, skip straight to implementation.
+If anything went through step 3, present a per-thread summary (the concern, the options considered, the decision reached, and the concrete change or an explicit "leave as-is" with rationale) and get the user's sign-off before implementing; in a worker, the summary goes to the user through the lead (`agent-workflow` §1 Approvals), and you implement on the relayed answer. When every thread was already settled, skip straight to implementation.
 
 ### 5. Implement
 
 Apply the agreed changes. Each fix targets only what its comment raised: no opportunistic cleanup, no unrelated refactors, no removing ticket-referenced TODOs. Note any tangential improvements separately in the summary and ask before touching them.
 
+Done when each agreed change is committed and nothing else changed.
+
 ### 6. Reply and resolve
 
-Ask the user whether to commit/push and whether to reply to the threads. Then, per thread, post a single reply and set its state:
+In a worker session, push per `agent-workflow` §4 and post only the replies `agent-workflow` §6 lists; that section also says which threads you resolve and which stay open for the user.
 
-- **Addressed by a change** → reply with the rationale and "Addressed in `<commit>`."; resolve the thread (GraphQL `resolveReviewThread`).
-- **Agreed, no change needed / confirmed correct** → a thumbs-up or short acknowledgement; resolve.
-- **Conceded challenge** (the finding was a false positive) → reply that it was retracted as a false positive and why; resolve.
-- **Leave-as-is** (intentional, out-of-scope, or a finding the user overrides after it was defended) → reply with the rationale but leave the thread **open**. Never unilaterally close a disagreement.
+In a solo or lead session, ask the user whether to commit/push. A bot thread gets no reply: the one post is REVIEW.md §2's code-evidence answer to an important the user challenges. A human reviewer's thread gets only the reply the user approves. After the push, set each thread's state:
+
+- **Addressed by a change**, or **agreed, no change needed**: resolve the thread (GraphQL `resolveReviewThread`).
+- **Conceded challenge** (the finding was a false positive): resolve; the user's 👎 on the bot's comment is the record (REVIEW.md §2).
+- **Leave-as-is** (intentional, out-of-scope, or a human reviewer's point the user overrides): leave the thread **open**; a disagreement stays open for the user to close. A blocking `important` (`.claude/skills/pr-ci-review/REVIEW.md` §2) is never left as-is: fix it, or challenge it (step 3); it stays open and blocking until it is fixed or the user rules it wrong, and later rounds still list it.
 
 ## Invariants
 
 - The user may change the code at any point; work from, and commit, the actual current state, not your recollection.
 - Only change what each comment asks for.
 - The human is the final authority on every thread; validators and grilling sessions inform, they do not decide.
-- A conceded challenge and a leave-as-is pushback are both signals the review retro will later read. Reply and (for concessions) resolve them honestly; do not scrub the disagreement record.
+- A conceded challenge and a leave-as-is pushback are both signals the review retro will later read. Handle them per step 6, honestly; do not scrub the disagreement record (the open thread, the user's 👎).

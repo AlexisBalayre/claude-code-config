@@ -135,8 +135,8 @@ describe("parseReviewRequest", () => {
     ["asks for a standard review of the gated areas by default", "@claude review", standard],
     [
       "reads full, a depth, and areas in any order",
-      "@claude review security deep full docs",
-      { full: true, depth: "deep", areas: ["security", "docs"] },
+      "@claude review security deep full quality",
+      { full: true, depth: "deep", areas: ["security", "quality"] },
     ],
     ["ignores case", "@Claude Review Quick Correctness", { ...standard, depth: "quick", areas: ["correctness"] }],
     [
@@ -150,7 +150,7 @@ describe("parseReviewRequest", () => {
     ["reads a keyword after a colon", "@claude review: quick", { ...standard, depth: "quick" }],
     ["stops at the first word that is not a keyword", "@claude review, thanks for the security fix", standard],
     ["keeps a hyphenated word whole", "@claude review security-related changes", standard],
-    ["takes spec as prose, not an area", "@claude review spec", standard],
+    ["takes requirements as prose, not an area", "@claude review requirements", standard],
     ["reads only the trigger's own line", "@claude review\nsecurity looks fine to me", standard],
     [
       "skips a trigger quoted from an earlier comment",

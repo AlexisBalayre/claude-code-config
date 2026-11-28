@@ -4,8 +4,8 @@ import { describe, expect, it } from "vitest";
 
 function summary(overrides: Partial<ReviewSummary> = {}): ReviewSummary {
   return {
-    reviewers_spawned: ["correctness", "correctness", "conventions"],
-    reviewers_returned: ["correctness", "correctness", "conventions"],
+    reviewers_spawned: ["correctness", "correctness", "quality"],
+    reviewers_returned: ["correctness", "correctness", "quality"],
     review_mode: "full",
     incremental_from_sha: null,
     prior_importants: [],
@@ -29,7 +29,7 @@ describe("incompleteReason", () => {
     expect(incompleteReason(summary({ reviewers_returned: [] }))).toBe(
       "Review incomplete: 0 of 3 reviewers returned; re-run",
     );
-    expect(incompleteReason(summary({ reviewers_returned: ["correctness", "conventions"] }))).toBe(
+    expect(incompleteReason(summary({ reviewers_returned: ["correctness", "quality"] }))).toBe(
       "Review incomplete: 2 of 3 reviewers returned; re-run",
     );
   });
@@ -50,7 +50,7 @@ describe("incompleteReason", () => {
 
   it.each([
     "Security and context reviewers were deliberately skipped: the change is eval tooling plus three docs, and touches no trust boundary or spec/protocol/infra surface.",
-    "review-context was not spawned. The spec, protocol and infra surface of the change is limited to one data-only migration and its journal entry, and correctness was briefed to cover migration safety and the rollout window.",
+    "review-quality was not spawned. The spec, protocol and infra surface of the change is limited to one data-only migration and its journal entry, and correctness was briefed to cover migration safety and the rollout window.",
   ])("ignores orchestrator notes that are not an admission: %s", (description) => {
     expect(incompleteReason(summary({ process_issues: [{ component: "orchestrator", description }] }))).toBeNull();
   });

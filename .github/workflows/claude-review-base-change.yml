@@ -1,0 +1,61 @@
+name: Claude Review Base Change
+
+# Changing a PR's base, as when a stacked PR is retargeted to the trunk after
+# its parent merges, leaves the head where it was, so its claude-review verdict
+# was computed against the old base. This marks that head pending until a review
+# is requested; `@claude review full` reviews it against the new base. Its own
+# workflow, not an `edited` trigger in claude-code-review.yml: there every title
+# or body edit would add skipped claude-review and persist-metrics runs to the
+# head, and a skipped required check passes. This job is no required check, so a
+# failed write leaves the old verdict, as before the workflow existed. A fork
+# PR's run gets a read-only token, so on one the job fails instead and the old
+# verdict stays until the next full review.
+on:
+  pull_request:
+    types: [edited]
+
+permissions: {}
+
+jobs:
+  mark-pending:
+    name: Mark a retargeted head pending
+    # A Dependabot PR gets no model review to wait for. A draft is marked too:
+    # until a full round's verdict lands, the old base's success would let it
+    # merge.
+    if: github.event.changes.base != null && github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      actions: read
+      statuses: write
+    steps:
+      - name: Mark the head pending
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          # Through env, never inline in the script: a branch name is PR text.
+          BASE_FROM: ${{ github.event.changes.base.ref.from }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ "$HEAD_REPO" != "$GITHUB_REPOSITORY" ]; then
+            echo "::error::a fork PR's token cannot set the claude-review status; its old verdict stays until its next full review"
+            exit 1
+          fi
+          # A verdict written after the retarget stands. The run is created when
+          # the edit lands, before it queues; statuses carry whole seconds, so
+          # one from the retarget's own second counts as older.
+          RETARGETED_AT=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" --jq .created_at)
+          export RETARGETED_AT
+          existing=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${SHA}/statuses?per_page=100" \
+            --jq '[.[] | select(.context == "claude-review" and .created_at > env.RETARGETED_AT)][0].state // empty')
+          if [ -n "$existing" ]; then
+            echo "::notice::the head has a claude-review status since the retarget ($existing); leaving it"
+            exit 0
+          fi
+          # The ref is cut, not the guidance: GitHub refuses a description over
+          # 140 characters. Printable ASCII only, so a byte cut splits no character.
+          ref=$(printf '%s' "$BASE_FROM" | LC_ALL=C tr -c '[:print:]' '?')
+          ref=${ref:0:40}
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/statuses/${SHA}" -f state=pending -f context=claude-review \
+            -f description="base changed from ${ref}; comment @claude review full" -f target_url="$RUN_URL" > /dev/null
