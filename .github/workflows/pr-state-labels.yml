@@ -66,8 +66,8 @@ jobs:
     # oldest PR and starve the tail. A newer sweep replaces a queued one, which
     # it covers.
     concurrency:
-      group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.workflow_run.pull_requests[0].number || github.ref }}
-      cancel-in-progress: ${{ github.event.pull_request.number != '' || github.event.workflow_run.pull_requests[0].number != '' }}
+      group: ${{ github.workflow }}-${{ github.event.pull_request.number || (github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.pull_requests[0].number) || github.ref }}
+      cancel-in-progress: ${{ github.event.pull_request.number != '' || (github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.pull_requests[0].number) != '' }}
     steps:
       - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
@@ -268,13 +268,16 @@ jobs:
               );
             }
 
-            const reviewRunPrs = context.payload.workflow_run?.pull_requests.map((p) => p.number) ?? [];
+            // Only a pull_request-triggered run lists its own PR. A review a PR
+            // comment requested runs from main, and GitHub lists the PRs whose
+            // head is main there, not the commented one.
+            const run = context.payload.workflow_run;
+            const reviewRunPrs = run?.event === "pull_request" ? run.pull_requests.map((p) => p.number) : [];
             if (context.payload.pull_request) {
               await reconcile(context.payload.pull_request.number, PER_PR_BACKOFF_MS);
             } else if (reviewRunPrs.length) {
               await reconcileAll(reviewRunPrs, PER_PR_BACKOFF_MS);
             } else {
-              // A push to main, the schedule, or a review requested by PR
-              // comment: that run starts from main, so it names no PR.
+              // A push to main, the schedule, or a review requested by PR comment.
               await sweep();
             }
