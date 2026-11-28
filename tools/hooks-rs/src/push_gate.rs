@@ -18,7 +18,7 @@ fn ask(reason: &str) -> ! {
     exit(0)
 }
 
-fn is_word(c: u8) -> bool {
+pub(crate) fn is_word(c: u8) -> bool {
     c.is_ascii_alphanumeric() || c == b'_'
 }
 
@@ -516,22 +516,30 @@ fn canonical(command: &str) -> Option<(&str, &str)> {
 /// git sends `git push origin <branch>` to another ref (`main`, say) under a remote.origin.push
 /// mapping or mirror, or push.default upstream (old name tracking) with the branch tracking
 /// another one, and a legacy remotes/origin or branches/origin file holds push lines git config
-/// never shows (builtin/push.c refspec_append_mapped, remote.c).
-fn remapped(path: &str) -> bool {
+/// never shows (builtin/push.c refspec_append_mapped, remote.c). It sends more than the branch
+/// under push.followTags (the tags its commits reach) and under push.recurseSubmodules or
+/// submodule.recurse (the submodules' commits, to their own remotes).
+pub(crate) fn remapped(path: &str) -> bool {
     // `config -l -z` ends each `key\nvalue` entry with a NUL, so a value holding a newline
-    // cannot pass for a key; the last push.default wins, as in git.
+    // cannot pass for a key; the last value of a key wins, as in git, and the two submodule
+    // keys set one variable there. A key with no value reads as true.
     let config = git(path, &["config", "-l", "-z"]).unwrap_or_default();
-    let mut default = "";
+    let (mut default, mut tags, mut submodules) = ("", "false", "no");
     for entry in config.split('\0') {
         let (key, value) = entry.split_once('\n').unwrap_or((entry, ""));
         match key {
             "remote.origin.push" | "remote.origin.mirror" => return true,
             "push.default" => default = value,
+            "push.followtags" => tags = value,
+            "push.recursesubmodules" | "submodule.recurse" => submodules = value,
             _ => {}
         }
     }
+    let off = |value: &str| ["false", "no", "off", "0"].contains(&&*value.to_ascii_lowercase());
     default == "upstream"
         || default == "tracking"
+        || !off(tags)
+        || !(off(submodules) || submodules == "check")
         || git(
             path,
             &[
@@ -549,6 +557,35 @@ fn remapped(path: &str) -> bool {
                 .take(2)
                 .any(|file| Path::new(file).exists())
         })
+}
+
+/// Whether the approved-plans file lists `branch` for the push URL `url`. The lead lists
+/// `<branch> <push url> ...` for a branch whose Design or Approach the user approved, and one
+/// file can hold the same branch name for several repositories.
+// The file is the one the user's settings `env` names: a path the command can't choose and the
+// worker can't write, so an absolute one, since a relative path would resolve in the call's
+// cwd. With the variable unset there is no plan: worktree-remove prunes only the named file,
+// so a default path would keep a deleted branch's line.
+pub(crate) fn planned(branch: &str, url: &str) -> bool {
+    std::env::var("AGENT_APPROVED_PLANS")
+        .ok()
+        .filter(|file| Path::new(file).is_absolute())
+        .and_then(|file| std::fs::read(file).ok())
+        .is_some_and(|plans| {
+            String::from_utf8_lossy(&plans).split('\n').any(|line| {
+                let mut words = line.split([' ', '\t']).filter(|word| !word.is_empty());
+                words.next() == Some(branch) && words.next() == Some(url)
+            })
+        })
+}
+
+/// Origin's push URL in `path`, when it has one alone and that one runs no helper. A push goes
+/// to every push URL of origin (pushurl, pushInsteadOf), which can differ from the fetch URL a
+/// plain `ls-remote origin` reads, and a <transport>::<address> URL runs git-remote-<transport>
+/// from PATH.
+pub(crate) fn push_url(path: &str) -> Option<String> {
+    git(path, &["remote", "get-url", "--push", "--all", "origin"])
+        .filter(|url| !url.contains('\n') && !url.contains("::"))
 }
 
 /// Whether the push URL lists the branch, within what is left of the budget.
@@ -652,7 +689,7 @@ pub fn run() {
 
     if std::env::set_current_dir(if cwd.is_empty() { "." } else { cwd }).is_err() || remapped(path)
     {
-        ask(&format!("origin's config (remote.origin.push or mirror, push.default upstream or tracking, or a legacy remotes/ or branches/ file) can send '{branch}' to another ref, so it needs the user's go."));
+        ask(&format!("git's config (remote.origin.push or mirror, push.default upstream or tracking, a legacy remotes/ or branches/ file, push.followTags, push.recurseSubmodules or submodule.recurse) can send '{branch}' to another ref, or tags and submodule commits along with it, so it needs the user's go."));
     }
 
     // git resolves the word as rev-parse does and pushes to the ref it finds: the target of a
@@ -662,49 +699,25 @@ pub fn run() {
         ask(&format!("'{branch}' is not the local branch {full} (a symbolic ref, a tag, another spelling of a branch, or no ref at all), so the push can land on another ref and needs the user's go."));
     }
 
-    // The lead lists `<branch> <push url> ...` for a branch whose Design or Approach the user
-    // approved, in a file the user's settings `env` names: a path the command can't choose and
-    // the worker can't write, so an absolute one, since a relative path would resolve in the
-    // call's cwd. The push skips the prompt only to that URL, since `-C` or a redirected .git
-    // file can aim origin anywhere.
-    let trusted = std::env::var("AGENT_APPROVED_PLANS")
-        .ok()
-        .filter(|file| Path::new(file).is_absolute())
-        .and_then(|file| std::fs::read(file).ok())
-        .and_then(|plans| {
-            String::from_utf8_lossy(&plans)
-                .split('\n')
-                .find_map(|line| {
-                    let mut words = line.split([' ', '\t']).filter(|word| !word.is_empty());
-                    (words.next() == Some(branch)).then(|| words.next().unwrap_or("").to_owned())
-                })
-        })
-        .unwrap_or_default();
-
-    // The push goes to every push URL of origin (pushurl, pushInsteadOf), which can differ from
-    // the fetch URL a plain `ls-remote origin` reads, so more than one asks. A
-    // <transport>::<address> URL runs git-remote-<transport> from PATH, so it asks too.
-    // The agent sets that URL and the probe runs outside the sandbox, so a probe of any URL
+    // An approved plan skips the prompt only to the URL it lists, since `-C` or a redirected
+    // .git file can aim origin anywhere.
+    // The agent sets the push URL and the probe runs outside the sandbox, so a probe of any URL
     // would carry what the URL holds to any host: it reaches only a URL the user's settings
     // `env` lists, whole or by a prefix that ends the host: `/`, or `:` in the scp form alone,
     // since in a URL `host:` is followed by a port. What follows the prefix is plain path
     // characters, since git reads a later `@[host]` as the host and ssh takes the last `@`.
     let probed = std::env::var("PUSH_GATE_REMOTES").unwrap_or_default();
-    let listed =
-        git(path, &["remote", "get-url", "--push", "--all", "origin"]).is_some_and(|url| {
-            !url.contains('\n')
-                && !url.contains("::")
-                && (!trusted.is_empty() && url == trusted
-                    || probed.split_ascii_whitespace().any(|entry| {
-                        url == entry
-                            || (entry.ends_with('/')
-                                || entry.ends_with(':') && !entry.contains("://"))
-                                && url.strip_prefix(entry).is_some_and(|rest| {
-                                    rest.bytes()
-                                        .all(|c| c.is_ascii_alphanumeric() || b"._/-".contains(&c))
-                                })
-                    }) && on_remote(&url, branch, start))
-        });
+    let listed = push_url(path).is_some_and(|url| {
+        planned(branch, &url)
+            || probed.split_ascii_whitespace().any(|entry| {
+                url == entry
+                    || (entry.ends_with('/') || entry.ends_with(':') && !entry.contains("://"))
+                        && url.strip_prefix(entry).is_some_and(|rest| {
+                            rest.bytes()
+                                .all(|c| c.is_ascii_alphanumeric() || b"._/-".contains(&c))
+                        })
+            }) && on_remote(&url, branch, start)
+    });
     if !listed {
         ask(&format!("'{branch}' is not on origin's push URL (a first push, a push after merge, several push URLs, a push URL neither the plans nor PUSH_GATE_REMOTES list, or origin unreachable or slow), so it needs the user's go."));
     }

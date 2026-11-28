@@ -34,8 +34,17 @@ from [`tools/hooks-rs`](../../tools/hooks-rs). It holds `git-safety`, `frozen-pa
 ported. Its cases are `cargo test --release` there, and
 the `Hooks` workflow runs them with clippy on each PR that touches the crate.
 
-The Rust `push-gate` asks in three cases `push-gate.sh` lets through:
+Two subcommands have no shell twin and nothing calls them yet; the worker launcher that wires them
+comes in a later change:
+
+| Subcommand | Event | What it does |
+| --- | --- | --- |
+| `worker-permission` | `PermissionRequest` | Decides for a session started with `AGENT_WORKER=<handle>-<issue number>`; any other session gets no decision. Allows two kinds of sandboxed Bash call. A `gh issue` call that names the launcher's repository with `-R` or `--repo` (equal to `AGENT_REPO`; unset means no such allow): a read of any issue, or a comment or new body on the worker's own issue, given inline with `--body` (never a file). A lone `git push origin <prefix>/issue-<N>` of the checked-out branch of the worker's own issue, to the URL the file `AGENT_APPROVED_PLANS` names lists for it. Refuses a push in any other shape. Every other call is recorded under `requests/` in the state directory (`AGENT_WORK`, else `~/.agent-work/<main checkout name>`), announced in `lead-inbox.txt`, and denied with its request id until a grant for that exact call exists. A grant is used once, lasts 30 minutes, and covers the call only from the same directory and, for Bash, at the same HEAD with every tracked and untracked file unchanged (ignored files are not watched). |
+| `grant show <id>`, `grant allow <id>` | run by the lead | `show` prints the recorded call with every character outside printable ASCII escaped. `allow` logs the call to `grants.log`, then writes the grant. Run `allow` only on the user's word for that call. |
+
+The Rust `push-gate` asks in four cases `push-gate.sh` lets through:
 
 - `<branch>` is not the local branch `refs/heads/<branch>`: a symbolic ref, a tag or `heads/<name>`, which git pushes to another ref.
 - A `gh api` call writes a ref or a file (`git/refs`, `contents`, `update-branch`, a branch `rename`, or a GraphQL ref mutation). A read of the same paths passes.
+- `push.followTags`, `push.recurseSubmodules` (other than `check`) or `submodule.recurse` is on, in any config file git reads: the push then carries tags or submodule commits no plan covers.
 - Origin's push URL is not one `PUSH_GATE_REMOTES` lists. The gate looks a branch up on origin from outside the sandbox, at a URL the agent can set, so it reaches only the URLs that variable names in the `env` of `settings.json`. Entries are separated by spaces; each is a whole URL, a prefix ending in `/` (`https://github.com/`), or an scp-form prefix ending in `:` (`git@github.com:`; a `:` prefix that holds `://` matches nothing), followed only by letters, digits, `.`, `_`, `/` and `-`, spelt as `git remote get-url --push origin` prints it. Without the variable, every push of a branch the plans do not list asks.

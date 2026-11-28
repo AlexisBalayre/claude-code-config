@@ -8,6 +8,7 @@ mod convention_spot_check;
 mod frozen_paths;
 mod gate_lock;
 mod git_safety;
+mod grant;
 mod post_compact_state;
 mod pre_commit;
 mod pre_push;
@@ -18,6 +19,7 @@ mod session;
 mod tool_result_size;
 mod validate_file_naming;
 mod verify;
+mod worker_permission;
 mod worktree_create;
 mod worktree_remove;
 
@@ -35,6 +37,7 @@ fn main() {
         "pre-push" => pre_push::run(rest),
         "worktree-create" => worktree_create::run(rest),
         "worktree-remove" => worktree_remove::run(rest),
+        "grant" => grant::run(rest),
         "comment-pruner" => comment_pruner::run(rest),
         "convention-spot-check" => convention_spot_check::run(),
         "post-compact-state" => post_compact_state::run(),
@@ -45,6 +48,7 @@ fn main() {
         "push-gate" => push_gate::run(),
         "tool-result-size" => tool_result_size::run(),
         "validate-file-naming" => validate_file_naming::run(),
+        "worker-permission" => worker_permission::run(),
         // Exit 2 so a typo in the hook wiring blocks instead of failing open.
         _ => {
             eprintln!("claude-hooks: unknown command '{name}'");

@@ -2,7 +2,7 @@ use regex_lite::Regex;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::io::Read;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{exit, Command, Stdio};
 
 pub fn block(message: &str) -> ! {
@@ -85,4 +85,23 @@ impl Config {
             .or_else(|| std::env::var(key).ok())
             .unwrap_or_default()
     }
+}
+
+/// The lead's state directory: AGENT_WORK, else one under HOME named for the main checkout of
+/// the repository holding `dir`.
+// Never under ~/.claude, which the sandbox protects even against an allowWrite entry.
+pub fn agent_work(dir: impl AsRef<Path>) -> Option<PathBuf> {
+    if let Some(work) = std::env::var_os("AGENT_WORK").filter(|work| !work.is_empty()) {
+        return Some(work.into());
+    }
+    let common = git(
+        dir,
+        &["rev-parse", "--path-format=absolute", "--git-common-dir"],
+    )?;
+    let checkout = Path::new(&common).parent()?.file_name()?;
+    Some(
+        Path::new(&std::env::var_os("HOME")?)
+            .join(".agent-work")
+            .join(checkout),
+    )
 }
