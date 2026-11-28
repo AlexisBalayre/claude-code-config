@@ -1,0 +1,68 @@
+#!/bin/bash
+# Pre-push hook: block a branch push whose tree has no green scripts/verify.sh
+# stamp, and a Claude Code branch push adding too many production lines over
+# the trunk (scripts/added-lines.sh holds the count and the cap).
+# Installed by scripts/setup.sh into <git-common-dir>/hooks.
+
+env="$(git rev-parse --show-toplevel)/.claude/project.env"
+[ -f "$env" ] && . "$env"
+trunk="${GIT_TRUNK:-main}"
+
+# scripts/verify.sh stamps a tree green in the pushing worktree's git dir.
+# A delete pushes no tree, and a tag push (a release) runs no gates.
+stamp="$(git rev-parse --git-dir)/verify-stamp"
+counter="$(dirname "$0")/added-lines.sh"
+
+while read local_ref local_sha remote_ref remote_sha; do
+  if [[ "$local_sha" =~ ^0+$ || "$remote_ref" == refs/tags/* ]]; then
+    continue
+  fi
+  tree=$(git rev-parse "$local_sha^{tree}")
+  if ! grep -q "^$tree " "$stamp" 2>/dev/null; then
+    echo ""
+    echo "🚫 BLOCKED: no green scripts/verify.sh run for $local_sha (tree $tree)."
+    echo ""
+    echo "Run 'bash scripts/verify.sh' on a clean checkout of that commit, then push again."
+    echo ""
+    exit 1
+  fi
+  # The cap binds agents only, so a push from a plain terminal skips it. It
+  # counts added lines because a deletion is cheap to review. Only the user
+  # writes size-waiver.
+  if [[ "${CLAUDECODE:-}" != 1 || "$remote_ref" != refs/heads/* ]]; then
+    continue
+  fi
+  branch=${remote_ref#refs/heads/}
+  # By its full name: a bare origin/<trunk> resolves to a branch or tag of that name first.
+  base=$(git merge-base "refs/remotes/origin/$trunk" "$local_sha" 2>/dev/null) || continue
+  if [ ! -x "$counter" ]; then
+    echo "ERROR: $counter is missing. Run scripts/setup.sh to install the hooks."
+    exit 1
+  fi
+  if ! counted=$("$counter" "$base" "$local_sha"); then
+    echo "ERROR: $counter failed, so the size cap could not count '$branch'. Run scripts/setup.sh to reinstall the hooks."
+    exit 1
+  fi
+  read -r level added fail_at <<<"$counted"
+  # A copy of added-lines.sh that predates the verdict line prints a row first: fail closed.
+  if [[ "$level" != pass && "$level" != warn && "$level" != fail ]]; then
+    echo "ERROR: $counter printed no verdict for '$branch'. Run scripts/setup.sh to reinstall the hooks."
+    exit 1
+  fi
+  waiver="$(git rev-parse --git-common-dir)/size-waiver"
+  if [ "$level" = warn ]; then
+    echo "⚠️  '$branch' adds $added production lines over origin/$trunk; from 400, the PR body says why it can't split."
+  elif [ "$level" = fail ] && ! grep -qxF "$branch" "$waiver" 2>/dev/null; then
+    echo ""
+    echo "🚫 BLOCKED: '$branch' adds $added production lines over origin/$trunk; the cap fails at $fail_at."
+    echo ""
+    echo "Biggest files:"
+    tail -n +2 <<<"$counted" | sort -rn | head -5 | sed 's/^/  /'
+    echo ""
+    echo "Split the branch, or ask the user to add '$branch' to $waiver."
+    echo ""
+    exit 1
+  fi
+done
+
+exit 0

@@ -1,3 +1,8 @@
+---
+paths:
+  - "**/*.{ts,tsx,js,jsx,mjs,cjs,py,go,rs,java,kt,rb,php,cs,swift}"
+---
+
 # Core Conventions
 
 Universal rules for every source file. Area docs in this folder inherit from here; they never relax these rules.
@@ -28,8 +33,6 @@ retries += 1  # 429s are transient, so retry first    (GOOD: explains the why)
 Doc comments (docstrings, JSDoc, `///`): an imperative one-line summary is the contract. Never paraphrase the symbol name or a parameter's type; no file-header banners, section dividers, changelog comments, or commented-out code.
 
 <!-- TODO(adapt): state where doc comments are required (e.g. public package surface only) and the doc-comment format. -->
-
-This section is deliberately mirrored in `AGENTS.md`; keep both in sync.
 
 ## Language and types
 

@@ -9,15 +9,19 @@
   },
   "permissions": {
     "allow": [
-      "Read(*)",
-      "Glob(*)",
-      "Grep(*)",
-      "Edit(*)",
-      "Write(*)",
+      "Read",
+      "Glob",
+      "Grep",
+      "Edit",
+      "Write",
       "Agent(*)",
       "mcp__codegraph",
       "Bash(scripts/worktree-create.sh *)",
       "Bash(scripts/worktree-remove.sh *)",
+      "Bash(bash scripts/verify.sh)",
+      "Bash(scripts/verify.sh)",
+      "Bash(bash scripts/gate-lock.sh *)",
+      "Bash(scripts/gate-lock.sh *)",
       "Bash(git add*)",
       "Bash(git commit*)",
       "Bash(git branch*)",
@@ -33,7 +37,6 @@
       "Bash(git remote*)",
       "Bash(git check-ignore*)",
       "Bash(git -C*)",
-      "Bash(git -c*)",
       "Bash(mkdir *)",
       "Bash(cp *)",
       "Bash(mv *)",
@@ -43,18 +46,43 @@
     "deny": [
       "Bash(git push --force*)",
       "Bash(git push -f*)",
+      "Bash(git -C * push --force*)",
+      "Bash(git -C * push -f*)",
       "Bash(git reset --hard*)",
+      "Bash(git -C * reset --hard*)",
       "Bash(git clean -f*)",
+      "Bash(git -C * clean -f*)",
       "Bash(rm -rf *)",
       "Read(.env*)",
       "Read(secrets.env*)",
       "Read(secrets.*.env)",
-      "Read(**/credentials*)"
+      "Read(**/credentials*)",
+      "Read(**/.aws/credentials)",
+      "Edit(~/.claude/settings*.json)",
+      "Edit(//**/.claude/settings*.json)",
+      "Edit(~/.zshrc)",
+      "Edit(~/.zprofile)",
+      "Edit(~/.bashrc)",
+      "Edit(~/.bash_profile)"
     ],
     "ask": [
       "Bash(git checkout *)",
       "Bash(git rebase *)",
-      "Bash(git cherry-pick *)"
+      "Bash(git cherry-pick *)",
+      "Bash(git branch -D*)",
+      "Bash(git -C * branch -D*)",
+      "Bash(git worktree remove*)",
+      "Bash(git worktree prune*)",
+      "Bash(git stash drop*)",
+      "Bash(git stash clear*)",
+      "Bash(git -c *)",
+      "Bash(git diff*--output*)",
+      "Bash(git log*--output*)",
+      "Bash(git pull*--upload-pack*)",
+      "Bash(git fetch*--upload-pack*)",
+      "Bash(git grep*-O*)",
+      "Bash(gh pr merge*)",
+      "Bash(gh pr *://*)"
     ]
   },
   "hooks": {
@@ -64,7 +92,7 @@
           {
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/quality-checks.sh",
-            "timeout": 300
+            "timeout": 60
           }
         ]
       },
@@ -95,6 +123,23 @@
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/git-safety.sh",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/push-gate.sh",
+            "timeout": 15,
+            "onFailure": "block"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/frozen-paths.sh",
+            "timeout": 5,
+            "onFailure": "block"
           }
         ]
       },
@@ -114,6 +159,17 @@
           {
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/validate-file-naming.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/tool-result-size.sh",
             "timeout": 5
           }
         ]
