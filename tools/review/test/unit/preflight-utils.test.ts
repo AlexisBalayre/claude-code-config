@@ -5,6 +5,7 @@ import {
   type PriorRecord,
   parseReviewRequest,
   porcelainPaths,
+  workflowPath,
 } from "@src/preflight.utils";
 import { describe, expect, it } from "vitest";
 
@@ -18,6 +19,28 @@ function record(overrides: Partial<PriorRecord> = {}): PriorRecord {
     ...overrides,
   };
 }
+
+describe("workflowPath", () => {
+  it("strips the repository and the ref", () => {
+    expect(workflowPath("o/r/.github/workflows/review.yml@refs/pull/7/merge", "o/r")).toBe(
+      ".github/workflows/review.yml",
+    );
+  });
+
+  it("keeps an @ that belongs to the ref out of the path", () => {
+    expect(workflowPath("o/r/.github/workflows/review.yml@refs/heads/a@b", "o/r")).toBe(
+      ".github/workflows/review.yml",
+    );
+  });
+
+  it("yields nothing for a workflow of another repository", () => {
+    expect(workflowPath("o/other/.github/workflows/review.yml@refs/heads/main", "o/r")).toBeNull();
+  });
+
+  it("yields nothing outside a workflow run", () => {
+    expect(workflowPath("", "")).toBeNull();
+  });
+});
 
 describe("porcelainPaths", () => {
   it("extracts the path from a status entry", () => {

@@ -64,6 +64,12 @@ export function isPartialReview(depth: unknown, areas: unknown): boolean {
   return depth === ("quick" satisfies ReviewDepth) || (Array.isArray(areas) && areas.length > 0);
 }
 
+/** The running workflow's repo-relative path, from `GITHUB_WORKFLOW_REF` (`<owner>/<repo>/<path>@<ref>`). */
+export function workflowPath(workflowRef: string, repository: string): string | null {
+  const path = workflowRef.split("@")[0];
+  return repository && path.startsWith(`${repository}/`) ? path.slice(repository.length + 1) : null;
+}
+
 /** Working-tree paths from `git status --porcelain`, rename targets included. */
 export function porcelainPaths(porcelain: string): string[] {
   const paths: string[] = [];

@@ -7,6 +7,7 @@ import {
   type PriorRecord,
   parseReviewRequest,
   porcelainPaths,
+  workflowPath,
 } from "./preflight.utils";
 
 /**
@@ -56,6 +57,14 @@ const GH_CREDENTIAL = ["-c", "credential.helper=", "-c", "credential.helper=!gh 
 
 function gh(...args: string[]): string {
   return execFileSync("gh", args, { encoding: "utf8", cwd: process.env.GITHUB_WORKSPACE }).trim();
+}
+
+function blob(revisionPath: string): string | null {
+  try {
+    return git("rev-parse", "--verify", "--quiet", revisionPath);
+  } catch {
+    return null;
+  }
 }
 
 function headRefOid(prNumber: string): string {
@@ -112,6 +121,35 @@ async function main(): Promise<void> {
     }
   }
   out("sha", headSha);
+
+  // claude-code-action refuses a run whose workflow file differs from the default
+  // branch's copy, so no review can come of this one: say so on the head before
+  // the setup and the poster spend a minute reaching a "re-run" that cannot pass.
+  const workflow = workflowPath(process.env.GITHUB_WORKFLOW_REF ?? "", process.env.GITHUB_REPOSITORY ?? "");
+  const defaultBranch = process.env.REVIEW_DEFAULT_BRANCH ?? "";
+  if (
+    workflow &&
+    defaultBranch &&
+    blob(`${process.env.GITHUB_SHA}:${workflow}`) !== blob(`origin/${defaultBranch}:${workflow}`)
+  ) {
+    gh(
+      "api",
+      "--method",
+      "POST",
+      `repos/${process.env.GITHUB_REPOSITORY}/statuses/${headSha}`,
+      "-f",
+      "state=pending",
+      "-f",
+      "context=claude-review",
+      "-f",
+      "description=Not reviewed: this PR changes the review workflow, so it needs a human review",
+      "-f",
+      `target_url=https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`,
+    );
+    process.stdout.write(`::notice::${workflow} differs from ${defaultBranch}'s copy; the review cannot run on this PR\n`);
+    out("skip", "true");
+    return;
+  }
 
   const dirty = porcelainPaths(git("status", "--porcelain"));
   if (dirty.length > 0) {
