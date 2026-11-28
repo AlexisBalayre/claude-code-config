@@ -1,0 +1,226 @@
+{
+  "schema_version": 7,
+  "timestamp": "2026-11-28T13:44:26.749Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "46150338901",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/46150338901",
+  "actor": "AlexisBalayre",
+  "commit_sha": "13615742b75a71b3186ede9a6fb105ee62505a32",
+  "source": "pr",
+  "pr_number": 79,
+  "action": "review",
+  "reviewers_spawned": [
+    "correctness",
+    "correctness",
+    "correctness",
+    "security",
+    "qa",
+    "perf",
+    "quality",
+    "simplicity"
+  ],
+  "reviewers_returned": [
+    "correctness",
+    "correctness",
+    "correctness",
+    "security",
+    "qa",
+    "perf",
+    "quality",
+    "simplicity"
+  ],
+  "reviewers_skipped": [
+    "requirements"
+  ],
+  "review_mode": "full",
+  "incremental_from_sha": null,
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [],
+  "findings": [
+    {
+      "file": "tools/hooks-rs/src/frozen_paths.rs",
+      "line": "18-22",
+      "area": "correctness",
+      "confidence": "high",
+      "tag": "important",
+      "description": "`realpath` only follows a symlink when `canonicalize()` succeeds. `canonicalize()` fails when the link's target does not exist, so a dangling symlink stays unresolved and the hook tests the link's own path against `FROZEN_PATHS_REGEX`. The shell hook uses Python's `os.path.realpath`, which follows such a link to its target path, so it blocks a Write that the Rust port lets through.",
+      "body": "**A dangling symlink into a frozen tree gets past the Rust port, where the shell hook blocks it.**\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/13615742b75a71b3186ede9a6fb105ee62505a32/tools/hooks-rs/src/frozen_paths.rs#L18-L22\n\n```rust\nif real.is_symlink() {\n    if let Ok(target) = real.canonicalize() {\n        real = target;\n    }\n}\n```\n\n`std::fs::canonicalize` needs every component of the path to exist, so it returns `NotFound` for a symlink whose target is missing. When that happens, `real` keeps the link's own path.\n\nThe shell hook (`.claude/hooks/frozen-paths.sh`) runs `python3 -I -c '... os.path.realpath(sys.argv[1])'`. Non-strict `realpath` follows the link to its target path even when the target is missing. This port's own comment at L6 promises the same: \"resolve `..` and symlinks even through directories a Write has yet to create\".\n\n**How it is reached:** take `FROZEN_PATHS_REGEX='^packages/client/'` and a link `apps/api/alias.ts -> ../../packages/client/src/new.ts`, where `new.ts` does not exist yet. A Write to `apps/api/alias.ts` follows the link and creates the frozen file.\n- Shell hook: `rel` is `packages/client/src/new.ts`, which matches, so it exits 2.\n- Rust port: `rel` is `apps/api/alias.ts`, which does not match, so it exits 0. The guard fails open.\n\nThe wrong path also ends up in the allow-list line and in the deny message. Only Write can reach this, because Edit and NotebookEdit need the file to exist. The symlink fixture in `tests/frozen_paths.rs` (L43-49) only links to targets that exist, so no test covers this case.\n\n**Fix:** on `NotFound`, `read_link` the component and resolve its target relative to the link's parent. Keep other errors, such as ELOOP, on the current fallback so a symlink loop cannot recurse forever. Add a dangling-link case to `tests/frozen_paths.rs`.",
+      "suggestion": "                if real.is_symlink() {\n                    match real.canonicalize() {\n                        Ok(target) => real = target,\n                        // A dangling link: Write creates its target, so follow it as text.\n                        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {\n                            if let Ok(target) = std::fs::read_link(&real) {\n                                real.pop();\n                                real = realpath(&real.join(target).to_string_lossy());\n                            }\n                        }\n                        Err(_) => {}\n                    }\n                }"
+    },
+    {
+      "file": ".claude/hooks/git-safety.sh",
+      "line": "10",
+      "area": "correctness",
+      "confidence": "high",
+      "tag": "important",
+      "description": "The new `|| exit 2` turns any jq failure into a block, not only an unparseable payload. On a machine without jq, every Bash tool call is now blocked. The project's own convention says workers may lack jq and that hooks must fall back.",
+      "body": "**On a machine without jq, `|| exit 2` now blocks every Bash call.**\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/13615742b75a71b3186ede9a6fb105ee62505a32/.claude/hooks/git-safety.sh#L8-L10\n\n```bash\nCOMMAND=$(echo \"$INPUT\" | jq -r '.tool_input.command // empty') || exit 2\n```\n\nThe stated intent is to block a payload that jq cannot parse (exit 5). But `|| exit 2` catches every failure of that pipeline, including `jq: command not found` (127).\n- **Before this PR:** `set -e` exited 127, which Claude Code treats as non-blocking, so the Bash call ran.\n- **Now:** the hook exits 2 on every Bash payload, whatever the command. `.claude/settings.json` at HEAD runs this hook on PreToolUse `matcher: \"Bash\"`, so this is live today, not waiting for the Rust wiring.\n\nThe block also prints no `BLOCKED:` reason, only bash's `jq: command not found`, unlike every other exit 2 in the script. The Rust port has the same gap: `tools/hooks-rs/src/git_safety.rs:10` exits 2 on an unreadable payload with no message.\n\nThe repo expects this trigger. `.claude/skills/ci-and-agent-config/SKILL.md` §2 Portability says: \"`jq` may be missing on a worker machine. A hook that parses its JSON payload falls back without it, as `push-gate.sh` does.\"\n\nThe PR's declared change covers an unparseable payload. It does not cover a missing jq.\n\n**Fix:** guard the jq call with `command -v jq` and fall back to the raw payload, as `push-gate.sh` does. Add a `BLOCKED:` line before the exit so the agent sees why.",
+      "suggestion": "if command -v jq >/dev/null 2>&1; then\n  # jq exits 5 on a payload it cannot parse, which Claude Code treats as a\n  # non-blocking error: only exit 2 stops the command.\n  COMMAND=$(echo \"$INPUT\" | jq -r '.tool_input.command // empty') || { echo \"BLOCKED: git-safety could not parse the hook payload\" >&2; exit 2; }\nelse\n  # Without jq the raw payload still carries the command's words, as in push-gate.sh.\n  COMMAND=$INPUT\nfi"
+    },
+    {
+      "file": "tools/hooks-rs/tests/path_guards.rs",
+      "line": "1-154",
+      "area": "qa",
+      "confidence": "high",
+      "tag": "important",
+      "description": "Test adequacy: the declared non-JSON behaviour is untested for three of the five hooks.",
+      "body": "**Test adequacy: the declared exit-2-on-non-JSON behaviour of validate-file-naming is not pinned by any test.**\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/13615742b75a71b3186ede9a6fb105ee62505a32/tools/hooks-rs/tests/path_guards.rs#L1-L154\n\nThe PR body lists one intentional difference: \"`validate-file-naming` exits 2 on a payload that is not JSON where the shell exited 5\". That behaviour is implemented at `src/validate_file_naming.rs:12` (`serde_json::from_str(&input).unwrap_or_else(|_| exit(2))`).\n\nEvery test in `path_guards.rs` sends a well-formed `json!` payload. If line 12 returned 0 on a parse failure, every test would still pass. Only `git_safety.rs:127-130` and `frozen_paths.rs:299-303` have a `blocks_payload_that_is_not_json` case.\n\n`protect-generated` (`src/protect_generated.rs:9`, `payload().unwrap_or_default()`) and `tool-result-size` have no malformed-input case either. A case for each would pin their fail-open choice.\n\n`docs/conventions/testing.md`: \"Test behaviour through public interfaces.\"",
+      "suggestion": null
+    },
+    {
+      "file": ".claude/hooks/git-safety.sh",
+      "line": "10",
+      "area": "qa",
+      "confidence": "high",
+      "tag": "important",
+      "description": "Test adequacy: the `.claude/hooks/git-safety.sh` change (`|| exit 2` on unparseable JSON) is covered by no shell harness.",
+      "body": "**Test adequacy: no test exercises the one behaviour change that is live today.**\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/13615742b75a71b3186ede9a6fb105ee62505a32/.claude/hooks/git-safety.sh#L10\n\nThe PR body says: \"The one behaviour change today is `git-safety.sh` blocking on an unparseable payload.\" No test runs that script.\n- `tests/hooks/` holds only `frozen-paths`, `push-gate`, `stop-hooks` and `tool-result-size`.\n- Commit d84f8f2 added `tests/hooks/git-safety.test.sh` to run the same cases against both implementations. The file is gone at HEAD.\n- The Rust `blocks_payload_that_is_not_json` (`tools/hooks-rs/tests/git_safety.rs:127-130`) calls `hook(\"git-safety\")`, the binary, not the shell file.\n\nYou can delete `|| exit 2` and every test still passes.\n\nThe minimum fix is a `tests/hooks/git-safety.test.sh` case that pipes `not json` into the script and asserts exit 2. Restoring the dual-run harness from d84f8f2 also works. A no-jq case would also pin the correctness finding on the same line.",
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/frozen_paths.rs",
+      "line": "87",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "If `regex_lite` cannot compile `(?i){FROZEN_PATHS_REGEX}`, the hook returns and allows the edit, with no message. Bash also allows on a regex that is invalid in both, so most of this mirrors the shell. The new part is a pattern that Bash's POSIX regex accepts but `regex_lite` rejects (for example a backreference): there the shell blocks and the Rust port allows, so the freeze is off without anyone being told. This also differs from `common::grep`, which exits 2 on a bad pattern. Blocking with a \"FROZEN_PATHS_REGEX is not a valid regex\" message would make a config mistake visible instead of disabling the freeze. In practice path regexes rarely use such features.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/tool_result_size.rs",
+      "line": "63-65",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "A payload holding an unpaired UTF-16 surrogate escape (for example a lone \\ud83d) makes serde_json::from_str fail, so tool-result-size returns silently with no warning. jq parses the same payload, replacing the half with U+FFFD, and warns. The likely trigger is Claude Code cutting a large Bash output (or a long Read line) with a JS string slice that lands inside an emoji's surrogate pair; JSON.stringify then writes the lone escape. Those are exactly the oversized results this hook exists to flag. The failure is quiet (the only cost is a lost advisory warning) and probably rare, and I have not checked Claude Code's truncation code. The same parse failure also reaches protect_generated.rs:9, which treats the payload as empty and so does not block (fails open), and validate_file_naming.rs:12, which exits 2 (fails closed). For those two a lone surrogate would have to sit in a model-written tool_input, which is close to unreachable. frozen_paths.rs:44 and git_safety.rs:10 parse the same way, outside this slice. One fix: before parsing, swap any `\\uD800`-`\\uDBFF` escape not followed by a low-surrogate escape (and any stray low surrogate) for `�`, as jq effectively does. Alternatively, accept the gap and record it as a declared difference.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/frozen_paths.rs",
+      "line": "78-89",
+      "area": "perf",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "When AGENT_FROZEN_ALLOW and FROZEN_PATHS_REGEX are both set, every Edit/Write spawns `git rev-parse --show-prefix` before the frozen regex is tried. That is one fork+exec, roughly 1-3 ms, on each edit, including edits to files that are nowhere near the frozen tree. A cheaper pre-filter is to match the regex against the typed path or a repo-relative path first, and spawn git only on a hit. The catch is that the code spawns git first on purpose, so a wrong-case parent directory is resolved to its on-disk case. A pre-filter would therefore need a case-insensitive match on the typed path, which over-approximates and is safe. The path only runs in sessions that set AGENT_FROZEN_ALLOW (worker sessions) and the cost is small, so it is optional.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/common.rs",
+      "line": "56-57",
+      "area": "quality",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The WHY comment for the `project.env` parsing is a `//` line inside the impl, attached to `load`, and it covers only quoting. The PR body states a second difference: values read as plain `KEY=value`, with no shell expansion. A reader of `Config::load` sees that difference only in the comment and not in a `///` doc, so the contract is easy to miss. It would be clearer as a `///` doc on `load`. `docs/conventions/core.md` §Comments: \"Doc comments (docstrings, JSDoc, `///`): an imperative one-line summary is the contract.\" This is minor and guidance-grade.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/validate_file_naming.rs",
+      "line": "45-53",
+      "area": "simplicity",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "This hook writes its own `BLOCKED:` message with three `eprintln!` calls and a manual `exit(2)`, while `common::block` (common.rs L8-11) already prints `BLOCKED: {message}` and exits 2, and three other modules use it. Folding the optional hint into one message and calling `block` keeps stderr and the exit code identical (about -9 +4 lines).",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/Cargo.toml",
+      "line": "16",
+      "area": "simplicity",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "`opt-level = 3` under `[profile.release]` repeats Cargo's default for the release profile, so the line does nothing. Delete it (`-1`). The binary and the build flags stay the same; the other four keys (`lto`, `codegen-units`, `panic`, `strip`) change real defaults and stay.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/tests/git_safety.rs",
+      "line": "42-141",
+      "area": "qa",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The git-safety fail-open and edge paths are untested: no case runs without project.env (the `main` trunk fallback), outside a git repo or on a detached HEAD (where `on_trunk` returns false), with a payload missing `tool_input`, or with a trunk name holding regex metacharacters such as `release/1.0`.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/main.rs",
+      "line": "20",
+      "area": "qa",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "No test covers `main.rs` dispatch of an unknown or missing subcommand, which exits 2 so that a wiring typo blocks rather than failing open. A `hook(\"nope\")` case asserting exit 2 would pin it.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/tests/frozen_paths.rs",
+      "line": "114-126",
+      "area": "qa",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "Two caller-reachable inputs are untested for frozen-paths: a payload with an empty or missing `file_path`, and a `project.env` line using `export` or double quotes (handled at `common.rs` line 64; only `path_guards.rs` exercises quoting).",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/tests/tool_result_size.rs",
+      "line": null,
+      "area": "qa",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "No fail-open tests for `tool-result-size`: a missing `tool_response`, a non-object `tool_response` (a string), and a tool name other than Read, Edit or Bash, which should stay silent.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/hooks/git-safety.sh",
+      "line": "18",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "pre-existing",
+      "description": "The shell guard hooks source `${CLAUDE_PROJECT_DIR}/.claude/project.env` with `. file`, and hooks run outside the Bash sandbox. So any shell a sandboxed session writes into project.env runs unsandboxed the next time any session's hook fires. The same source line is in git-safety.sh L18, frozen-paths.sh L15, protect-generated.sh L7 and validate-file-naming.sh L17 (HEAD). The sandbox makes the repo cwd writable and I could not see whether its truncated deny list covers .claude/project.env, so confidence is medium. This PR's Rust port removes the sink: `Config::load` in tools/hooks-rs/src/common.rs L57-77 parses plain `KEY=value` and expands nothing. The fix lands when the next PR points settings.json at the binary.",
+      "body": null,
+      "suggestion": null
+    }
+  ],
+  "refuted_findings": [],
+  "process_issues": [],
+  "comments_posted_actual": 4,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 4.776958699999999,
+  "duration_ms": 494572,
+  "num_turns": 20,
+  "tokens": {
+    "input": 16,
+    "output": 22642,
+    "cache_read": 371072,
+    "cache_creation": 64331,
+    "total": 458061
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 108,
+      "output": 118535,
+      "cache_read": 1448754,
+      "cache_creation": 308144,
+      "cost_usd": 4.3945957999999985
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 46,
+      "output": 12593,
+      "cache_read": 284084,
+      "cache_creation": 91173,
+      "cost_usd": 0.3823629
+    }
+  ],
+  "permission_denials": []
+}
