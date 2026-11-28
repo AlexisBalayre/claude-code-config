@@ -31,5 +31,23 @@ expect 2 'a forced push blocks' "$PATH" "$FORCE"
 expect 0 'a plain command passes' "$PATH" "$PLAIN"
 expect 2 'without jq, a forced push still blocks' "$T/bin" "$FORCE"
 expect 0 'without jq, a plain command passes' "$T/bin" "$PLAIN"
+expect 2 'without jq, a push to the trunk blocks' "$T/bin" \
+  '{"tool_input":{"command":"git push origin main","description":"Push"}}'
+expect 2 'without jq, a push to the trunk blocks in spaced JSON' "$T/bin" \
+  '{"tool_input": {"command": "git push origin HEAD:main", "description": "Push"}}'
+expect 0 'without jq, a push to a branch passes' "$T/bin" \
+  '{"tool_input":{"command":"git push origin feature/x","description":"not to main "}}'
+expect 2 'without jq, an escaped tab still separates the words' "$T/bin" \
+  '{"tool_input":{"command":"git reset\t--hard"}}'
+expect 2 'without jq, a quoted word does not end the command' "$T/bin" \
+  '{"tool_input":{"command":"git commit -m \"x\" && git push --force"}}'
+expect 0 'without jq, the description is not read' "$T/bin" \
+  '{"tool_input":{"command":"ls","description":"after git reset --hard"}}'
+git init -q -b main "$T/trunk" && (
+  cd "$T/trunk" || exit 1
+  printf '%s' '{"tool_input":{"command":"git push","description":"Push"}}' |
+    CLAUDE_PROJECT_DIR=$T PATH=$T/bin bash "$HOOK" 2>/dev/null
+  [ $? -eq 2 ]
+) || { echo 'FAIL without jq, a bare push on the trunk blocks'; failures=$((failures + 1)); }
 
 [ "$failures" -eq 0 ] && echo "git-safety: all cases pass" || exit 1

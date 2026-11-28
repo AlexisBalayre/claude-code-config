@@ -13,8 +13,19 @@ if command -v jq >/dev/null 2>&1; then
     exit 2
   }
 else
-  # The raw payload still carries the command's words for the checks below.
-  COMMAND=$INPUT
+  # The rules anchor on the command's end, so the command is cut out of the raw
+  # payload: with every escaped pair set aside, a `"` can only open or close a JSON
+  # string, and each becomes a line break.
+  nl=$'\n' tab=$'\t' mark=$'\x01' quote="'" backslash='\'
+  COMMAND=${INPUT//\\\\/$mark}
+  COMMAND=${COMMAND//\\\"/$quote}
+  COMMAND=${COMMAND//\"/$nl}
+  COMMAND=${COMMAND#*"${nl}command$nl:"}
+  COMMAND=${COMMAND#*"$nl"}
+  COMMAND=${COMMAND%%"$nl"*}
+  COMMAND=${COMMAND//\\n/$nl}
+  COMMAND=${COMMAND//\\t/$tab}
+  COMMAND=${COMMAND//$mark/$backslash}
 fi
 
 # If there's no command, don't block.
