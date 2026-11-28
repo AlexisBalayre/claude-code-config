@@ -1,3 +1,4 @@
+use crate::added_lines::git_loud;
 use regex_lite::Regex;
 use std::fs::{self, File};
 use std::io::{Read, Seek, Write};
@@ -9,21 +10,6 @@ use std::time::Instant;
 
 const SETUP: &str = ".claude/skills/setup-agent-env";
 const RULES: &str = "tests/scripts/conventions-rules.test.sh";
-
-/// Git's stdout without the trailing newline. A failure ends the run with git's message and status.
-pub fn git_or_exit(args: &[&str]) -> String {
-    match Command::new("git")
-        .args(args)
-        .stderr(Stdio::inherit())
-        .output()
-    {
-        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout)
-            .trim_end_matches('\n')
-            .to_owned(),
-        Ok(out) => exit(out.status.code().unwrap_or(1)),
-        Err(_) => exit(127),
-    }
-}
 
 /// Spawns `cmd` with stdout and stderr merged into one unlinked temp file, as `>file 2>&1` does,
 /// so a background process the command leaves behind cannot hold the reader open.
@@ -128,7 +114,7 @@ fn affects(harness: &str, changed: &[&str], rules: bool) -> bool {
 pub fn run(args: &[String]) {
     let affected = args.first().is_some_and(|arg| arg == "--affected");
     let args = &args[affected as usize..];
-    let top = git_or_exit(&["rev-parse", "--show-toplevel"]);
+    let top = git_loud(&["rev-parse", "--show-toplevel"]).unwrap_or_else(|code| exit(code));
     if std::env::set_current_dir(&top).is_err() {
         exit(1);
     }
@@ -139,7 +125,8 @@ pub fn run(args: &[String]) {
         eprintln!("check-agent-config: usage: check-agent-config.sh [--affected] <base> <head>");
         exit(1);
     };
-    let diff = git_or_exit(&["diff", "--name-only", "--no-renames", base, head]);
+    let diff = git_loud(&["diff", "--name-only", "--no-renames", base, head])
+        .unwrap_or_else(|code| exit(code));
     let changed: Vec<&str> = diff.lines().collect();
     let shebang = Regex::new(r"^#!.*[/ ](ba)?sh([[:space:]]|$)").unwrap_or_else(|_| exit(2));
     let (mut failures, mut harnesses, mut lead_tools, mut rules) = (0, false, false, false);
@@ -209,7 +196,7 @@ pub fn run(args: &[String]) {
     // the longest never starts last behind three others. Results still print in list order.
     let times = format!(
         "{}/check-agent-config.times",
-        git_or_exit(&["rev-parse", "--git-common-dir"])
+        git_loud(&["rev-parse", "--git-common-dir"]).unwrap_or_else(|code| exit(code))
     );
     let _ = fs::create_dir_all(&times);
     let time_file = |harness: &str| format!("{times}/{}", harness.replace('/', "_"));

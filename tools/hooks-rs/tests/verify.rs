@@ -11,9 +11,10 @@ use std::time::Duration;
 const ENV: &str = "SOURCE_EXTENSIONS=\"ts\"\nLINT_CMD=\"stub lint\"\nTYPECHECK_CMD=\"stub typecheck\"\nTEST_CMD=\"stub test\"\n";
 const STUB: &str = "#!/bin/bash
 echo \"$1\" >>\"$STUB_CALLS\"
+[ \"$1\" = lint ] && echo \"$*\" >>\"$STUB_CALLS.lint\"
 [ \"$1\" = \"${STUB_TOUCH:-}\" ] && : >touched
 [ \"$1\" = \"${STUB_COMMIT:-}\" ] && git commit -q --allow-empty -m mid-run
-[ \"$1\" != \"${STUB_FAIL:-}\" ]
+[ \"$1\" != \"${STUB_FAIL:-}\" ] && [ \"$1 ${2:-}\" != \"${STUB_FAIL:-}\" ]
 ";
 
 struct Repo(TempDir);
@@ -78,6 +79,12 @@ impl Repo {
     fn calls(&self) -> Vec<String> {
         let calls = fs::read_to_string(self.0.path().join("calls")).unwrap_or_default();
         calls.lines().map(String::from).collect()
+    }
+
+    /// The command line of each lint run, in order.
+    fn linted(&self) -> Vec<String> {
+        let runs = fs::read_to_string(self.0.path().join("calls.lint")).unwrap_or_default();
+        runs.lines().map(String::from).collect()
     }
 
     fn stamp(&self) -> String {
@@ -253,6 +260,51 @@ fn diffs_from_the_remote_trunk_and_lints_only_changed_sources() {
     let out = repo.verify(&[]);
     assert_eq!(out.code, 0, "{}", out.stderr);
     assert_eq!(repo.calls(), ["typecheck", "test"]);
+}
+
+#[test]
+fn lints_the_changed_sources_that_still_exist() {
+    let repo = Repo::new("lint-files");
+    repo.commit(&[("gone.ts", "let g\n")]);
+    git(
+        &repo.dir(),
+        &["update-ref", "refs/remotes/origin/main", "HEAD"],
+    );
+    fs::remove_file(repo.dir().join("gone.ts")).expect("delete the source");
+    repo.commit(&[("b.ts", "let b\n"), ("docs/a.md", "text\n")]);
+    let out = repo.verify(&[]);
+    assert_eq!(out.code, 0, "{}", out.stderr);
+    assert_eq!(repo.linted(), ["lint b.ts"]);
+}
+
+/// A change of 5002 sources: one exec of every path would outgrow the argument limit. The
+/// fixture's own a.ts is the first path of the first run.
+fn large_change(test: &str) -> Repo {
+    let repo = Repo::new(test);
+    let names: Vec<String> = (0..5001).map(|n| format!("many/f{n:04}.ts")).collect();
+    let files: Vec<(&str, &str)> = names.iter().map(|name| (name.as_str(), "")).collect();
+    repo.commit(&files);
+    repo
+}
+
+#[test]
+fn lints_a_large_change_in_several_runs() {
+    let repo = large_change("lint-runs");
+    let out = repo.verify(&[]);
+    assert_eq!(out.code, 0, "{}", out.stderr);
+    let runs = repo.linted();
+    assert_eq!(runs.len(), 2);
+    assert!(runs[0].ends_with(" many/f4998.ts"));
+    assert_eq!(runs[1], "lint many/f4999.ts many/f5000.ts");
+}
+
+#[test]
+fn fails_when_any_lint_run_fails() {
+    let repo = large_change("lint-runs-red");
+    let out = repo.verify(&[("STUB_FAIL", "lint a.ts")]);
+    assert_eq!(out.code, 1);
+    assert_eq!(last_line(&out), "verify: red: lint");
+    assert_eq!(repo.linted().len(), 2);
 }
 
 #[test]

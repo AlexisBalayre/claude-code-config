@@ -3,6 +3,7 @@ mod common;
 use common::{git, hook, TempDir};
 use std::fs::{self, File};
 use std::os::unix::fs::PermissionsExt;
+use std::os::unix::process::ExitStatusExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::thread::sleep;
@@ -366,6 +367,42 @@ fn exits_with_the_command_status_and_releases_the_lock() {
         127
     );
     assert!(!repo.lock().exists());
+}
+
+fn interrupt(pid: &str) {
+    let sent = Command::new("kill").args(["-INT", pid]).status();
+    assert!(sent.expect("run kill").success());
+}
+
+#[test]
+fn holds_the_lock_through_an_interrupt_until_the_command_ends() {
+    let repo = Repo::new("interrupt");
+    let mut holder = repo.holder("held", &format!("{}; exit 7", repo.until_go()));
+    interrupt(&holder.pid());
+    sleep(Duration::from_millis(500));
+    assert_eq!(repo.holder_pid(), holder.pid());
+    repo.go();
+    assert_eq!(holder.finish(), 7);
+    assert!(!repo.lock().exists());
+}
+
+#[test]
+fn dies_of_the_interrupt_that_killed_its_command() {
+    let repo = Repo::new("interrupt-both");
+    let mut call = repo.waiter(&mut repo.gl(&["bash", "-c", "kill -INT $PPID; kill -INT $$"]));
+    call.finish();
+    let status = call.0.wait().expect("read the status");
+    assert_eq!(status.signal(), Some(libc::SIGINT));
+    assert!(!repo.lock().exists());
+}
+
+// No case can hold the gap between the acquire's two writes open, so this pins their order.
+#[test]
+fn writes_the_label_before_the_pid() {
+    let src = include_str!("../src/gate_lock.rs");
+    let label = src.find("fs::write(&label_file").expect("label write");
+    let pid = src.find("fs::write(&pid_file").expect("pid write");
+    assert!(label < pid);
 }
 
 #[test]

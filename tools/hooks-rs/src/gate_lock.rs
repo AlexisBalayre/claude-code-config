@@ -21,6 +21,8 @@ struct Paths {
 // The signal handler reads these, so they are built once, before it is installed.
 static PATHS: OnceLock<Paths> = OnceLock::new();
 static HOLDING: AtomicBool = AtomicBool::new(false);
+static RUNNING: AtomicBool = AtomicBool::new(false);
+static INTERRUPTED: AtomicBool = AtomicBool::new(false);
 
 fn now() -> i64 {
     SystemTime::now()
@@ -121,6 +123,13 @@ fn cleanup() {
 }
 
 extern "C" fn on_signal(sig: libc::c_int) {
+    // Ctrl-C reaches the locked command too, and the lock stays until that command has ended, as
+    // a shell waits for its foreground child. Ignoring the signal would do it, but the command
+    // would inherit that.
+    if sig == libc::SIGINT && RUNNING.load(Ordering::SeqCst) {
+        INTERRUPTED.store(true, Ordering::SeqCst);
+        return;
+    }
     cleanup();
     unsafe {
         libc::signal(sig, libc::SIG_DFL);
@@ -275,6 +284,7 @@ pub fn run(args: &[String]) {
     HOLDING.store(true, Ordering::SeqCst);
     let _ = fs::remove_file(&entry);
 
+    RUNNING.store(true, Ordering::SeqCst);
     let code = match args.split_first() {
         None => 0,
         Some((command, rest)) => match Command::new(command)
@@ -282,9 +292,17 @@ pub fn run(args: &[String]) {
             .env("GATE_LOCK_HELD", &me)
             .status()
         {
-            Ok(status) => status
-                .code()
-                .unwrap_or_else(|| 128 + status.signal().unwrap_or(0)),
+            Ok(status) => {
+                // An interrupt that killed the command ends this run the same way, so a calling
+                // shell stops too. A command that handled it gives its own status.
+                if INTERRUPTED.load(Ordering::SeqCst) && status.signal() == Some(libc::SIGINT) {
+                    RUNNING.store(false, Ordering::SeqCst);
+                    on_signal(libc::SIGINT);
+                }
+                status
+                    .code()
+                    .unwrap_or_else(|| 128 + status.signal().unwrap_or(0))
+            }
             Err(err) if err.kind() == ErrorKind::NotFound => {
                 eprintln!("gate-lock: {command}: command not found");
                 127

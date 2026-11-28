@@ -1,5 +1,6 @@
-use crate::check_agent_config::{captured_output, git_or_exit, spawn_captured};
+use crate::added_lines::git_loud;
 use crate::common::{git, Config};
+use crate::quality_checks::xargs;
 use regex_lite::Regex;
 use std::io::Write;
 use std::os::unix::process::ExitStatusExt;
@@ -14,7 +15,7 @@ fn clean() -> bool {
 }
 
 pub fn run(_args: &[String]) {
-    let top = git_or_exit(&["rev-parse", "--show-toplevel"]);
+    let top = git_loud(&["rev-parse", "--show-toplevel"]).unwrap_or_else(|code| exit(code));
     let Ok(exe) = std::env::current_exe() else {
         exit(1)
     };
@@ -27,7 +28,7 @@ pub fn run(_args: &[String]) {
         eprintln!("verify: commit or drop your changes first; a dirty tree is never stamped.");
         exit(1);
     }
-    let head = git_or_exit(&["rev-parse", "HEAD"]);
+    let head = git_loud(&["rev-parse", "HEAD"]).unwrap_or_else(|code| exit(code));
     // With no merge-base (the trunk was never fetched), diff from the empty tree, so every file counts
     // as changed. By its full name: a bare origin/<trunk> resolves to a branch or tag of that name first.
     let trunk = Some(config.get("GIT_TRUNK"))
@@ -41,7 +42,9 @@ pub fn run(_args: &[String]) {
             "HEAD",
         ],
     )
-    .unwrap_or_else(|| git_or_exit(&["hash-object", "-t", "tree", "/dev/null"]));
+    .unwrap_or_else(|| {
+        git_loud(&["hash-object", "-t", "tree", "/dev/null"]).unwrap_or_else(|code| exit(code))
+    });
 
     let extensions: Vec<String> = config
         .get("SOURCE_EXTENSIONS")
@@ -68,15 +71,8 @@ pub fn run(_args: &[String]) {
     // Lint and the shell harnesses run at once, before the lock: they need no machine to themselves,
     // so a red one never takes the lock.
     let lint_cmd = config.get("LINT_CMD");
-    let lint = (!lint_cmd.is_empty() && !sources.is_empty()).then(|| {
-        spawn_captured(
-            Command::new("sh")
-                .arg("-c")
-                .arg(format!("{lint_cmd} \"$@\""))
-                .arg("_")
-                .args(&sources),
-        )
-    });
+    let lint = (!lint_cmd.is_empty() && !sources.is_empty())
+        .then(|| std::thread::spawn(move || xargs(&lint_cmd, &sources)));
     let mut red = Vec::new();
     let checked = Command::new(&exe)
         .args(["check-agent-config", "--affected", &base, "HEAD"])
@@ -85,22 +81,14 @@ pub fn run(_args: &[String]) {
         red.push("check-agent-config");
     }
     // red is set before the print, so a print that fails (a closed pipe) cannot pass a red job.
-    match lint {
-        Some(Ok((mut child, file))) => {
-            if child.wait().is_ok_and(|status| status.success()) {
-                if std::io::stdout().write_all(&captured_output(file)).is_err() {
-                    exit(1);
-                }
-            } else {
-                red.push("lint");
-                let _ = std::io::stderr().write_all(&captured_output(file));
-            }
-        }
-        Some(Err(err)) => {
+    if let Some(lint) = lint {
+        let (green, output) = lint.join().unwrap_or_default();
+        if !green {
             red.push("lint");
-            eprintln!("verify: lint: {err}");
+            let _ = std::io::stderr().write_all(&output);
+        } else if std::io::stdout().write_all(&output).is_err() {
+            exit(1);
         }
-        None => {}
     }
     // The last stderr line names what failed, since the output above it can run to pages.
     if !red.is_empty() {
@@ -135,8 +123,12 @@ pub fn run(_args: &[String]) {
         exit(1);
     }
 
-    let tree = git_or_exit(&["rev-parse", &format!("{head}^{{tree}}")]);
-    let stamp = format!("{}/verify-stamp", git_or_exit(&["rev-parse", "--git-dir"]));
+    let tree =
+        git_loud(&["rev-parse", &format!("{head}^{{tree}}")]).unwrap_or_else(|code| exit(code));
+    let stamp = format!(
+        "{}/verify-stamp",
+        git_loud(&["rev-parse", "--git-dir"]).unwrap_or_else(|code| exit(code))
+    );
     let date = Command::new("date")
         .args(["-u", "+%Y-%m-%dT%H:%M:%SZ"])
         .output()
