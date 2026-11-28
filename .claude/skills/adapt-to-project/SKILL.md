@@ -78,7 +78,7 @@ Then drop the matching keys from `.env.example` and update every catalog: `.clau
 
 1. The step 1 grep returns only slots the user chose to defer.
 2. No dangling references: grep the repo for each deleted skill, agent and doc name.
-3. Every `docs/conventions/*.md` has `paths:` frontmatter and a `.claude/rules/` symlink: `bash scripts/conventions-rules.test.sh` passes.
+3. Every `docs/conventions/*.md` has `paths:` frontmatter and a `.claude/rules/` symlink: `bash tests/scripts/conventions-rules.test.sh` passes.
 4. `bash -n .claude/hooks/*.sh scripts/*.sh`, and hooks and scripts are executable.
 5. Run the quality gate for real: add a trivial edit to one source file, run `CLAUDE_PROJECT_DIR="$PWD" .claude/hooks/quality-checks.sh`, confirm it passes, then revert the edit.
 

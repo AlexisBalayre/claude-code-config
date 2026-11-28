@@ -22,5 +22,5 @@ check off, so every hook no-ops harmlessly until the project is adapted.
 | `post-compact-state.sh` | `SessionStart(compact)` | After compaction, re-injects live state read fresh: the session's directory, the project checkout's branch, the other worktrees (path and branch), the open PRs and whether the CI review covers their head. It never runs `git status`, which would run commands another session can plant in git config. |
 
 **Configure / disable:** edit the entry under `hooks` in `settings.json`. Scripts must stay
-executable (`chmod +x`). Each `*.test.sh` beside a hook holds its hand-run cases:
-`bash .claude/hooks/<name>.test.sh`. To add a hook, see [`.claude/README.md`](../README.md) ("New hook").
+executable (`chmod +x`). Each hook's hand-run cases live in `tests/hooks/`:
+`bash tests/hooks/<name>.test.sh`. To add a hook, see [`.claude/README.md`](../README.md) ("New hook").

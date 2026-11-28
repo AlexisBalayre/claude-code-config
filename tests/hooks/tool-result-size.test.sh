@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Hand-run cases for tool-result-size.sh: `bash .claude/hooks/tool-result-size.test.sh`.
+# Hand-run cases for tool-result-size.sh: `bash tests/hooks/tool-result-size.test.sh`.
 
 set -uo pipefail
 
-HOOK="$(dirname "$0")/tool-result-size.sh"
+HOOK="$(dirname "$0")/../../.claude/hooks/tool-result-size.sh"
 failures=0
 
 # expect <want: silent | text the warning must contain> <tool> <command> <tool_response as jq, $n = size>

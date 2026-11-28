@@ -1,11 +1,11 @@
 #!/bin/bash
 # Fail when a commit range breaks a shell file or the shell harnesses: `bash -n` on every
-# changed shell file, then, when any file under scripts/ or .github/workflows/, shell under
-# .claude/hooks/ or any *.test.sh changed, every scripts/*.test.sh and .claude/hooks/*.test.sh. A change to the lead
+# changed shell file, then, when any file under scripts/, tests/ or .github/workflows/, shell under
+# .claude/hooks/ or any *.test.sh changed, every tests/scripts/*.test.sh and tests/hooks/*.test.sh. A change to the lead
 # tools' repo copy or its params runs their *.test.sh too, and only such a change does: they take
 # minutes, too long for every scripts/ change, so a change elsewhere that one of them reads goes
 # untested until the next lead-tools change. A conventions doc or
-# rule file change runs scripts/conventions-rules.test.sh alone, sparing a doc edit the full set.
+# rule file change runs tests/scripts/conventions-rules.test.sh alone, sparing a doc edit the full set.
 # --affected keeps, of those, only the harnesses the range can affect (affects() below); CI runs
 # without it, so a harness that reaches a changed file only through another file still runs there.
 # It reads the files on disk, so run it from a checkout of <head>.
@@ -26,8 +26,8 @@ SETUP=.claude/skills/setup-agent-env
 
 while IFS= read -r file; do
   case $file in "$SETUP"/lead-tools/* | "$SETUP"/params/*) globs="$SETUP/lead-tools/*.test.sh" ;; esac
-  case $file in docs/conventions/* | .claude/rules/*) rules=scripts/conventions-rules.test.sh ;; esac
-  case $file in scripts/* | .github/workflows/*) harnesses=true ;; esac
+  case $file in docs/conventions/* | .claude/rules/*) rules=tests/scripts/conventions-rules.test.sh ;; esac
+  case $file in scripts/* | tests/* | .github/workflows/*) harnesses=true ;; esac
   case $file in
     *.sh) ;;
     # An extensionless file here (pre-commit, pre-push) is shell when its shebang says so. A
@@ -49,16 +49,22 @@ while IFS= read -r file; do
   fi
 done <<<"$changed"
 
-# A harness X.test.sh is affected when it changed, its subject (X.sh, or an extensionless X)
-# changed, or it or a helper beside it (X.test.*) names a changed file's basename as a word. Two
+# A harness X.test.sh is affected when it changed, its subject (X.sh, or an extensionless X, in
+# scripts/ for tests/scripts/, in .claude/hooks/ for tests/hooks/, else beside it) changed, or it
+# or a helper beside it (X.test.*) names a changed file's basename as a word. Two
 # reads go through no name: every conventions doc and rule file is conventions-rules.test.sh's
 # input, and the lead-tools params reach their harnesses through lib.sh.
 names=$(sed 's|.*/||' <<<"$changed")
 affects() {
-  local stem=${1%.test.sh} file
+  local stem=${1%.test.sh} subject file
+  subject=$stem
+  case $stem in
+    tests/scripts/*) subject=scripts/${stem##*/} ;;
+    tests/hooks/*) subject=.claude/hooks/${stem##*/} ;;
+  esac
   while IFS= read -r file; do
     case $file in
-      "$1" | "$stem".sh | "$stem") return 0 ;;
+      "$1" | "$subject".sh | "$subject") return 0 ;;
       docs/conventions/* | .claude/rules/*) [ "$1" = "$rules" ] && return 0 ;;
       "$SETUP"/params/*) case $1 in "$SETUP"/lead-tools/*) return 0 ;; esac ;;
     esac
@@ -66,8 +72,8 @@ affects() {
   grep -qwFf <(echo "$names") "$stem".test.*
 }
 
-# scripts/*.test.sh already holds the rules harness, so it joins only when the full set is off.
-if $harnesses; then globs="scripts/*.test.sh .claude/hooks/*.test.sh $globs"; else globs="$globs $rules"; fi
+# tests/scripts/*.test.sh already holds the rules harness, so it joins only when the full set is off.
+if $harnesses; then globs="tests/scripts/*.test.sh tests/hooks/*.test.sh $globs"; else globs="$globs $rules"; fi
 runs=$(mktemp -d "${TMPDIR:-/tmp}/check-agent-config.XXXXXX")
 trap 'rm -rf "$runs"' EXIT
 list=()

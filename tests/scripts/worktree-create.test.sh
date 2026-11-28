@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Hand-run cases for scripts/worktree-create.sh: `bash scripts/worktree-create.test.sh`.
+# Hand-run cases for scripts/worktree-create.sh: `bash tests/scripts/worktree-create.test.sh`.
 # The script runs in a throwaway clone whose HEAD is behind its origin, so nothing here touches this checkout or its remotes.
 
 set -uo pipefail
 
-SCRIPTS=$(cd "$(dirname "$0")" && pwd)
+SCRIPTS=$(cd "$(dirname "$0")/../../scripts" && pwd)
 T=$(mktemp -d "${TMPDIR:-/tmp}/worktree-create.XXXXXX") || exit 1
 trap 'rm -rf "$T"' EXIT
 failures=0

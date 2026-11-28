@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Cases for scripts/worktree-remove.sh, run by scripts/check-agent-config.sh (verify):
-# `bash scripts/worktree-remove.test.sh`. The script runs in a throwaway clone with gh
+# `bash tests/scripts/worktree-remove.test.sh`. The script runs in a throwaway clone with gh
 # stubbed, under a scratch HOME, so nothing here touches this checkout or its remotes. It checks
 # that deleting a branch drops that branch's line from the lead's approved-plans file,
 # and only that line: a line of the same branch with another repo's push URL stays.
 
 set -uo pipefail
 
-SCRIPTS=$(cd "$(dirname "$0")" && pwd)
+SCRIPTS=$(cd "$(dirname "$0")/../../scripts" && pwd)
 T=$(mktemp -d "${TMPDIR:-/tmp}/worktree-remove.XXXXXX") || exit 1
 trap 'rm -rf "$T"' EXIT
 failures=0

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Hand-run cases for scripts/gate-lock.sh and its callers (scripts/verify.sh takes the lock,
-# scripts/pre-commit does not): `bash scripts/gate-lock.test.sh`. Every case runs in a throwaway repo
+# scripts/pre-commit does not): `bash tests/scripts/gate-lock.test.sh`. Every case runs in a throwaway repo
 # against stub commands, so nothing here touches this checkout's lock.
 
 set -uo pipefail
 
-SCRIPTS=$(cd "$(dirname "$0")" && pwd)
+SCRIPTS=$(cd "$(dirname "$0")/../../scripts" && pwd)
 T=$(mktemp -d)
 trap 'rm -rf "$T"' EXIT
 failures=0
@@ -337,7 +337,7 @@ env_file() {
 }
 
 # With no origin/main every file counts as changed, so this harness runs under verify.
-mkdir scripts && echo "echo harness >>'$T/log'" >scripts/mark.test.sh
+mkdir -p tests/scripts && echo "echo harness >>'$T/log'" >tests/scripts/mark.test.sh
 env_file 'stub typecheck' 'stub test'
 echo a >a.ts
 git add -A && git commit -qm harness
@@ -364,7 +364,7 @@ check 'before its suites' no_suites
 check 'and writes no stamp' unstamped
 reset
 
-echo 'exit 1' >scripts/fail.test.sh && git add scripts && git commit -qm fail
+echo 'exit 1' >tests/scripts/fail.test.sh && git add tests && git commit -qm fail
 PATH="$T/bin:$PATH" bash "$SCRIPTS/verify.sh" >/dev/null 2>"$T/err"
 check 'a failing harness stops verify' test $? -ne 0
 check 'and names it on the last line' last_line 'verify: red: check-agent-config'
@@ -373,7 +373,7 @@ check 'and writes no stamp' unstamped
 reset
 
 # A red lane step: a clean lint, so the lane runs, and the stub fails the first step alone.
-git rm -q scripts/fail.test.sh && git commit -qm unfail
+git rm -q tests/scripts/fail.test.sh && git commit -qm unfail
 STUB_FAIL=typecheck PATH="$T/bin:$PATH" bash "$SCRIPTS/verify.sh" >/dev/null 2>"$T/err"
 check 'a red lane step stops verify' test $? -ne 0
 check 'names the step on the last line' last_line 'verify: red: stub typecheck'

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Hand-run cases for check-agent-config.sh: `bash scripts/check-agent-config.test.sh`
+# Hand-run cases for check-agent-config.sh: `bash tests/scripts/check-agent-config.test.sh`
 # (scripts/verify.sh also runs it, as one of the harnesses the script finds).
 # Each case commits a change in a throwaway repo whose own harness,
-# scripts/mark.test.sh, appends a line to $MARK each time it runs.
+# tests/scripts/mark.test.sh, appends a line to $MARK each time it runs.
 
 set -uo pipefail
 
-CHECK="$(cd "$(dirname "$0")" && pwd)/check-agent-config.sh"
+CHECK="$(cd "$(dirname "$0")/../../scripts" && pwd)/check-agent-config.sh"
 T=$(mktemp -d)
 trap 'rm -rf "$T"' EXIT
 failures=0
@@ -27,7 +27,7 @@ new_repo() {
   : >"$MARK"
   git init -q "$repo"
   put README.md base
-  put scripts/mark.test.sh 'echo "held=${GATE_LOCK_HELD:-}${AGENT_REPO:-}${AGENT_GH_REPO:-}" >>"$MARK"'
+  put tests/scripts/mark.test.sh 'echo "held=${GATE_LOCK_HELD:-}${AGENT_REPO:-}${AGENT_GH_REPO:-}" >>"$MARK"'
   commit init
 }
 
@@ -80,15 +80,15 @@ new_repo; put scripts/ok.sh 'echo ok'; commit next
 expect 0 'a valid script under scripts/' check
 expect 0 'runs the harnesses' ran
 
-new_repo; put scripts/fail.test.sh 'exit 1'; commit harness; put scripts/ok.sh 'echo ok'; commit next
+new_repo; put tests/scripts/fail.test.sh 'exit 1'; commit harness; put scripts/ok.sh 'echo ok'; commit next
 expect 1 'a failing harness' check
 
 # Three harnesses that each wait for the other two to start pass only when they run at once.
 new_repo
-for h in a b c; do put "scripts/$h.test.sh" "touch '$T/$h'; for _ in \$(seq 50); do [ -e '$T/a' ] && [ -e '$T/b' ] && [ -e '$T/c' ] && exit 0; sleep 0.1; done; exit 1"; done
-put scripts/z.test.sh $'echo first\necho second\nexit 1'
+for h in a b c; do put "tests/scripts/$h.test.sh" "touch '$T/$h'; for _ in \$(seq 50); do [ -e '$T/a' ] && [ -e '$T/b' ] && [ -e '$T/c' ] && exit 0; sleep 0.1; done; exit 1"; done
+put tests/scripts/z.test.sh $'echo first\necho second\nexit 1'
 # Sorts first and finishes last, so a print in completion order puts it out of place.
-put scripts/0.test.sh $'sleep 1\nexit 1'
+put tests/scripts/0.test.sh $'sleep 1\nexit 1'
 commit next
 expect 1 'harnesses at once, two failing' check
 expect 0 'pass together' test "$(grep -c 'test.sh passed' "$T/check")" -eq 4
@@ -97,7 +97,7 @@ expect 0 'and print the seconds of each passing one' test "$(grep -cE 'test\.sh 
 expect 0 'in harness order' test "$(grep -oE '[a-z0-9]+\.test\.sh (passed|failed)' "$T/check" | tr '\n' ' ')" = '0.test.sh failed a.test.sh passed b.test.sh passed c.test.sh passed mark.test.sh passed z.test.sh failed '
 rm -f "$T/a" "$T/b" "$T/c"
 
-new_repo; put .claude/hooks/new.test.sh 'echo hooks >>"$MARK"'; commit next
+new_repo; put tests/hooks/new.test.sh 'echo hooks >>"$MARK"'; commit next
 expect 0 'a new harness under .claude/hooks/' check
 expect 0 'is found and run' grep -qx hooks "$MARK"
 
@@ -112,7 +112,7 @@ expect 0 'a deleted script' check
 expect 0 'runs the harnesses' ran
 
 new_repo; put tools/x.test.sh 'echo ok'; commit next
-expect 0 'a .test.sh outside scripts/ and .claude/hooks/' check
+expect 0 'a .test.sh outside tests/' check
 expect 0 'runs the harnesses' ran
 
 LT=.claude/skills/setup-agent-env/lead-tools
@@ -145,13 +145,13 @@ commit next
 expect 0 'a change elsewhere under setup-agent-env' check
 expect 1 'runs no lead-tools harness' grep -qx lead "$MARK"
 
-new_repo; put scripts/conventions-rules.test.sh 'echo rules >>"$MARK"'; commit harness; put docs/conventions/core.md text
+new_repo; put tests/scripts/conventions-rules.test.sh 'echo rules >>"$MARK"'; commit harness; put docs/conventions/core.md text
 commit next
 expect 0 'a conventions doc change' check
 expect 0 'runs the conventions rules harness' grep -qx rules "$MARK"
 expect 1 'and no other harness' grep -q held= "$MARK"
 
-new_repo; put scripts/conventions-rules.test.sh 'echo rules >>"$MARK"'; commit harness; put scripts/ok.sh 'echo ok'; put .claude/rules/core.md text
+new_repo; put tests/scripts/conventions-rules.test.sh 'echo rules >>"$MARK"'; commit harness; put scripts/ok.sh 'echo ok'; put .claude/rules/core.md text
 commit next
 expect 0 'a rule file change beside a scripts/ change' check
 expect 0 'runs the rules harness once, in the full set' test "$(grep -cx rules "$MARK")" -eq 1
@@ -163,9 +163,9 @@ expect 0 'are both reported' test "$(grep -c 'bash -n failed' "$T/check")" -eq 2
 # --affected, verify's run, keeps only the harnesses the range can affect; each case commits one change.
 change() { put "$1" "${2:-echo ok}"; commit "$1"; : >"$MARK"; }
 new_repo
-harness scripts/a.test.sh; harness scripts/pre-push.test.sh; harness scripts/b.test.sh ': lib.sh'
-harness scripts/c.test.sh; put scripts/c.test.mjs '// scripts/helper.sh'
-harness scripts/conventions-rules.test.sh
+harness tests/scripts/a.test.sh; harness tests/scripts/pre-push.test.sh; harness tests/scripts/b.test.sh ': lib.sh'
+harness tests/scripts/c.test.sh; put tests/scripts/c.test.mjs '// scripts/helper.sh'
+harness tests/scripts/conventions-rules.test.sh
 harness $LT/l.test.sh ': lib.sh'; harness $LT/m.test.sh
 commit harnesses
 change scripts/a.sh
@@ -180,7 +180,7 @@ expect 0 'runs only the harness that names it' only b.test.sh
 change scripts/helper.sh
 expect 0 'a script a harness helper names' affected
 expect 0 'runs only the harness whose helper names it' only c.test.sh
-harness scripts/b.test.sh; commit b; : >"$MARK"
+harness tests/scripts/b.test.sh; commit b; : >"$MARK"
 expect 0 'a changed harness' affected
 expect 0 'runs only itself' only b.test.sh
 change .github/workflows/ci.yml 'name: ci'
@@ -191,6 +191,10 @@ for doc in docs/conventions/core.md .claude/rules/core.md; do
   expect 0 "$doc" affected
   expect 0 'runs only the rules harness' only conventions-rules.test.sh
 done
+harness tests/hooks/h.test.sh; commit h
+change .claude/hooks/h.sh
+expect 0 'a hook' affected
+expect 0 'runs only its harness in tests/hooks/' only h.test.sh
 change .claude/skills/setup-agent-env/params/repo.env X=2
 expect 0 'a lead-tools param' affected
 expect 0 'runs every lead-tools harness' only l.test.sh m.test.sh
@@ -207,17 +211,17 @@ expect 0 'runs every scripts/ harness' grep -qx b.test.sh "$MARK"
 # Five harnesses, four at a time: the one with the shortest last time starts alone, after the rest.
 # z has no time yet, so it counts as the longest and is the one a run in glob order would start last.
 new_repo
-for h in a b c mark z; do harness "scripts/$h.test.sh" 'sleep 2'; done
+for h in a b c mark z; do harness "tests/scripts/$h.test.sh" 'sleep 2'; done
 commit harnesses
 times="$repo/.git/check-agent-config.times"
 mkdir -p "$times"
 # No time is 0, so z would start last if an unknown time counted as 0 too.
-echo 2 >"$times/scripts_a.test.sh"; echo 4 >"$times/scripts_b.test.sh"; echo 3 >"$times/scripts_c.test.sh"
-echo 1 >"$times/scripts_mark.test.sh"
+echo 2 >"$times/tests_scripts_a.test.sh"; echo 4 >"$times/tests_scripts_b.test.sh"; echo 3 >"$times/tests_scripts_c.test.sh"
+echo 1 >"$times/tests_scripts_mark.test.sh"
 change scripts/ok.sh
 expect 0 'harnesses with known times' check
 expect 0 'start longest first' test "$(tail -n1 "$MARK")" = mark.test.sh
-expect 0 'and record each time' grep -qx '[0-9]*' "$times/scripts_z.test.sh"
+expect 0 'and record each time' grep -qx '[0-9]*' "$times/tests_scripts_z.test.sh"
 
 if [ "$failures" -eq 0 ]; then
   echo "all cases passed"

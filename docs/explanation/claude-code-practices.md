@@ -23,7 +23,7 @@ A row with a path is enforced or wired by this template. A row without one is a 
 | Keep `AGENTS.md` tool-neutral; `CLAUDE.md` imports it and adds Claude-only lines. | Claude Code reads `AGENTS.md` only when no `CLAUDE.md` exists. Imports resolve four hops deep at most. | `CLAUDE.md` |
 | Core rule: read 2-3 similar files and match them. | Matching neighbours gives more consistency than a style guide, for the price of a few reads. | `AGENTS.md` §Role |
 | Comments carry only a non-obvious WHY; audit every discretionary construct. | Agents over-comment and over-abstract by default. The audit makes each helper, option or defensive branch earn its place. | `docs/conventions/core.md` |
-| Conventions are path-scoped rules, symlinked, never `@import`ed. | An `@import` in a rule file loads every doc into every session. A symlink loads one doc on the first touch of its area. | `.claude/rules/`, `scripts/conventions-rules.test.sh` |
+| Conventions are path-scoped rules, symlinked, never `@import`ed. | An `@import` in a rule file loads every doc into every session. A symlink loads one doc on the first touch of its area. | `.claude/rules/`, `tests/scripts/conventions-rules.test.sh` |
 | Convention docs hold obligations only. | Tutorials and system description cost tokens on every load. No line tells the model to Read a doc: the rule already injected it. | `docs/conventions/` |
 | Hard rules live in hooks, not in prose. | Prose rules are broken under load. A rule broken twice moves into a hook. | `.claude/hooks/` |
 | Keep skills short and router-style. | Keep `SKILL.md` under 500 lines and move detail to sibling files. Descriptions are capped (1,536 characters) and load into every session; `disable-model-invocation: true` keeps a user-only skill's description out. | `.claude/skills/` |
@@ -70,7 +70,7 @@ A row with a path is enforced or wired by this template. A row without one is a 
 
 | Practice | Why | Where |
 | --- | --- | --- |
-| Give every hook a test harness. | A hook that fails open is worse than none, because everyone trusts it. | `.claude/hooks/*.test.sh`, `scripts/check-agent-config.sh` |
+| Give every hook a test harness. | A hook that fails open is worse than none, because everyone trusts it. | `tests/hooks/*.test.sh`, `scripts/check-agent-config.sh` |
 | Know the hook semantics. | Exit 2 blocks. A `Stop` hook's exit-0 output never reaches the model, so an advisory `Stop` hook does nothing. Consecutive `Stop` blocks are capped, and each costs a turn. `"onFailure": "block"` makes a crash or timeout block. | `.claude/README.md` |
 | Treat permission rules as text matches, not a boundary. | A deny rule matches the raw command text, and a quoted or reordered flag walks past it. Hooks parse the command and fail closed; the sandbox and token scopes are the real boundary. | `.claude/hooks/git-safety.sh` |
 | Ask on merges, token reads and first pushes. | An allow rule broad enough to be useful also allows the irreversible call. | `.claude/hooks/push-gate.sh`, `permissions.ask` |
