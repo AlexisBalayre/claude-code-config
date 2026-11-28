@@ -1,0 +1,227 @@
+{
+  "schema_version": 7,
+  "timestamp": "2026-11-28T16:58:36.069Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "46167359163",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/46167359163",
+  "actor": "AlexisBalayre",
+  "commit_sha": "c2e7339eceebdfeb5e8b17cf81641be75bbb9ad8",
+  "source": "pr",
+  "pr_number": 86,
+  "action": "review",
+  "reviewers_spawned": [
+    "correctness",
+    "correctness",
+    "correctness",
+    "security",
+    "security",
+    "qa",
+    "quality",
+    "simplicity"
+  ],
+  "reviewers_returned": [
+    "correctness",
+    "correctness",
+    "correctness",
+    "security",
+    "security",
+    "qa",
+    "quality",
+    "simplicity"
+  ],
+  "reviewers_skipped": [
+    "perf",
+    "requirements"
+  ],
+  "review_mode": "full",
+  "incremental_from_sha": null,
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [],
+  "findings": [
+    {
+      "file": "tools/hooks-rs/src/gate_lock.rs",
+      "line": "123-129, 189-200, 275-298",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "important",
+      "description": "On SIGINT, the handler releases the lock and kills gate-lock straight away, even though the locked command is still running. `scripts/gate-lock.sh` kept the lock until the command finished.",
+      "body": "**SIGINT now releases the gate lock while the locked command is still running**\n\nThe handler is installed for SIGTERM, SIGINT and SIGHUP before the queue loop. It is still active while `Command::new(command)...status()` waits on the child, and by then `HOLDING` is true:\n\n```rust\nextern \"C\" fn on_signal(sig: libc::c_int) {\n    cleanup();\n    unsafe {\n        libc::signal(sig, libc::SIG_DFL);\n        libc::raise(sig);\n    }\n}\n```\n\nCtrl-C reaches the whole foreground process group: verify, gate-lock, the `bash -c` step and cargo/pytest. gate-lock then removes `pid`, `label` and the lock dir, and kills itself before its child has exited.\n\n`scripts/gate-lock.sh` traps only EXIT, and it runs the command in the foreground (`GATE_LOCK_HELD=$$ \"$@\"`). A non-interactive bash waits for a foreground child to exit before acting on SIGINT, so the EXIT trap released the lock only after the command had ended. If the child caught SIGINT and exited normally, the script returned the child's own exit code.\n\nWhat follows:\n- A test runner that tears down after SIGINT (pytest fixtures, jest workers) keeps running without the lock. The head waiter in another worktree takes the lock on its next 2 s poll and starts its own heavy run alongside.\n- A child that survives SIGINT runs with no lock at all, and its `GATE_LOCK_HELD` names a dead pid.\n- The child's exit status is lost. `verify` also dies at once, while the step is still writing to the terminal.\n\nThe PR states the port keeps the same rules, and this change would ship with the switch.\n\nFix sketch: while the child runs, have the handler only record SIGINT in an atomic and return. Do not use `SIG_IGN`, because the child would inherit it. After `status()` returns, run `cleanup()`. Re-raise SIGINT only if the child died of it; otherwise exit with the child's code. Keep SIGTERM and SIGHUP immediate, as bash does.\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/c2e7339eceebdfeb5e8b17cf81641be75bbb9ad8/tools/hooks-rs/src/gate_lock.rs#L123-L129\nhttps://github.com/AlexisBalayre/claude-code-config/blob/c2e7339eceebdfeb5e8b17cf81641be75bbb9ad8/tools/hooks-rs/src/gate_lock.rs#L275-L298",
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/verify.rs",
+      "line": "71-79",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "important",
+      "description": "`LINT_CMD` now gets every changed source file in a single `sh -c` call. `verify.sh` split them into batches through `xargs -0`. Past the kernel's argument-size limit the spawn fails with E2BIG, lint is reported red, and verify can never stamp the tree.",
+      "body": "**The lint file list is no longer batched, so a large change set fails to exec (E2BIG)**\n\n`scripts/verify.sh` piped the list through `xargs -0 sh -c \"$LINT_CMD \\\"\\$@\\\"\" _`, which splits it into runs that fit under ARG_MAX. The port passes every file in one `execve`:\n\n```rust\nspawn_captured(\n    Command::new(\"sh\")\n        .arg(\"-c\")\n        .arg(format!(\"{lint_cmd} \\\"$@\\\"\"))\n        .arg(\"_\")\n        .args(&sources),\n)\n```\n\nThe size of `sources` has no bound. When `refs/remotes/origin/<trunk>` does not resolve (the trunk was never fetched, the remote has another name, or `GIT_TRUNK` is wrong), base falls back to the empty tree (L36-44). Every tracked source file then counts as changed. A branch that sweeps a whole monorepo has the same effect.\n\nAt roughly 30k paths (2 MiB of arguments plus environment by default), `spawn()` returns `Err(E2BIG)`. The `Some(Err(err))` arm (L99-102) then marks lint red. Re-running changes nothing, so the tree is never stamped and `pre-push` refuses every push.\n\n`quality_checks.rs` already has an `xargs()` batcher (5000 arguments or 128 KiB per run). To keep lint running in the background next to check-agent-config, either run the batches in sequence inside one spawned `sh`, or move the batching loop onto a thread. `pre_commit.rs` L49-54 has the same pattern; it came in with an earlier PR.\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/c2e7339eceebdfeb5e8b17cf81641be75bbb9ad8/tools/hooks-rs/src/verify.rs#L71-L79",
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/check_agent_config.rs",
+      "line": "13-26",
+      "area": "simplicity",
+      "confidence": "high",
+      "tag": "important",
+      "description": "`pub fn git_or_exit(args: &[&str]) -> String` copies `crate::added_lines::git_loud(args).unwrap_or_else(|code| exit(code))` line for line. Both inherit stderr, exit 127 when git cannot spawn, exit with git's code (or 1) when it fails, and trim the trailing `\\n`. `pre_commit.rs:9`, `worktree_create.rs:25` and `worktree_remove.rs:214` already use the `git_loud` form. Delete the helper and use `git_loud` at all 8 call sites. Delta about -14 +2 (the import swap, and rustfmt may wrap some calls). Behavior holds: same exit codes, same stderr, same trimmed stdout.",
+      "body": "**`git_or_exit` re-implements the crate's existing `git_loud`**\n\n[`git_or_exit`](https://github.com/AlexisBalayre/claude-code-config/blob/c2e7339eceebdfeb5e8b17cf81641be75bbb9ad8/tools/hooks-rs/src/check_agent_config.rs#L13-L26) behaves exactly like `crate::added_lines::git_loud(args).unwrap_or_else(|code| exit(code))` (`added_lines.rs:8-21`):\n- both inherit stderr;\n- both exit 127 when git cannot spawn;\n- both exit with `status.code().unwrap_or(1)` when git fails;\n- both return `trim_end_matches('\\n')` of stdout.\n\n`pre_commit.rs`, `worktree_create.rs`, `worktree_remove.rs` and `check_dashes.rs` already use the `git_loud` form. `docs/conventions/core.md` §Altitude / YAGNI says to reuse it rather than add a bespoke helper next to it.\n\nDelete `git_or_exit` and use `git_loud(&[...]).unwrap_or_else(|code| exit(code))` at its 8 call sites:\n- `check_agent_config.rs` L131, 142 and 212;\n- `verify.rs` L17, 30, 44, 138 and 139.\n\nImport `crate::added_lines::git_loud` in both files. The change is about -14 +2 lines.",
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/gate_lock.rs",
+      "line": "211-217",
+      "area": "qa",
+      "confidence": "medium",
+      "tag": "important",
+      "description": "Test adequacy: the acquire writes the label before the pid, and no Rust test pins that order. The shell harness did, with `check 'the acquire writes the label before the pid' grep -qF 'mkdir \"$LOCK\" && echo \"$label\" >\"$LOCK/label\" && echo $$ >\"$LOCK/pid\"' gate-lock.sh`. The Rust port dropped the case, so the \"every shell case has a Rust test\" claim does not hold here.",
+      "body": "**Test adequacy: the label-before-pid order is no longer pinned**\n\n`tests/scripts/gate-lock.test.sh:310-311` checked that the acquire writes the label before the pid. `tools/hooks-rs/tests/gate_lock.rs` has no counterpart. If the two writes swap, every Rust test still passes:\n\n```rust\n&& fs::write(&pid_file, format!(\"{me}\\n\")).is_ok()\n&& fs::write(&label_file, format!(\"{label}\\n\")).is_ok()\n```\n\nA waiter that reads the pid could then find no label and print `waiting for pid N` instead of the holder's name. The comment at L211-212 states this invariant. The PR's Done item says each shell harness case has a Rust test, and that is not true for this case.\n\nNo test can hold the gap between the two writes open, which is why the shell version pinned the order by source text. One option is to do the same:\n\n```rust\n// No case can hold the gap between the acquire's two writes open, so this pins their order.\n#[test]\nfn writes_the_label_before_the_pid() {\n    let src = include_str!(\"../src/gate_lock.rs\");\n    let label = src.find(\"fs::write(&label_file\").expect(\"label write\");\n    let pid = src.find(\"fs::write(&pid_file\").expect(\"pid write\");\n    assert!(label < pid);\n}\n```\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/c2e7339eceebdfeb5e8b17cf81641be75bbb9ad8/tools/hooks-rs/src/gate_lock.rs#L211-L217",
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/verify.rs",
+      "line": "52-79",
+      "area": "qa",
+      "confidence": "high",
+      "tag": "important",
+      "description": "Test adequacy: no test checks which files verify hands to the lint command. The fixture `STUB` logs only `$1` (`echo \"$1\" >>\"$STUB_CALLS\"`), and `LINT_CMD=\"stub lint\"` ignores the file arguments. Lint is only asserted to run or not run.",
+      "body": "**Test adequacy: the files passed to lint are never asserted**\n\nIn `tools/hooks-rs/tests/verify.rs`, `STUB` logs only `$1`, so the paths passed after `lint` are never seen. The suite still passes with either of these mutants:\n- `.args(&sources)` removed at L77, so lint runs with no files;\n- `--diff-filter=d` removed at L58, so a deleted source is passed to lint. No test deletes a source file.\n\n`diffs_from_the_remote_trunk_and_lints_only_changed_sources` asserts only whether lint ran.\n\nTo cover it, extend `STUB` with `[ \"$1\" = lint ] && echo \"$*\" >\"$STUB_CALLS.lint\"`. Then add a test that, after `origin/main`:\n- commits a changed `b.ts` and a doc `docs/a.md`;\n- commits `gone.ts` and then deletes it;\n- asserts that the `.lint` log reads `lint b.ts`.\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/c2e7339eceebdfeb5e8b17cf81641be75bbb9ad8/tools/hooks-rs/src/verify.rs#L52-L79",
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/gate_lock.rs",
+      "line": "132-141",
+      "area": "simplicity",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "The hand-rolled `Command::new(\"git\").args([\"rev-parse\", \"--path-format=absolute\", \"--git-common-dir\"]).stderr(Stdio::inherit()).output()...unwrap_or_default()` block equals `git_loud(&[\"rev-parse\", \"--path-format=absolute\", \"--git-common-dir\"]).unwrap_or_default()`, as `worktree_remove.rs` already does. Delta -10 +2, with the same behavior on failure.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/tests/verify.rs",
+      "line": "29-31, 58-64, 101-106",
+      "area": "simplicity",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "The test `Repo` rebuilds helpers that tests/common already has. Use `common::executable` for the stub write and chmod, `common::path_with` for the PATH built by hand, and `common::git_stdout` for the six-line `rev-parse HEAD^{tree}` call. About -14 +3.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/tests/check_agent_config.rs",
+      "line": "41-55",
+      "area": "simplicity",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The `Repo::commit` body (write the files, `git add -A`, `git commit -qm next`) is duplicated in tests/verify.rs L43-53. It could become a shared `common::commit(dir, files)` helper. About -10 +7.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/gate_lock.rs",
+      "line": "152-157, 189-199, 288-296",
+      "area": "qa",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "These gate-lock branches have no tests:\n- the 128+signal exit (`sh -c 'kill -TERM $$'` should exit 143);\n- exit 126 for a non-executable command;\n- the short-sha label on a detached HEAD;\n- the preservation of an ignored signal (`SIG_IGN`);\n- the no-command run, which should take and release the lock and exit 0.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/verify.rs",
+      "line": "33-35, 46-54, 88-97, 145-153",
+      "area": "qa",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "These verify behaviors are not pinned by any test:\n- the stamp content beyond the `<tree> ` prefix, and that it appends rather than truncates;\n- the `GIT_TRUNK` override;\n- an empty `SOURCE_EXTENSIONS`;\n- the combined `red: check-agent-config, lint` report;\n- lint output reaching stdout on green.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/check_agent_config.rs",
+      "line": "62-70, 73-85, 275-277",
+      "area": "qa",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "These check-agent-config branches have no tests:\n- the `names_word` word boundary: a plain substring match would still pass, because no fixture names a changed basename inside a longer word, such as `xhelper.sh`;\n- the `harnesses_in` filters for dotfiles and directories;\n- the newline appended to failing-harness output that lacks one.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/tests/pre_commit.rs",
+      "line": null,
+      "area": "qa",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The shell case 'the pre-commit lints its staged files without waiting for a held lock' (tests/scripts/gate-lock.test.sh L384-390) has no Rust counterpart. A pre-commit that started taking the gate lock would pass every test.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/gate_lock.rs",
+      "line": "213-217",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "pre-existing",
+      "description": "After `create_dir` succeeds, the label and pid files are written with `fs::write`, which follows a symlink. A sandboxed process that shares the lock in `.git` could plant `label` or `pid` as a symlink, and the unsandboxed holder would then overwrite that symlink's target outside the sandbox. The shell original has the same race. Opening both files with `create_new(true)` (O_EXCL) closes it.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/verify.rs",
+      "line": "10-14",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "pre-existing",
+      "description": "`clean()` fails open: when `git status` exits non-zero, `unwrap_or_default()` returns empty output, so the tree counts as clean at both checks. The shell original behaves the same. Treating a git failure as dirty would close it.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/pre_commit.rs",
+      "line": "49-54",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "pre-existing",
+      "description": "pre-commit hands every staged source file to one `sh -c` exec, where `scripts/pre-commit` used `xargs -0`. A very large staged set can fail with E2BIG. This has the same root cause as the verify.rs lint finding, but this code came in with an earlier PR.",
+      "body": null,
+      "suggestion": null
+    }
+  ],
+  "refuted_findings": [],
+  "process_issues": [],
+  "comments_posted_actual": 5,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 4.533345899999998,
+  "duration_ms": 399235,
+  "num_turns": 16,
+  "tokens": {
+    "input": 14,
+    "output": 23259,
+    "cache_read": 318706,
+    "cache_creation": 61966,
+    "total": 403945
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 126,
+      "output": 96495,
+      "cache_read": 1574512,
+      "cache_creation": 306322,
+      "cost_usd": 3.9628143999999987
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 34,
+      "output": 18584,
+      "cache_read": 457585,
+      "cache_creation": 135546,
+      "cost_usd": 0.5705315000000001
+    }
+  ],
+  "permission_denials": []
+}
