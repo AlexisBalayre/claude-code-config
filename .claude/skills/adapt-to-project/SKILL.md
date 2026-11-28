@@ -34,7 +34,7 @@ Present in one message: the detected stack, the proposed `.claude/project.env` v
 ## 4. Project profile
 
 1. Fill `.claude/project.env` and delete its `TODO(adapt)` line. Run every command once before writing it: `LINT_CMD` and `FORMAT_FIX_CMD` against one real source file (they receive file paths as arguments; wrap a tool that doesn't accept paths), `TYPECHECK_CMD` and `TEST_CMD` as-is. A command that fails on a clean trunk is not ready; report it rather than writing it.
-2. Set `SOURCE_EXTENSIONS` to the project's languages and narrow the extension glob in `.claude/rules/core-conventions.md` to match.
+2. Set `SOURCE_EXTENSIONS` to the project's languages and narrow the extension glob in the `paths:` frontmatter of `docs/conventions/core.md` to match.
 3. `GENERATED_PATHS_REGEX` from the generated code found. `FILE_NAMING_*` only when the codebase already follows one naming rule consistently (count violations with `git ls-files`); otherwise leave empty.
 4. `GIT_TRUNK` from `git symbolic-ref --short refs/remotes/origin/HEAD` (strip `origin/`).
 5. Add the project's safe commands to `permissions.allow` in `.claude/settings.json` (e.g. `Bash(<test command>*)`).
@@ -47,7 +47,7 @@ Present in one message: the detected stack, the proposed `.claude/project.env` v
 1. `core.md` and `testing.md`: replace each `TODO(adapt)` section with observed rules, or delete the section when the project has nothing to say.
 2. For each area whose rules differ from core, create:
    - `docs/conventions/<area>.md` with the same title and genre-contract line as `core.md`;
-   - `.claude/rules/<area>-conventions.md`: `paths:` frontmatter plus a single `@docs/conventions/<area>.md` import, nothing else;
+   - `.claude/rules/<area>-conventions.md`: a symlink to `../../docs/conventions/<area>.md`, whose own `paths:` frontmatter scopes it;
    - a row in the `AGENTS.md` Conventions table and in `.claude/rules/README.md`.
 3. `.claude/spot-checks.tsv`: add only cheap, near-zero-false-positive structural checks for rules the linter cannot express (a forbidden import in a layer, a banned API in a directory). Each message cites its conventions section.
 
@@ -78,7 +78,7 @@ Then drop the matching keys from `.env.example` and update every catalog: `.clau
 
 1. The step 1 grep returns only slots the user chose to defer.
 2. No dangling references: grep the repo for each deleted skill, agent and doc name.
-3. Every `.claude/rules/*.md` import target exists, and every `docs/conventions/*.md` has a loader.
+3. Every `docs/conventions/*.md` has `paths:` frontmatter and a `.claude/rules/` symlink: `bash scripts/conventions-rules.test.sh` passes.
 4. `bash -n .claude/hooks/*.sh scripts/*.sh`, and hooks and scripts are executable.
 5. Run the quality gate for real: add a trivial edit to one source file, run `CLAUDE_PROJECT_DIR="$PWD" .claude/hooks/quality-checks.sh`, confirm it passes, then revert the edit.
 

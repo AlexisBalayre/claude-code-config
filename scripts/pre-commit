@@ -1,10 +1,10 @@
 #!/bin/bash
 # Pre-commit hook: enforce code quality and prevent local-only file commits.
-# Install: cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+# Installed by scripts/setup.sh into <git-common-dir>/hooks.
 #
-# Complements the Claude Code Stop hook (.claude/hooks/quality-checks.sh): the Stop
-# hook gates agent sessions, this gates human/CLI commits. Commands come from
-# .claude/project.env; an empty command is skipped.
+# Lints the staged source files with LINT_CMD from .claude/project.env (skipped
+# when empty). Typecheck and tests run in scripts/verify.sh, which scripts/pre-push
+# requires before a push, so a commit never waits on the gate lock.
 
 set -e
 
@@ -30,6 +30,12 @@ for path in $BLOCKED_PATHS; do
   fi
 done
 
+# --- No em or en dash on added lines (skipped mid-merge: the other side's lines are not this commit's) ---
+
+if [ -x scripts/check-dashes.sh ] && ! git rev-parse -q --verify MERGE_HEAD >/dev/null; then
+  scripts/check-dashes.sh --cached
+fi
+
 # --- Code quality checks ---
 
 EXT_RE=$(printf '%s' "${SOURCE_EXTENSIONS:-}" | tr -s ' ' '|')
@@ -46,16 +52,5 @@ if [ -n "${LINT_CMD:-}" ] && [ -n "$STAGED_SOURCE" ]; then
     exit 1
   fi
 fi
-
-for step in TYPECHECK_CMD TEST_CMD; do
-  cmd="${!step:-}"
-  [ -z "$cmd" ] && continue
-  echo "Running $step: $cmd"
-  if ! bash -c "$cmd"; then
-    echo ""
-    echo "ERROR: $step failed. Fix it before committing."
-    exit 1
-  fi
-done
 
 echo "All pre-commit checks passed."

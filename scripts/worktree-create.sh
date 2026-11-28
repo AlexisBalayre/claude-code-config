@@ -25,7 +25,12 @@ if [ -d "$WORKTREE_DIR" ]; then
 fi
 
 mkdir -p .worktrees
-git worktree add "$WORKTREE_DIR" -b "$BRANCH"
+# From origin's trunk, not the checkout's HEAD, which may be stale or on another branch. By its
+# full name: a bare origin/<trunk> resolves to a local branch or tag of that name first.
+# --no-track: a branch tracking the trunk would aim a bare `git push` at it.
+TRUNK="${GIT_TRUNK:-main}"
+git fetch --quiet origin "$TRUNK"
+git worktree add --no-track "$WORKTREE_DIR" -b "$BRANCH" "refs/remotes/origin/$TRUNK"
 
 # Fresh worktrees start without installed dependencies.
 if [ -n "${INSTALL_CMD:-}" ]; then

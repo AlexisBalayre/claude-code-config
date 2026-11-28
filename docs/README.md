@@ -23,11 +23,12 @@ Per-area rules. Read the one for the area you are changing.
 
 - [core](conventions/core.md) — language-agnostic obligations: altitude/YAGNI, comments, errors, logging, naming and structure
 - [testing](conventions/testing.md) — testing obligations
-- Area docs (`conventions/<area>.md`, each with a matching `.claude/rules/<area>-conventions.md` loader) are added per project by `/adapt-to-project`
+- Area docs (`conventions/<area>.md`, each with a `.claude/rules/<area>-conventions.md` symlink to it) are added per project by `/adapt-to-project`
 
 ## Reference and explanation
 
 - [reference/architecture.md](reference/architecture.md) — components, layout, request/data flow, external dependencies, deployment
 - [explanation/security-model.md](explanation/security-model.md) — trust boundaries, authn/authz, secrets, input validation (the `security-reviewer` spec)
+- [explanation/claude-code-practices.md](explanation/claude-code-practices.md): the Claude Code practices this setup is built on, each with its why and where it is applied
 - [adr/](adr/README.md) — how to record a decision, plus the template
 - [glossary.md](glossary.md) — shared vocabulary
