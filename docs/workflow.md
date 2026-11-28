@@ -27,7 +27,7 @@ This matters more with an agent in the loop:
 scripts/worktree-create.sh my-feature   # .worktrees/my-feature on branch feature/my-feature
   └─ cd .worktrees/my-feature
        ├─ explore + plan (read 2-3 neighbours; match patterns)
-       ├─ TDD: red → green → refactor       (tdd skill)
+       ├─ TDD: red → green → refactor       (red first)
        ├─ Stop hook gates every response     (format/lint dirty files)
        ├─ convention-checker before commit   (≥3 source files changed)
        ├─ commit (pre-commit lints staged files; lands on feature/ branch, never main)
@@ -72,8 +72,8 @@ isolation: worktree   # in an agent definition or Agent tool call
 ```
 
 The agent gets a temporary worktree, does its work, and the worktree is cleaned up if nothing
-changed. This pairs well with the `find-dead-code` rule of thumb: *open a worktree per
-category; do not bundle unrelated removals into one PR.*
+changed. A rule of thumb for removals: *open a worktree per category; do not bundle unrelated
+removals into one PR.*
 
 ## Adapting it
 

@@ -56,18 +56,9 @@ A rule fires on the first Read, Edit, or Write of a matching path (not on MCP re
 │
 ├── skills/                # Auto-discoverable knowledge + workflows (each is <name>/SKILL.md)
 │   ├── adapt-to-project/                                         # setup (run once per project)
-│   ├── to-spec/   to-tickets/   wayfinder/   implement/          # planning & specs
-│   ├── implement-spec/   to-questionnaire/
-│   ├── tdd/   diagnosing-bugs/   wizard/   research/             # engineering
-│   ├── find-dead-code/   improve-codebase-architecture/          # engineering (manual)
-│   ├── grilling/   grill-me/   grill-with-docs/                  # thinking / design
-│   ├── codebase-design/   domain-modeling/   zoom-out/   prototype/
 │   ├── pr-description/   pr-ci-review/                           # PR & review
 │   ├── address-review-comments/   review-retro/
-│   ├── writing-for-agents/   retro/   handoff/   caveman/        # meta / workflow
-│   ├── wait-what/
-│   ├── obsidian-vault/   daily-note/   backfill-issues/           # personal integrations (.env)
-│   └── fix-sonar/   wiz/   fix-wiz/
+│   └── writing-for-agents/   ci-and-agent-config/                # agent config
 │
 ├── agents/                # Custom subagents for specialized tasks
 │   ├── convention-checker.md      migration-reviewer.md          # proactive
@@ -127,7 +118,7 @@ A rule that `@import`s a doc loads it at session start whatever its `paths:` say
 
 Skills are directories with a `SKILL.md` that Claude discovers automatically. Claude sees the description at session start (tiny context cost) and loads the full content when the skill is relevant.
 
-This repo ships **35 skills** across setup, planning, engineering, thinking/design, PR & review, meta, and personal integrations. The **[skill catalog](skills/README.md)** lists when each one fires and how to invoke it (auto-trigger, `/slash-command`, Claude-only, or manual-only).
+This repo ships **7 skills**, the ones bound to its own machinery (setup, PR & review, agent config); general engineering skills come from a companion plugin. The **[skill catalog](skills/README.md)** lists when each one fires and how to invoke it (auto-trigger, `/slash-command`, Claude-only, or manual-only).
 
 **Frontmatter options:**
 - `name` — identifier and `/slash-command` name
@@ -190,7 +181,7 @@ Shell scripts that run outside the LLM loop on lifecycle events. Zero context co
 
 A `Stop` hook's exit-0 output never reaches the model, so an advisory `Stop` hook does nothing: block or stay silent. Each `Stop` block costs a turn, and consecutive blocks are capped. `"onFailure": "block"` in `settings.json` makes a hook's crash or timeout block instead of pass.
 
-**Project profile:** hooks never hardcode a toolchain. They source `.claude/project.env` (committed), and an empty key turns its check off. `.env` (gitignored) is only for personal-integration skills.
+**Project profile:** hooks never hardcode a toolchain. They source `.claude/project.env` (committed), and an empty key turns its check off. `.env` (gitignored) holds personal keys such as `TRACKER_ISSUE_PREFIX`, which `pr-description` reads.
 
 **When to add a hook:** For deterministic checks that should always run. If it doesn't need LLM reasoning, it's a hook.
 
