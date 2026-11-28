@@ -20,7 +20,7 @@ A hook that reads a command line (`push-gate.sh`) gets a red harness case for ea
 
 `scripts/pre-push` reads git's ref lines on stdin instead: it gets a case for each of several refs in one push, a branch delete, a tag and a new branch.
 
-A new harness is a `*.test.sh` under `scripts/` or `.claude/hooks/`, which the check finds by that name. Copy the fixture header of `scripts/pre-push.test.sh`: one `mktemp -d` root removed on exit, `GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1`, and a fixed git identity, so fixture commits never reach the user's signing or hooks.
+A new harness is a `*.test.sh` under `tests/scripts/` or `tests/hooks/`, which the check finds by that name. Copy the fixture header of `tests/scripts/pre-push.test.sh`: one `mktemp -d` root removed on exit, `GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1`, and a fixed git identity, so fixture commits never reach the user's signing or hooks.
 
 Done when every shape on the list the change can meet has a case that was red before the fix.
 

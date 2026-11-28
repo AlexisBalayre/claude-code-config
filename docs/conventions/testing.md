@@ -1,3 +1,14 @@
+---
+paths:
+  - "**/test/**"
+  - "**/tests/**"
+  - "**/__tests__/**"
+  - "**/*.test.*"
+  - "**/*.spec.*"
+  - "**/*_test.*"
+  - "**/test_*.*"
+---
+
 # Testing
 
 **Genre contract:** obligations only.
@@ -13,7 +24,7 @@
 
 ## Framework and commands
 
-<!-- TODO(adapt): test framework, how to run unit / integration suites (TEST_CMD in .claude/project.env runs pre-commit), timeouts, coverage targets. -->
+<!-- TODO(adapt): test framework, how to run unit / integration suites (TEST_CMD in .claude/project.env runs in scripts/verify.sh), timeouts, coverage targets. -->
 
 ## Layout
 
