@@ -1,0 +1,175 @@
+{
+  "schema_version": 7,
+  "timestamp": "2026-11-28T17:27:44.850Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "46170184229",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/46170184229",
+  "actor": "AlexisBalayre",
+  "commit_sha": "88506023fb1db4d42edcb7903de8485e7dcadf51",
+  "source": "pr",
+  "pr_number": 86,
+  "action": "review",
+  "reviewers_spawned": [
+    "correctness",
+    "qa",
+    "quality"
+  ],
+  "reviewers_returned": [
+    "correctness",
+    "qa",
+    "quality"
+  ],
+  "reviewers_skipped": [
+    "security",
+    "perf",
+    "simplicity",
+    "requirements"
+  ],
+  "review_mode": "incremental",
+  "incremental_from_sha": "c2e7339eceebdfeb5e8b17cf81641be75bbb9ad8",
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [
+    {
+      "file": "tools/hooks-rs/src/gate_lock.rs",
+      "line": "123-129, 189-200, 275-298",
+      "status": "resolved"
+    },
+    {
+      "file": "tools/hooks-rs/src/verify.rs",
+      "line": "71-79",
+      "status": "resolved"
+    },
+    {
+      "file": "tools/hooks-rs/src/check_agent_config.rs",
+      "line": "13-26",
+      "status": "resolved"
+    },
+    {
+      "file": "tools/hooks-rs/src/gate_lock.rs",
+      "line": "211-217",
+      "status": "resolved"
+    },
+    {
+      "file": "tools/hooks-rs/src/verify.rs",
+      "line": "52-79",
+      "status": "resolved"
+    }
+  ],
+  "findings": [
+    {
+      "file": "tools/hooks-rs/src/quality_checks.rs",
+      "line": "27-29",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "important",
+      "description": "`xargs` drops the `io::Error` from `spawn_captured`. Spawning now also needs a temp file in `TMPDIR`, so an unusable `TMPDIR` gives `(false, empty)` with no cause. Verify shows a bare \"red: lint\", and the Stop hook asks the model to fix issues it never prints.",
+      "body": "**`xargs` now fails without saying why when the temp file cannot be created**\n\n`xargs` now spawns through `spawn_captured`. Before spawning, `spawn_captured` (`check_agent_config.rs` L16-36) opens a `create_new` file in `std::env::temp_dir()`, which is `TMPDIR` or `/tmp`. When that open fails, or the `sh` spawn fails, `xargs` drops the error:\n\n```rust\nlet Ok((mut child, file)) = spawn_captured(&mut run) else {\n    return (false, output);\n};\n```\n\nBefore this delta, `xargs` used pipes and needed no temp file. Verify's lint also printed the cause itself (`Some(Err(err)) => eprintln!(\"verify: lint: {err}\")`). Both are gone. The trigger is a `TMPDIR` that is missing or not writable, for example a stale per-session or sandbox `TMPDIR` that a hook inherits, or a full or read-only `/tmp`.\n\nWhere it shows up:\n- **`verify.rs` L84-91:** `lint.join()` returns `(false, [])`, so verify prints an empty block and ends with `verify: red: lint`. Running lint by hand then passes. `scripts/verify.sh` failed loudly here, with `mktemp`'s own message under `set -e`.\n- **`quality_checks.rs` L86-100 (Stop hook):** with empty output, the report says only \"Lint failed on the files this session touched (...). Fix the remaining issues above.\" and exits 2. That blocks every stop and gives the model no lint lines to fix. `.claude/hooks/quality-checks.sh` captures output with `$(...)` and needs no temp file.\n\nNothing runs this code until the switch PR, but that PR makes it live. `check_agent_config.rs` L232-238, the other caller of `spawn_captured`, already turns the error into output. Do the same here.\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/88506023fb1db4d42edcb7903de8485e7dcadf51/tools/hooks-rs/src/quality_checks.rs#L27-L29\nhttps://github.com/AlexisBalayre/claude-code-config/blob/88506023fb1db4d42edcb7903de8485e7dcadf51/tools/hooks-rs/src/verify.rs#L84-L91",
+      "suggestion": "        let (mut child, file) = match spawn_captured(&mut run) {\n            Ok(spawned) => spawned,\n            Err(err) => {\n                output.extend(format!(\"xargs: sh: {err}\\n\").bytes());\n                return (false, output);\n            }\n        };"
+    },
+    {
+      "file": "tools/hooks-rs/tests/gate_lock.rs",
+      "line": "399-406",
+      "area": "quality",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "`writes_the_label_before_the_pid` searches the source text with `include_str!`. That tests implementation, against testing.md's \"Test behaviour through public interfaces, not implementation details\". It breaks if `label_file`/`pid_file` is renamed or a write is reformatted, and it stays green if the writes move into a helper in the wrong order. The comment explains the trade-off, so keep it if no behavioural pin is feasible.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/check_agent_config.rs",
+      "line": "117, 128-129, 199",
+      "area": "quality",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The `git_loud(..).unwrap_or_else(|code| exit(code))` form now appears 9 times in check_agent_config.rs and verify.rs. A one-line `git_or_exit` wrapper over `git_loud` in `added_lines.rs` would carry it, and its 9 callers justify it. This is a judgment call.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/tests/gate_lock.rs",
+      "line": "378-387",
+      "area": "qa",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The interrupt test can race the command's start. `holder()` returns once `pid` is written, but `RUNNING` is set a few statements later, so a SIGINT in that gap takes the cleanup-and-die path. Have the command touch a `started` file and wait for it before sending the interrupt.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/tests/gate_lock.rs",
+      "line": "378",
+      "area": "qa",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "No test covers the `sig == libc::SIGINT` guard in `on_signal`: a mutant that holds the lock on every signal while the command runs passes the suite. Add a test that sends SIGTERM to a holder whose command is still running and asserts the lock is gone at once.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/tests/verify.rs",
+      "line": "301-308",
+      "area": "qa",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "`fails_when_any_lint_run_fails` fails only the first batch (`lint a.ts`). Nothing proves that a failure in a later batch alone turns lint red. Add a variant with `STUB_FAIL=\"lint many/f4999.ts\"`, the first path of the second run.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/tests/quality_checks.rs",
+      "line": null,
+      "area": "qa",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "`xargs` swapped its `sh -c 'exec \"$@\" 2>&1'` merge for `spawn_captured`, and no Stop-hook test now pins stderr capture, stdout/stderr ordering through `xargs`, the exit-255 \"aborting\" line or the signal-death branch. The lint stub prints only `seq 200` to stdout. Add a stub that runs `echo a; echo b >&2; echo c; exit 1` and assert the order, and one that exits 255.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/tests/gate_lock.rs",
+      "line": "372-375",
+      "area": "qa",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The new `interrupt` helper repeats the `kill` call in `Bg::terminate`. A shared `Bg::signal(name)` could serve both.",
+      "body": null,
+      "suggestion": null
+    }
+  ],
+  "refuted_findings": [],
+  "process_issues": [],
+  "comments_posted_actual": 1,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 1.7507979,
+  "duration_ms": 237357,
+  "num_turns": 12,
+  "tokens": {
+    "input": 14,
+    "output": 10289,
+    "cache_read": 360506,
+    "cache_creation": 56575,
+    "total": 427384
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 46,
+      "output": 25648,
+      "cache_read": 690762,
+      "cache_creation": 129679,
+      "cost_usd": 1.4694163999999998
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 16,
+      "output": 8902,
+      "cache_read": 172920,
+      "cache_creation": 70015,
+      "cost_usd": 0.28138150000000006
+    }
+  ],
+  "permission_denials": []
+}
