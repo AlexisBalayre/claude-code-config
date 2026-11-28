@@ -1,6 +1,6 @@
 mod common;
 
-use common::{git, git_command, git_stdout, hook, run, write, TempDir};
+use common::{git, git_command, git_stdout, hook, run, write, Output, TempDir};
 use std::path::PathBuf;
 
 struct Fixture {
@@ -44,13 +44,17 @@ fn fixture(test: &str) -> Fixture {
     }
 }
 
-fn create(fixture: &Fixture, name: &str) {
-    let out = run(
+fn attempt(fixture: &Fixture, args: &[&str]) -> Output {
+    run(
         hook("worktree-create")
-            .arg(name)
+            .args(args)
             .current_dir(&fixture.clone),
         "",
-    );
+    )
+}
+
+fn create(fixture: &Fixture, name: &str) {
+    let out = attempt(fixture, &[name]);
     assert_eq!(out.code, 0, "{}", out.text());
 }
 
@@ -81,4 +85,61 @@ fn new_branch_tracks_no_upstream() {
         "feature/x tracks {}; a bare git push would target it",
         upstream.stdout
     );
+}
+
+#[test]
+fn refuses_a_name_that_could_leave_the_worktrees_directory() {
+    let fixture = fixture("invalid-name");
+    for name in ["-f", "../x", "a/b", "a b"] {
+        let out = attempt(&fixture, &[name]);
+        assert_eq!(out.code, 1, "{name}: {}", out.text());
+        assert!(
+            out.stderr.contains("invalid worktree name"),
+            "{name}: {}",
+            out.text()
+        );
+    }
+    assert!(!fixture.clone.join(".worktrees").exists());
+}
+
+#[test]
+fn refuses_a_missing_name_with_the_usage_line() {
+    let fixture = fixture("no-name");
+    let out = attempt(&fixture, &[]);
+    assert_eq!(out.code, 1, "{}", out.text());
+    assert!(out.stderr.contains("Usage:"), "{}", out.text());
+}
+
+#[test]
+fn refuses_a_worktree_that_already_exists() {
+    let fixture = fixture("twice");
+    create(&fixture, "x");
+    let out = attempt(&fixture, &["x"]);
+    assert_eq!(out.code, 1, "{}", out.text());
+    assert!(out.stderr.contains("already exists"), "{}", out.text());
+}
+
+#[test]
+fn names_the_branch_with_the_configured_prefix() {
+    let fixture = fixture("prefix");
+    write(
+        &fixture.clone.join(".claude/project.env"),
+        "WORKTREE_BRANCH_PREFIX=task\n",
+    );
+    create(&fixture, "x");
+    assert_eq!(
+        git_stdout(&fixture.clone, &["rev-parse", "task/x"]),
+        fixture.new_tip
+    );
+}
+
+#[test]
+fn runs_the_install_command_in_the_new_worktree() {
+    let fixture = fixture("install");
+    write(
+        &fixture.clone.join(".claude/project.env"),
+        "INSTALL_CMD='touch installed'\n",
+    );
+    create(&fixture, "x");
+    assert!(fixture.clone.join(".worktrees/x/installed").is_file());
 }

@@ -316,6 +316,40 @@ fn waived_branch_over_the_cap_passes() {
 }
 
 #[test]
+fn waiver_naming_other_branches_does_not_waive() {
+    let sized = Sized::new("size-waiver-other");
+    sized.branch(&[(800, "src/a.ts")]);
+    write(
+        &sized.repo().join(".git/size-waiver"),
+        "size-waiver-other-2\nother\n",
+    );
+    assert_blocked(&sized.claude_push("size-waiver-other"));
+}
+
+#[test]
+fn waiver_in_the_main_git_dir_covers_a_push_from_a_linked_worktree() {
+    let sized = Sized::new("size-waiver-linked");
+    sized.branch(&[(800, "src/a.ts")]);
+    git(
+        sized.repo(),
+        &["worktree", "add", "-q", "../w2", "-b", "feature/w2"],
+    );
+    let linked = sized.fixture.tmp.path().join("w2");
+    stamp(&linked);
+    let push = || {
+        run(
+            git_command(&linked)
+                .args(["push", "-q", "origin", "HEAD:refs/heads/size-linked"])
+                .env("CLAUDECODE", "1"),
+            "",
+        )
+    };
+    assert_blocked(&push());
+    write(&sized.repo().join(".git/size-waiver"), "size-linked\n");
+    assert_pushed(&push());
+}
+
+#[test]
 fn markdown_only_push_adding_1000_lines_passes() {
     let sized = Sized::new("size-docs");
     sized.branch(&[(990, "docs/a.md"), (10, "README.md")]);
