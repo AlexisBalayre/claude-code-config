@@ -1,0 +1,64 @@
+{
+  "schema_version": 6,
+  "timestamp": "2026-11-28T11:39:10.708Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "46140786187",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/46140786187",
+  "actor": "AlexisBalayre",
+  "commit_sha": "4f61a4c122178acacd55cf6880ce99b1719f1a26",
+  "source": "pr",
+  "pr_number": 73,
+  "action": "review",
+  "reviewers_spawned": [],
+  "reviewers_returned": [],
+  "reviewers_skipped": [
+    "correctness",
+    "security",
+    "conventions",
+    "context",
+    "maintainability",
+    "docs",
+    "spec"
+  ],
+  "review_mode": "full",
+  "incremental_from_sha": null,
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [],
+  "findings": [],
+  "refuted_findings": [],
+  "process_issues": [
+    {
+      "component": "platform",
+      "description": "Every Bash call failed before running: the sandbox wrapper died with `apply-seccomp: write /proc/self/setgroups (nested userns is capability-restricted; caller must provide CAP_SYS_ADMIN): Permission denied`. Three different commands hit it: `gh pr view 73 --json ...`, `git rev-parse HEAD`, and `git status --porcelain`. With no Bash there was no way to read the PR diff (`gh pr diff 73` / `git diff 82e4e03616303ee475669fa2a653c1edeb1d23ee..HEAD`), its metadata or threads, or the head SHA for the freshness checks."
+    },
+    {
+      "component": "orchestrator",
+      "description": "No reviewers were spawned, on purpose. Every review-* subagent gets its scoped diff through the same Bash tool, so each one would have failed the same way or reviewed files with no diff to check them against, which leads to ungrounded findings. PR #73 was NOT reviewed. This record is not a clean review. Re-run once the runner's sandbox allows nested user namespaces (or the seccomp/bubblewrap setup is fixed)."
+    }
+  ],
+  "comments_posted_actual": 0,
+  "is_error": true,
+  "incomplete_reason": "Not reviewed: no reviewer was spawned; re-run",
+  "cost_usd": 0.23976080000000002,
+  "duration_ms": 17339,
+  "num_turns": 5,
+  "tokens": {
+    "input": 7,
+    "output": 1309,
+    "cache_read": 134604,
+    "cache_creation": 23329,
+    "total": 159249
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 7,
+      "output": 1309,
+      "cache_read": 134604,
+      "cache_creation": 23329,
+      "cost_usd": 0.23976080000000002
+    }
+  ],
+  "permission_denials": []
+}
