@@ -1,0 +1,163 @@
+{
+  "schema_version": 7,
+  "timestamp": "2026-11-28T13:35:06.121Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "46149872078",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/46149872078",
+  "actor": "AlexisBalayre",
+  "commit_sha": "0f0c5c2258f07c6fc87bf52838824e3b094c9526",
+  "source": "pr",
+  "pr_number": 78,
+  "action": "review",
+  "reviewers_spawned": [
+    "correctness",
+    "correctness",
+    "security",
+    "qa",
+    "quality",
+    "simplicity"
+  ],
+  "reviewers_returned": [
+    "correctness",
+    "correctness",
+    "security",
+    "qa",
+    "quality",
+    "simplicity"
+  ],
+  "reviewers_skipped": [
+    "perf",
+    "requirements"
+  ],
+  "review_mode": "full",
+  "incremental_from_sha": null,
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [],
+  "findings": [
+    {
+      "file": ".github/workflows/release.yml",
+      "line": "37-45",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "important",
+      "description": "If someone re-runs a stale Release run (one that was cancelled while pending, or one that failed) after a newer merge has already been released, the job counts from an older tag and publishes a second, out-of-order release for commits that are already released.",
+      "body": "**A re-run of a stale Release run publishes a second, out-of-order release.**\n\nThe version comes only from the pushed commit's ancestry. `scripts/next-version.sh` runs `git describe --tags --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]*'` on HEAD and then `git log <last>..HEAD`. `actions/checkout` puts HEAD at `GITHUB_SHA`, and a re-run keeps the original run's SHA. `fetch-depth: 0` fetches a release tag on a *later* commit, but that tag is not an ancestor of HEAD, so `describe` skips it. Nothing in the run step checks whether a newer release already covers the commit.\n\nStale runs are routine. With `cancel-in-progress: false`, GitHub still keeps only one *pending* run per concurrency group and cancels the older pending one when a newer run queues:\n\n1. A is in progress. B (`fix`) is pending. C (`feat`) arrives, so B is cancelled.\n2. C's run releases `v1.3.0` over B and C.\n3. Someone re-runs B, which shows as cancelled. `describe` returns the tag before B, so the run publishes `v1.2.1` at B, after `v1.3.0`. B's PR is now in two releases, and the notes for `v1.2.1` are computed against the wrong previous release.\n\nA failed run that someone re-runs after a later merge has released does the same thing. It only fails harmlessly when the computed tag name already exists.\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/0f0c5c2258f07c6fc87bf52838824e3b094c9526/.github/workflows/release.yml#L37-L45\nhttps://github.com/AlexisBalayre/claude-code-config/blob/0f0c5c2258f07c6fc87bf52838824e3b094c9526/scripts/next-version.sh#L11-L20\n\nSuggested guard before computing `next`. It could also go in `next-version.sh` as `git tag --contains HEAD ...`, where a test could cover it:\n\n```bash\n# A release tag on this commit or a later one already covers it (a stale re-run).\nif [ -n \"$(git tag --contains \"$GITHUB_SHA\" --list 'v[0-9]*.[0-9]*.[0-9]*')\" ]; then\n  echo \"A release already covers $GITHUB_SHA: nothing to publish.\"\n  exit 0\nfi\n```\n\n(The GitHub Actions concurrency and re-run behavior comes from documented platform behavior, not from a live run, hence medium confidence.)",
+      "suggestion": null
+    },
+    {
+      "file": "scripts/next-version.sh",
+      "line": "23-24",
+      "area": "qa",
+      "confidence": "high",
+      "tag": "important",
+      "description": "Test adequacy: no case orders a lower-level commit after a higher-level one in `git log` output, so dropping either `&& level < N` guard still passes all 15 cases.",
+      "body": "**Test adequacy: the `level < 1` and `level < 2` guards are never exercised.**\n\n`git log` lists newest first, and every case commits oldest first, so awk sees each range newest to oldest. Every existing multi-bump case reads the levels in rising order:\n- `'feat: a' 'fix: b' 'docs: c'` reads docs, fix, feat.\n- the bang case reads `feat: a`, then `feat(skills)!:`.\n\nSo neither guard ever has to hold a higher level against an older, lower commit:\n- Removing `&& level < 1` from the fix branch leaves the suite green. The break is a newest `feat:` above an older `fix:`, which publishes a patch instead of a minor.\n- Removing `&& level < 2` from the feat branch leaves the suite green. The break is a newest breaking commit above an older `feat:`, which publishes a minor instead of a major.\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/0f0c5c2258f07c6fc87bf52838824e3b094c9526/scripts/next-version.sh#L23-L24\n\nCases to add to `tests/scripts/next-version.test.sh`. In each, the lower bump is the *older* commit. The footer needs real newlines, as in the existing footer case:\n\n```bash\nexpect v1.2.0 'an older fix does not lower a newer feat' v1.1.0 'fix: a' 'feat: b'\nexpect v2.0.0 'an older feat does not lower a newer breaking commit' v1.1.0 'feat: a' 'fix: b\n\nBREAKING CHANGE: x'\n```",
+      "suggestion": null
+    },
+    {
+      "file": "scripts/next-version.sh",
+      "line": "27",
+      "area": "qa",
+      "confidence": "medium",
+      "tag": "important",
+      "description": "Test adequacy: `BREAKING[ -]CHANGE:` is only tested with the space form, and a bang on a scoped non-feat type (`fix(x)!:`) is untested, so tightening either regex to the space form or to no scope passes the suite.",
+      "body": "**Test adequacy: the `BREAKING-CHANGE:` (hyphen) footer form is untested.**\n\nThe script deliberately accepts both `BREAKING CHANGE:` and `BREAKING-CHANGE:` (`/^BREAKING[ -]CHANGE:/`). The only footer case uses the space form. Narrowing the regex to `^BREAKING CHANGE:` keeps the whole suite green, and then a hyphen-footer commit would ship as a patch or minor instead of a major.\n\nThe scoped-bang half of this description does not hold. Dropping the scope group from the bang regex *is* caught: `feat(skills)!: drop a skill` would then fall through to `feat` and print `v1.5.0` instead of `v2.0.0`. Only the hyphen form needs a case.\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/0f0c5c2258f07c6fc87bf52838824e3b094c9526/scripts/next-version.sh#L27\n\nCase to add to `tests/scripts/next-version.test.sh`:\n\n```bash\nexpect v2.0.0 'a BREAKING-CHANGE footer bumps the major' v1.4.2 'fix: a\n\nBREAKING-CHANGE: x'\n```",
+      "suggestion": null
+    },
+    {
+      "file": ".github/workflows/release.yml",
+      "line": "18-19",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The comment \"Queued, never cancelled: a run stopped between the tag and the release would leave a tag without notes\" is wrong on two counts. With `cancel-in-progress: false`, a pending run is still cancelled when a newer run joins the group. And `gh release create --target` makes the tag and the release in one API call (the generate-notes request before it creates nothing), so a cancelled run cannot leave a tag without a release. Nothing is lost in practice, because the newest pending run's range takes in the cancelled run's commits. But the comment presents a routine \"cancelled\" status as something that never happens, which is what invites the stale re-run in Finding 1.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "docs/workflow.md",
+      "line": "74",
+      "area": "quality",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "The table says only docs, chore, test and refactor release nothing, but the script also releases nothing for ci, build, style and revert commits, for GitHub's `Revert \"feat: ...\"` PR titles, and for any non-conventional subject. Wording such as 'anything else (docs, chore, ci, revert, ...)' would match what the script does; the workflow's echo text is already accurate.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "scripts/next-version.sh",
+      "line": "8",
+      "area": "quality",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The header's last mapping line, `scripts/next-version.sh   ->  v1.2.0   (.github/workflows/release.yml)`, sits inside the same arrow list as the bump rules. It reads as a fourth rule, not a usage example. Its `v1.2.0` is only true for this branch's current history, and the caller is already named in the PR body and the workflow. Move it to a separate line or drop it.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tests/scripts/next-version.test.sh",
+      "line": "50-54",
+      "area": "simplicity",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "The `expect v1.1.1 'a tag that is not a release is skipped' … && { … }` case's `expect` half runs before the `nightly` tag exists, so it only repeats the 'fix bumps the patch' case; only the trailing block exercises the `--match` filter. Keep just a standalone block that builds the repo, tags `nightly` and asserts (about -2 lines).",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tests/scripts/next-version.test.sh",
+      "line": "48",
+      "area": "simplicity",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The 'a merge subject' case runs the same no-match, no-output path as the 'docs, chore, test and refactor release nothing' and 'feature: not a type' cases, so it adds no coverage (-1 line).",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".github/workflows/release.yml",
+      "line": "34-45",
+      "area": "qa",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "No test exercises the workflow's run step (the empty-output guard and the `gh release create --target \"$GITHUB_SHA\"` call), and it has not run live; a fake `gh` on PATH could pin both, though for two lines of shell the cost may exceed the value.",
+      "body": null,
+      "suggestion": null
+    }
+  ],
+  "refuted_findings": [],
+  "process_issues": [],
+  "comments_posted_actual": 3,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 2.3705871000000003,
+  "duration_ms": 284947,
+  "num_turns": 13,
+  "tokens": {
+    "input": 12,
+    "output": 15661,
+    "cache_read": 243470,
+    "cache_creation": 67602,
+    "total": 326745
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 58,
+      "output": 47189,
+      "cache_read": 689965,
+      "cache_creation": 153732,
+      "cost_usd": 2.053471
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 28,
+      "output": 13335,
+      "cache_read": 113976,
+      "cache_creation": 68925,
+      "cost_usd": 0.31711609999999996
+    }
+  ],
+  "permission_denials": []
+}
