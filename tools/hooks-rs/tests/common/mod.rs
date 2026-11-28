@@ -173,3 +173,152 @@ pub fn expect_decision(gate: &mut Command, want: &str, cwd: &str, command: &str,
         out.stdout
     );
 }
+
+/// The worker the worker-permission tests run as, on issue 12.
+pub const WORKER: &str = "w5-12";
+
+/// What the worker-permission hook decided, with the message of a deny.
+pub struct Verdict {
+    pub behavior: String,
+    pub message: String,
+}
+
+impl Verdict {
+    /// The request id a refusal names when a grant can follow it, or "" when it names none.
+    pub fn id(&self) -> &str {
+        self.message
+            .split_once("request ")
+            .and_then(|(_, rest)| rest.get(..64))
+            .filter(|id| id.bytes().all(|c| c.is_ascii_hexdigit()))
+            .unwrap_or("")
+    }
+}
+
+/// Read the decision a PermissionRequest hook printed; no output reads as an empty verdict.
+pub fn verdict(out: &Output) -> Verdict {
+    let printed: serde_json::Value = serde_json::from_str(&out.stdout).unwrap_or_default();
+    let decision = &printed["hookSpecificOutput"]["decision"];
+    Verdict {
+        behavior: decision["behavior"].as_str().unwrap_or("").to_owned(),
+        message: decision["message"].as_str().unwrap_or("").to_owned(),
+    }
+}
+
+/// Hold the lead's state directory, for the worker-permission hook and the grant command.
+pub struct Lead {
+    pub tmp: TempDir,
+}
+
+impl Lead {
+    pub fn new(test: &str) -> Lead {
+        Lead {
+            tmp: TempDir::new(test),
+        }
+    }
+
+    pub fn state(&self) -> PathBuf {
+        self.tmp.path().join("state")
+    }
+
+    /// Build the hook of the session `worker`, with the fixture's state directory.
+    pub fn hook(&self, worker: &str) -> Command {
+        let mut command = hook("worker-permission");
+        command
+            .env("AGENT_WORKER", worker)
+            .env("AGENT_WORK", self.state());
+        command
+    }
+
+    /// Ask the hook, as `worker`, about a call of `tool` made from `cwd`.
+    pub fn ask_as(
+        &self,
+        worker: &str,
+        cwd: &Path,
+        tool: &str,
+        input: serde_json::Value,
+    ) -> Verdict {
+        let payload = serde_json::json!({
+            "session_id": "s",
+            "cwd": cwd,
+            "permission_mode": "default",
+            "hook_event_name": "PermissionRequest",
+            "tool_name": tool,
+            "tool_input": input,
+        });
+        verdict(&run(&mut self.hook(worker), &payload.to_string()))
+    }
+
+    /// Ask the hook about a Bash call of the test worker.
+    pub fn bash(&self, cwd: &Path, command: &str) -> Verdict {
+        let input = serde_json::json!({"command": command, "description": "d"});
+        self.ask_as(WORKER, cwd, "Bash", input)
+    }
+
+    /// Run `claude-hooks grant <verb> <id>` on the fixture's state directory.
+    pub fn grant(&self, verb: &str, id: &str) -> Output {
+        let mut command = hook("grant");
+        command.args([verb, id]).env("AGENT_WORK", self.state());
+        run(&mut command, "")
+    }
+
+    /// Count the recorded requests.
+    pub fn requests(&self) -> usize {
+        std::fs::read_dir(self.state().join("requests")).map_or(0, |entries| entries.count())
+    }
+
+    /// Read the record of the request `id`.
+    pub fn request(&self, id: &str) -> serde_json::Value {
+        let file = self.state().join(format!("requests/{id}.json"));
+        let text = std::fs::read_to_string(file).expect("a recorded request");
+        serde_json::from_str(&text).expect("a request that is JSON")
+    }
+
+    /// Add a repository `name` with one commit on `branch`, and return its path.
+    pub fn repo(&self, name: &str, branch: &str) -> PathBuf {
+        let repo = self.tmp.path().join(name);
+        git(self.tmp.path(), &["init", "-q", "-b", branch, name]);
+        git(&repo, &["commit", "-q", "--allow-empty", "-m", "one"]);
+        repo
+    }
+
+    /// Assert each Bash call is refused with a recorded request a grant can follow.
+    pub fn assert_grant_route(&self, cwd: &Path, commands: &[&str]) {
+        for command in commands {
+            let verdict = self.bash(cwd, command);
+            assert_eq!(verdict.behavior, "deny", "command: {command:?}");
+            assert!(
+                !verdict.id().is_empty(),
+                "command: {command:?}: want a request id, got {}",
+                verdict.message
+            );
+        }
+    }
+
+    /// Assert each Bash call is refused for `reason`, with no request for a grant to follow.
+    pub fn assert_no_grant_route(&self, cwd: &Path, commands: &[&str], reason: &str) {
+        for command in commands {
+            let verdict = self.bash(cwd, command);
+            assert_eq!(verdict.behavior, "deny", "command: {command:?}");
+            assert!(
+                verdict.message.contains(reason),
+                "command: {command:?}: want a refusal holding {reason:?}, got {}",
+                verdict.message
+            );
+        }
+        assert_eq!(
+            self.requests(),
+            0,
+            "a call with no grant route was recorded"
+        );
+    }
+}
+
+/// Set the file's mtime `minutes` into the past.
+pub fn age(file: &Path, minutes: u64) {
+    let then = std::time::SystemTime::now() - std::time::Duration::from_secs(minutes * 60);
+    std::fs::File::options()
+        .write(true)
+        .open(file)
+        .and_then(|file| file.set_modified(then))
+        .expect("age the file");
+}

@@ -34,6 +34,14 @@ from [`tools/hooks-rs`](../../tools/hooks-rs). It holds `git-safety`, `frozen-pa
 ported. Its cases are `cargo test --release` there, and
 the `Hooks` workflow runs them with clippy on each PR that touches the crate.
 
+Two subcommands have no shell twin and nothing calls them yet; the worker launcher that wires them
+comes in a later change:
+
+| Subcommand | Event | What it does |
+| --- | --- | --- |
+| `worker-permission` | `PermissionRequest` | Decides for a session started with `AGENT_WORKER=<handle>-<issue number>`; any other session gets no decision. Allows a read of any issue and a comment or new body on the worker's own issue, and a lone `git push origin <checked-out branch>` of a `<prefix>/issue-<N>` branch to the URL the approved plans list. Refuses a push in any other shape. Every other call is recorded under `requests/` in the state directory (`AGENT_WORK`, else `~/.agent-work/<main checkout name>`), announced in `lead-inbox.txt`, and denied with its request id until a grant for that exact call and HEAD exists. A grant is used once and lasts 30 minutes. |
+| `grant show <id>`, `grant allow <id>` | run by the lead | `show` prints the recorded call with every character outside printable ASCII escaped. `allow` logs the call to `grants.log`, then writes the grant. Run `allow` only on the user's word for that call. |
+
 The Rust `push-gate` asks in three cases `push-gate.sh` lets through:
 
 - `<branch>` is not the local branch `refs/heads/<branch>`: a symbolic ref, a tag or `heads/<name>`, which git pushes to another ref.

@@ -2,7 +2,7 @@ use regex_lite::Regex;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::io::Read;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{exit, Command, Stdio};
 
 pub fn block(message: &str) -> ! {
@@ -85,4 +85,39 @@ impl Config {
             .or_else(|| std::env::var(key).ok())
             .unwrap_or_default()
     }
+}
+
+/// The issue number in a worker name `<handle>-<N>`, or None for any other name.
+// The dash keeps `lead`, the one name workers take approvals from, out of reach. The name is
+// also a tmux window target, where `:` and `.` would parse as separators.
+pub fn issue_of(name: &str) -> Option<&str> {
+    let (handle, issue) = name.split_once('-')?;
+    let mut letters = handle.bytes();
+    (letters.next()?.is_ascii_lowercase()
+        && letters.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit())
+        && issue
+            .bytes()
+            .next()
+            .is_some_and(|c| (b'1'..=b'9').contains(&c))
+        && issue.bytes().all(|c| c.is_ascii_digit()))
+    .then_some(issue)
+}
+
+/// The lead's state directory: AGENT_WORK, else one under HOME named for the main checkout of
+/// the repository holding `dir`.
+// Never under ~/.claude, which the sandbox protects even against an allowWrite entry.
+pub fn agent_work(dir: impl AsRef<Path>) -> Option<PathBuf> {
+    if let Some(work) = std::env::var_os("AGENT_WORK").filter(|work| !work.is_empty()) {
+        return Some(work.into());
+    }
+    let common = git(
+        dir,
+        &["rev-parse", "--path-format=absolute", "--git-common-dir"],
+    )?;
+    let checkout = Path::new(&common).parent()?.file_name()?;
+    Some(
+        Path::new(&std::env::var_os("HOME")?)
+            .join(".agent-work")
+            .join(checkout),
+    )
 }
