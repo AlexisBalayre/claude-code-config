@@ -1,6 +1,6 @@
 ---
 name: review-perf
-description: The hot-path reviewer of pr-ci-review and `/bugs hunt`: per-call allocations, unbounded growth, N+1 queries, leaks, blocking I/O.
+description: The hot-path reviewer of pr-ci-review: per-call allocations, unbounded growth, N+1 queries, leaks, blocking I/O.
 tools: Read, Glob, Grep, Bash
 model: sonnet
 ---

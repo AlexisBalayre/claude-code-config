@@ -1,6 +1,6 @@
 ---
 name: review-correctness
-description: The logic reviewer of pr-ci-review and `/bugs hunt`: behavior defects that deterministic tooling cannot catch, including behavioral regressions on the surface tests do not cover.
+description: The logic reviewer of pr-ci-review: behavior defects that deterministic tooling cannot catch, including behavioral regressions on the surface tests do not cover.
 tools: Read, Glob, Grep, Bash
 model: opus
 effort: high

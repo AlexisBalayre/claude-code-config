@@ -1,6 +1,6 @@
 ---
 name: review-security
-description: The trust-boundary reviewer of pr-ci-review and `/bugs hunt`: real, reachable security issues at system boundaries.
+description: The trust-boundary reviewer of pr-ci-review: real, reachable security issues at system boundaries.
 tools: Read, Glob, Grep, Bash
 model: opus
 effort: high

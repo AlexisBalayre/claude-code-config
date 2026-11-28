@@ -1,6 +1,6 @@
 ---
 name: review-validator
-description: The adversarial validator of pr-ci-review and `/bugs hunt`: refutes findings that do not hold against the code.
+description: The adversarial validator of pr-ci-review: refutes findings that do not hold against the code.
 tools: Read, Glob, Grep, Bash
 model: opus
 effort: high
