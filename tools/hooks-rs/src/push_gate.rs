@@ -141,6 +141,7 @@ impl ApiWord {
             b"/contents",
             b"/update-branch",
             b"/rename",
+            b"/autofix/commits",
         ]
         .iter()
         .any(|path| after(&lower, path).next().is_some());
@@ -165,6 +166,8 @@ impl ApiWord {
                 b"updateref",
                 b"deleteref",
                 b"createcommitonbranch",
+                b"createlinkedbranch",
+                b"revertpullrequest",
             ]
             .iter()
             .any(|mutation| after(&lower, mutation).next().is_some());
@@ -683,7 +686,8 @@ pub fn run() {
     // <transport>::<address> URL runs git-remote-<transport> from PATH, so it asks too.
     // The agent sets that URL and the probe runs outside the sandbox, so a probe of any URL
     // would carry what the URL holds to any host: it reaches only a URL the user's settings
-    // `env` lists, whole or by a prefix that ends the host (`/` or `:`).
+    // `env` lists, whole or by a prefix that ends the host: `/`, or `:` in the scp form alone,
+    // since in a URL `host:` can be followed by `x@other-host`.
     let probed = std::env::var("PUSH_GATE_REMOTES").unwrap_or_default();
     let listed =
         git(path, &["remote", "get-url", "--push", "--all", "origin"]).is_some_and(|url| {
@@ -691,7 +695,10 @@ pub fn run() {
                 && !url.contains("::")
                 && (!trusted.is_empty() && url == trusted
                     || probed.split_ascii_whitespace().any(|entry| {
-                        url == entry || entry.ends_with(['/', ':']) && url.starts_with(entry)
+                        url == entry
+                            || (entry.ends_with('/')
+                                || entry.ends_with(':') && !entry.contains("://"))
+                                && url.starts_with(entry)
                     }) && on_remote(&url, branch, start))
         });
     if !listed {

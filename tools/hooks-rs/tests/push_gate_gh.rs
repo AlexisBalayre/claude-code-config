@@ -102,6 +102,11 @@ fn asks_for_gh_api_calls_that_write_a_ref_or_a_file() {
     assert_asks(&[
         "gh api -X PATCH repos/o/r/git/refs/heads/main -f sha=abc -F force=true",
         "gh api repos/o/r/git/refs -f ref=refs/heads/x -f sha=abc",
+        "gh api repos/o/r/git/refs --field sha=abc",
+        "gh api repos/o/r/git/refs --raw-field sha=abc",
+        "gh api repos/o/r/git/refs -F sha=abc",
+        "gh api repos/o/r/git/refs -fsha=abc",
+        "gh api -X POST repos/o/r/code-scanning/alerts/1/autofix/commits -f target_ref=refs/heads/x",
         "gh api --method DELETE repos/o/r/git/refs/heads/x",
         "gh api -XDELETE repos/o/r/git/refs/heads/x",
         "gh api -iXDELETE repos/o/r/git/refs/heads/x",
@@ -116,6 +121,8 @@ fn asks_for_gh_api_calls_that_write_a_ref_or_a_file() {
         r#"gh api graphql -f query='mutation{deleteRef(input:{refId:"x"}){clientMutationId}}'"#,
         r#"gh api graphql -f query='mutation{createCommitOnBranch(input:{branch:{branchName:"main"}}){clientMutationId}}'"#,
         r#"gh api graphql -f query='mutation{updatePullRequestBranch(input:{pullRequestId:"x"}){clientMutationId}}'"#,
+        r#"gh api graphql -f query='mutation{createLinkedBranch(input:{issueId:"x",oid:"abc",name:"x"}){clientMutationId}}'"#,
+        r#"gh api graphql -f query='mutation{revertPullRequest(input:{pullRequestId:"x"}){clientMutationId}}'"#,
     ]);
 }
 

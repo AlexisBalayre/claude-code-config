@@ -223,6 +223,19 @@ fn reads_a_plans_line_without_its_newline() {
 }
 
 #[test]
+fn defers_for_a_planned_url_without_the_remotes_variable() {
+    let fixture = Fixture::new("plans-unlisted");
+    let plans = fixture.path("plans-bare");
+    write(
+        &plans,
+        &format!("feature/new {}\n", fixture.at("remote.git")),
+    );
+    let mut gate = hook("push-gate");
+    gate.env("AGENT_APPROVED_PLANS", plans);
+    expect_decision(&mut gate, "none", &fixture.at("w"), PUSH_NEW, "");
+}
+
+#[test]
 fn asks_when_config_sends_an_approved_branch_to_another_ref() {
     let fixture = Fixture::new("remap");
     for (key, value) in [
@@ -429,6 +442,19 @@ fn probes_no_url_the_settings_do_not_list() {
             "a probe started with {remotes:?} listed"
         );
     }
+}
+
+// In a URL the text after `host:` can be `x@other-host`, which ssh and curl connect to.
+#[test]
+fn probes_no_url_that_only_shares_a_url_prefix_ending_in_a_colon() {
+    let fixture = Fixture::new("colon-prefix");
+    fixture.repo("colon", "ssh://git@example.invalid:x@other.invalid/un.git");
+    let probed = fixture.at("probed");
+    let mut gate = hook("push-gate");
+    gate.env("PUSH_GATE_REMOTES", "ssh://git@example.invalid:")
+        .env("GIT_SSH_COMMAND", format!("touch '{probed}'; exit 1 #"));
+    expect_decision(&mut gate, "ask", &fixture.at("colon"), PUSH_X, "feature/x");
+    assert!(!Path::new(&probed).exists(), "a probe started");
 }
 
 #[test]
