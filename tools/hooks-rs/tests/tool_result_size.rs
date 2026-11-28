@@ -132,3 +132,9 @@ fn other_bash_commands_are_told_to_pipe() {
 fn reading_the_verify_script_is_told_to_pipe() {
     assert_warns(PIPE, "Bash", "cat scripts/verify.sh", bash_out(12000));
 }
+
+#[test]
+fn payload_that_is_not_json_is_silent() {
+    let out = run(&mut hook("tool-result-size"), "not json");
+    assert_eq!((out.code, out.stdout.as_str()), (0, ""));
+}

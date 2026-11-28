@@ -152,3 +152,15 @@ fn naming_message_carries_the_hint() {
          Full naming rules: docs/conventions/core.md §Naming"
     );
 }
+
+#[test]
+fn naming_blocks_payload_that_is_not_json() {
+    let f = Fixture::new("naming-not-json");
+    assert_eq!(f.call(NAMING, "not json", Some(&f.proj)).code, 2);
+}
+
+#[test]
+fn generated_allows_payload_that_is_not_json() {
+    let f = Fixture::new("generated-not-json");
+    assert_eq!(f.call(GENERATED, "not json", Some(&f.proj)).code, 0);
+}

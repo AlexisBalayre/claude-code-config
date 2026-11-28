@@ -3,11 +3,12 @@ use regex_lite::Regex;
 use serde_json::Value;
 use std::path::{Component, Path, PathBuf};
 
-// Resolve `..` and symlinks even through directories a Write has yet to create.
-fn realpath(file: &str) -> PathBuf {
-    let absolute = std::env::current_dir().unwrap_or_default().join(file);
+// Resolve `..` and symlinks even through directories a Write has yet to create. A link is
+// read rather than canonicalized: a Write through a dangling link creates its target.
+// `links` bounds a loop of links.
+fn realpath(path: &Path, links: u8) -> PathBuf {
     let mut real = PathBuf::new();
-    for part in absolute.components() {
+    for part in path.components() {
         match part {
             Component::CurDir => {}
             Component::ParentDir => {
@@ -15,9 +16,10 @@ fn realpath(file: &str) -> PathBuf {
             }
             part => {
                 real.push(part);
-                if real.is_symlink() {
-                    if let Ok(target) = real.canonicalize() {
-                        real = target;
+                if links > 0 {
+                    if let Ok(target) = real.read_link() {
+                        real.pop();
+                        real = realpath(&real.join(target), links - 1);
                     }
                 }
             }
@@ -68,7 +70,7 @@ pub fn run() {
         block("the file path holds a newline.");
     }
 
-    let real = realpath(&file);
+    let real = realpath(&std::env::current_dir().unwrap_or_default().join(&file), 40);
     let mut dir = real.parent().unwrap_or(Path::new("/"));
     while !dir.is_dir() {
         dir = dir.parent().unwrap_or(Path::new("/"));

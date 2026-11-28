@@ -1,5 +1,4 @@
 use crate::common::{block, git, grep, payload, project_dir, Config};
-use std::process::exit;
 
 fn on_trunk(trunk: &str) -> bool {
     git(".", &["branch", "--show-current"]).is_some_and(|branch| branch == trunk)
@@ -7,7 +6,7 @@ fn on_trunk(trunk: &str) -> bool {
 
 pub fn run() {
     // An unreadable payload blocks, as the shell hook does when jq fails.
-    let payload = payload().unwrap_or_else(|| exit(2));
+    let payload = payload().unwrap_or_else(|| block("git-safety could not read the hook payload."));
     let command = payload["tool_input"]["command"].as_str().unwrap_or("");
     // Every rule needs one of these words; most commands hold none.
     if !["rm", "DROP", "git"]

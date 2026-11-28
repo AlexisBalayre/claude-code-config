@@ -301,3 +301,21 @@ fn blocks_payload_that_is_not_json() {
     let f = Fixture::new("not-json");
     assert_eq!(f.call("not json", Some(&f.allow), f.tmp.path()).code, 2);
 }
+
+#[test]
+fn blocks_dangling_symlink_pointing_into_the_freeze() {
+    let f = Fixture::new("symlink-dangling");
+    symlink(
+        "../../packages/client/src/new.ts",
+        f.other.join("apps/api/dangling.ts"),
+    )
+    .expect("link the dangling alias");
+    assert_eq!(f.edit(&f.at(&f.other, "apps/api/dangling.ts")), 2);
+}
+
+#[test]
+fn allows_symlink_loop_outside_the_freeze() {
+    let f = Fixture::new("symlink-loop");
+    symlink("loop.ts", f.repo.join("apps/api/loop.ts")).expect("link the loop");
+    assert_eq!(f.edit(&f.in_repo("apps/api/loop.ts")), 0);
+}

@@ -5,9 +5,17 @@
 set -euo pipefail
 
 INPUT=$(cat)
-# jq exits 5 on a payload it cannot parse, which Claude Code treats as a
-# non-blocking error: only exit 2 stops the command.
-COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty') || exit 2
+if command -v jq >/dev/null 2>&1; then
+  # jq exits 5 on a payload it cannot parse, which Claude Code treats as a
+  # non-blocking error: only exit 2 stops the command.
+  COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty') || {
+    echo "BLOCKED: git-safety could not read the hook payload." >&2
+    exit 2
+  }
+else
+  # The raw payload still carries the command's words for the checks below.
+  COMMAND=$INPUT
+fi
 
 # If there's no command, don't block.
 if [ -z "$COMMAND" ]; then
