@@ -1,0 +1,195 @@
+{
+  "schema_version": 7,
+  "timestamp": "2026-11-28T16:14:51.779Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "46163011078",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/46163011078",
+  "actor": "AlexisBalayre",
+  "commit_sha": "676b2b17c28aa2738a3f72cb361ad8deb0b16e91",
+  "source": "pr",
+  "pr_number": 84,
+  "action": "review",
+  "reviewers_spawned": [
+    "correctness",
+    "correctness",
+    "correctness",
+    "security",
+    "qa",
+    "quality",
+    "simplicity"
+  ],
+  "reviewers_returned": [
+    "correctness",
+    "correctness",
+    "correctness",
+    "security",
+    "qa",
+    "quality",
+    "simplicity"
+  ],
+  "reviewers_skipped": [
+    "perf",
+    "requirements"
+  ],
+  "review_mode": "full",
+  "incremental_from_sha": null,
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [],
+  "findings": [
+    {
+      "file": "tools/hooks-rs/src/push_gate.rs",
+      "line": "608-642",
+      "area": "qa",
+      "confidence": "high",
+      "tag": "important",
+      "description": "Test adequacy: the fail-closed path for a payload that does not parse is never run. Every test in `push_gate.rs` and `push_gate_gh.rs` sends valid JSON through `bash_payload`. `decides_without_a_working_jq` stubs `jq`, but the Rust hook never calls `jq`, so it now exercises the normal path. The shell harness's \"without jq the hook reads the raw payload\" block was the only test of this fallback, and the port made it vacuous.",
+      "body": "**Test adequacy: the unparsed-payload branch has no test.**\n\nNo test ever reaches the `None =>` arm (lines 619-636) or the `fields.is_none() ||` clause (line 642):\n\n- `bash_payload` (`tests/common/mod.rs:146-148`) builds every payload with `serde_json::json!`, so the payload always parses.\n- `decides_without_a_working_jq` (`tests/push_gate.rs:316-340`) puts a failing `jq` on PATH. The binary never runs `jq`, so the test only re-checks the parsed path.\n- The shell block it replaced (`tests/hooks/push-gate.test.sh:167-184`) really did force the raw-payload branch.\n\nTwo mutants survive the suite:\n\n- `None => (\"\", \"\")`\n- dropping `fields.is_none() ||`\n\nWith either one, a truncated or non-object payload that names `gh pr merge` would stop asking and defer.\n\nThis gate exists to fail closed, so that branch needs a test. Either fix works:\n\n- **Pin it:** add a test that sends raw, non-parsing payloads (for example `{\"tool_input\":{\"command\":\"gh pr merge 5\"`, and `{\"tool_input\":{\"command\":123,\"x\":\"gh pr merge 5\"}}`) and expects `ask`.\n- **Shrink it:** collapse the 30-line raw-JSON rebuild, which ports the shell's no-`jq` mode, into a plain `let Some(..) = fields else { ask(..) }` (`docs/conventions/core.md` §Altitude). Then add one non-parsing-payload test.\n\nEither way, delete the vacuous `jq` stub test.\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/676b2b17c28aa2738a3f72cb361ad8deb0b16e91/tools/hooks-rs/src/push_gate.rs#L608-L642",
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/push_gate.rs",
+      "line": "536-546, 574-577",
+      "area": "qa",
+      "confidence": "medium",
+      "tag": "important",
+      "description": "Test adequacy: the port dropped the shell harness's alarm-bound test (shell lines 225–238, `elapsed` 0 and 4) and its `>= 1 s` boundary. The only remaining test is `asks_without_probing_once_the_budget_is_spent` (`SECONDS=8`), and `ask` is the answer both with and without the guard. Reverting `filter(|left| *left >= Duration::from_secs(1))` to `>= 0` spawns the probe and kills it at once, which still asks and passes.",
+      "body": "**Test adequacy: no test checks how the probe's budget is computed.**\n\n`tests/hooks/push-gate.test.sh:225-238` checked that the probe's alarm was set and stayed within `budget - elapsed` for `SECONDS` of 0 and of 4. No Rust test ports that check.\n\nThe remaining tests can't catch a wrong budget:\n\n- `asks_without_probing_once_the_budget_is_spent` (`tests/push_gate.rs:386-392`) sets `SECONDS=8`. Then `checked_sub` already returns `None`, so the test never reaches the `>= 1 s` filter.\n- `asks_before_a_slow_origin_answers` only checks that a 30 s ssh never finishes.\n\nThree mutants pass the suite:\n\n- loosening `filter(|left| *left >= Duration::from_secs(1))`;\n- dropping `start.elapsed()` from `spent`;\n- having the kill thread sleep the constant `BUDGET` instead of `left`.\n\nThe last two let a hook that starts late outlive its 15 s settings timeout, and that blocks the push.\n\nSuggested tests:\n\n- `SECONDS` set to 7.5 or 9: assert that no probe starts, using a `GIT_SSH_COMMAND` that touches a marker file.\n- `SECONDS=6` with an ssh that sleeps 30 s: assert the hook returns well before 8 s.\n\nhttps://github.com/AlexisBalayre/claude-code-config/blob/676b2b17c28aa2738a3f72cb361ad8deb0b16e91/tools/hooks-rs/src/push_gate.rs#L536-L577",
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/push_gate.rs",
+      "line": "659-671",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "A relative `AGENT_APPROVED_PLANS` now resolves against the payload's `cwd`, because `set_current_dir(cwd)` (line 659) runs before the plans file is read (line 671), whereas the shell hook only `cd`s in subshells; read the plans before the chdir or reject a relative path.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/push_gate.rs",
+      "line": "530-532, 564-576",
+      "area": "quality",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "The PR body says \"One `unsafe` block, in `on_remote`\", but `on_remote` has two `unsafe` blocks (`pre_exec` at 564, `libc::kill` at 576) under one `#[allow(unsafe_code)]`; say \"the crate's only unsafe code\" instead.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/push_gate.rs",
+      "line": "593, 606, 609-613",
+      "area": "simplicity",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "cwd and command are joined with `\\x1f` and then immediately split again, a copy of the shell's single jq output line; return the `(cwd, command)` pair directly and drop the separator comment and `asks_for_a_command_holding_the_unit_separator` (about -12 lines).",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/tests/push_gate.rs",
+      "line": "342-361",
+      "area": "simplicity",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "`starts_no_process_for_a_call_naming_no_push` spies on `jq`, `cat` and `grep`, shell-hook processes the Rust gate never starts, so its assertion can't fail; spy on `git` instead, or delete it since its rows duplicate `defers_for_a_call_that_is_no_git_push`.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/tests/push_gate.rs",
+      "line": "4, 57-63",
+      "area": "simplicity",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "`Fixture::stub` re-implements `common::executable` (write + chmod 0755); call `executable(&self.path(dir).join(name), script)` and drop the `PermissionsExt` import.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/tests/push_gate.rs",
+      "line": "67-69",
+      "area": "simplicity",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "`Fixture::gate_with_stubs` builds PATH by hand beside `common::path_with`; use `gate.env(\"PATH\", path_with(&[&self.path(dir)]))`.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/tests/push_gate.rs",
+      "line": "233-238",
+      "area": "simplicity",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The remap test spells out `run` + `decision` + a stdout check that `fixture.expect_planned(\"ask\", \"w\", PUSH_NEW, \"another ref\")` already does.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/push_gate.rs",
+      "line": "685-689, 552-578",
+      "area": "security",
+      "confidence": "high",
+      "tag": "pre-existing",
+      "description": "Before asking, the hook runs `git ls-remote` outside the Bash sandbox against whatever push URL origin has, and the agent can set that URL unprompted (`git remote set-url --push`), so the probe can reach an agent-chosen host (DNS, HTTPS, ssh identities) even when the user then denies the push; the shell hook does the same.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/push_gate.rs",
+      "line": "466-489, 556",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "pre-existing",
+      "description": "The probe checks the literal remote `refs/heads/<branch>`, but git resolves the local source, so a local branch made a symref to `refs/heads/main` can push main to origin's main without a prompt (`heads/main` DWIM similar); the shell hook shares this.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "tools/hooks-rs/src/push_gate.rs",
+      "line": "129-149",
+      "area": "security",
+      "confidence": "high",
+      "tag": "pre-existing",
+      "description": "`gh api` is gated only on merge paths and mutations, so ref and content writes (`repos/O/R/git/refs` POST/PATCH, `contents/` PUT, GraphQL `createRef`/`updateRefs`/`createCommitOnBranch`) pass unprompted, which can create a branch on origin with no first-push prompt; the shell hook shares this.",
+      "body": null,
+      "suggestion": null
+    }
+  ],
+  "refuted_findings": [],
+  "process_issues": [],
+  "comments_posted_actual": 2,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 5.5826245000000005,
+  "duration_ms": 688213,
+  "num_turns": 17,
+  "tokens": {
+    "input": 16,
+    "output": 18697,
+    "cache_read": 362584,
+    "cache_creation": 59039,
+    "total": 440336
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 104,
+      "output": 143394,
+      "cache_read": 1876969,
+      "cache_creation": 332322,
+      "cost_usd": 5.082416800000001
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 48,
+      "output": 16405,
+      "cache_read": 541617,
+      "cache_creation": 112760,
+      "cost_usd": 0.5002077
+    }
+  ],
+  "permission_denials": []
+}
