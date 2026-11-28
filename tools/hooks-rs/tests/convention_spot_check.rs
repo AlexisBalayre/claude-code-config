@@ -165,3 +165,10 @@ fn without_a_project_dir_it_runs_from_the_git_top_level() {
     assert_eq!(out.code, 2, "stderr: {}", out.stderr);
     assert_eq!(findings(&out), [format!("  src/new.ts: {MESSAGE}")]);
 }
+
+#[test]
+fn file_matching_the_path_but_not_the_content_is_silent() {
+    let fixture = Fixture::new("content-miss");
+    write(&fixture.repo.join("src/new.ts"), "allowed_call(1);\n");
+    assert_silent(&fixture.spot_check("{}"));
+}

@@ -275,3 +275,12 @@ fn no_dirty_source_file_runs_nothing() {
     let log = fixture.log_after(&stop(&fixture.wt));
     assert_eq!(log, "");
 }
+
+#[test]
+fn deleted_tracked_source_is_not_passed_to_the_tools() {
+    let fixture = Fixture::new("deleted");
+    std::fs::remove_file(fixture.wt.join("a.ts")).expect("delete the tracked file");
+    let log = fixture.log_after(&stop(&fixture.wt));
+    let want = format!("{} stub lint b.ts", fixture.wt.display());
+    assert!(has_line(&log, &want), "want {want:?} in {log:?}");
+}
