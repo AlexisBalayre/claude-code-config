@@ -1,0 +1,210 @@
+{
+  "schema_version": 6,
+  "timestamp": "2026-11-28T11:45:27.795Z",
+  "repository": "AlexisBalayre/claude-code-config",
+  "run_id": "46140940583",
+  "run_url": "https://github.com/AlexisBalayre/claude-code-config/actions/runs/46140940583",
+  "actor": "AlexisBalayre",
+  "commit_sha": "80345acf3943aa102ce82319fe80e6a358feaf02",
+  "source": "pr",
+  "pr_number": 74,
+  "action": "review",
+  "reviewers_spawned": [
+    "correctness",
+    "security",
+    "context",
+    "conventions",
+    "maintainability",
+    "docs"
+  ],
+  "reviewers_returned": [
+    "correctness",
+    "security",
+    "context",
+    "conventions",
+    "maintainability",
+    "docs"
+  ],
+  "reviewers_skipped": [
+    "spec"
+  ],
+  "review_mode": "full",
+  "incremental_from_sha": null,
+  "review_depth": "standard",
+  "review_areas": [],
+  "prior_importants": [],
+  "findings": [
+    {
+      "file": ".claude/skills/ci-and-agent-config/SKILL.md",
+      "line": "8",
+      "area": "context",
+      "confidence": "high",
+      "tag": "important",
+      "description": "The new skill claims `scripts/check-agent-config.sh` runs the shell harnesses \"in CI (all of them)\", but no workflow in `.github/workflows/` invokes `check-agent-config.sh` or any `*.test.sh`; only the local, affected-subset `scripts/verify.sh` runs them, so agents are told a CI backstop exists that does not.",
+      "body": "**The skill describes a CI harness job that doesn't exist.**\n\nLine 8 of the new skill says:\n\n> `scripts/check-agent-config.sh` runs `bash -n` and the shell harnesses in CI (all of them) and in `scripts/verify.sh` (the ones the change can affect).\n\nNo CI job does this:\n\n- `.github/` contains only `CODEOWNERS`, `dependabot.yml` and `workflows/claude-code-review.yml`.\n- `claude-code-review.yml` has two jobs, `claude-review` and `persist-metrics`. Neither calls `check-agent-config.sh`, `verify.sh`, `pre-push` or any `*.test.sh`.\n- The only caller of the script is `scripts/verify.sh:42` (`check-agent-config.sh --affected \"$base\" HEAD`). That runs locally, only for the affected subset, and can be skipped.\n- The `HEAD^1 HEAD -> a PR merge commit's diff (CI)` usage at `scripts/check-agent-config.sh:12` describes a call that nothing makes.\n\nThe skill then limits its own checklist to \"the three classes that check cannot see\". An agent reading it will assume a full harness run catches everything else. For example, a harness broken by the move to `tests/hooks/` reaches no CI gate.\n\nLine 37's \"Done when … the harness passes on macOS and in the CI job\" points at the same missing job.\n\nThere are two ways to fix it:\n\n- Add a `pull_request` workflow job that runs `bash scripts/check-agent-config.sh <base> HEAD` on `ubuntu-latest`.\n- Or reword lines 8 and 37 to say that only `scripts/verify.sh` runs the harnesses (locally, the affected subset) and that CI has no harness job.\n\nFile: `.claude/skills/ci-and-agent-config/SKILL.md#L8` (new in this PR).",
+      "suggestion": null
+    },
+    {
+      "file": ".claude/skills/ci-and-agent-config/SKILL.md",
+      "line": "50",
+      "area": "maintainability",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "The new skill says to change \"the harnesses beside the hooks\", but this PR moves every hook harness to `tests/hooks/`. It also names only the `.claude/README.md` hook table, not the second table in `.claude/hooks/README.md`.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/skills/pr-description/SKILL.md",
+      "line": "72-77",
+      "area": "conventions",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "The rewritten context block hardcodes `origin/main` in its `git log` and `git diff` lines, although line 67 says to take the trunk from `GIT_TRUNK` and line 70 uses `<trunk>`. The base used `<trunk>` throughout, so a repo whose trunk is not `main` now gets the wrong range.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".env.example",
+      "line": "10-33",
+      "area": "maintainability",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "`.env.example` still documents keys for skills this PR deletes (`obsidian-vault`, `daily-note`, `fix-sonar`, `wiz`/`fix-wiz`, `to-issues`/`to-epic`), and the adapt-to-project prune rows that would have dropped them are gone. `OBSIDIAN_*`, `SONAR_PROJECT_KEY` and `WIZ_*` now have no reader.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/README.md",
+      "line": "184",
+      "area": "docs",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "The README still says `.env` is \"only for personal-integration skills\", but this PR deletes all of them. Its only remaining in-repo reader is `pr-description`'s `TRACKER_ISSUE_PREFIX`, and `.claude/skills/README.md:46` overstates in the same way when it says the skills read \"the `TRACKER_*` keys\".",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/skills/adapt-to-project/SKILL.md",
+      "line": "32",
+      "area": "maintainability",
+      "confidence": "high",
+      "tag": "nit",
+      "description": "Step 3 still asks \"which personal-integration tools are in use\", but the Obsidian, Sonar and Wiz prune rows that consumed the answer were removed with those skills, so the question now feeds nothing.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "docs/workflow.md",
+      "line": "64-65",
+      "area": "docs",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "This doc cites \"the `find-dead-code` rule of thumb\", but the PR deletes that skill and the companion-plugin note doesn't cover it. State the rule on its own (provenance outside the restore set was unverifiable).",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "docs/explanation/claude-code-practices.md",
+      "line": "65",
+      "area": "docs",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The \"Where\" column names the `handoff` skill as if it ships here, but this PR deletes it. Qualify it as the companion plugin's, as `docs/adr/README.md:35` does for `domain-modeling`.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/skills/README.md",
+      "line": "37-41",
+      "area": "security",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "Skills that used to be vendored and reviewed in PRs are replaced by a self-updating third-party plugin, so upstream changes reach sessions that have broad pre-approved Bash permissions without review. One sentence on pinning or reviewing plugin updates would close that.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": ".claude/skills/ci-and-agent-config/SKILL.md",
+      "line": "1-4",
+      "area": "conventions",
+      "confidence": "medium",
+      "tag": "nit",
+      "description": "The new skill omits `disable-model-invocation: true`, which `writing-for-agents` makes the default for new skills. Its edit-triggered description plausibly meets the exception, but the PR doesn't state that reasoning.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "scripts/check-agent-config.sh",
+      "line": "30-76",
+      "area": "correctness",
+      "confidence": "medium",
+      "tag": "pre-existing",
+      "description": "A change to only `.claude/settings.json` never sets `harnesses=true`, yet `tests/hooks/push-gate.test.sh:219` reads that file to check the push-gate timeout against the hook's budget. Lowering that timeout therefore passes `verify.sh` unchecked.",
+      "body": null,
+      "suggestion": null
+    },
+    {
+      "file": "scripts/check-agent-config.sh",
+      "line": "25",
+      "area": "maintainability",
+      "confidence": "medium",
+      "tag": "pre-existing",
+      "description": "The script and its test keep dispatch branches for `.claude/skills/setup-agent-env`, which exists neither in the base nor in the PR. The lead-tools/params branches and the `AGENT_REPO` unsets are dead code.",
+      "body": null,
+      "suggestion": null
+    }
+  ],
+  "refuted_findings": [],
+  "process_issues": [
+    {
+      "component": "platform",
+      "description": "Every Bash call failed with the sandbox error `apply-seccomp: write /proc/self/setgroups (nested userns is capability-restricted; caller must provide CAP_SYS_ADMIN): Permission denied`. That ruled out `gh pr view`/`gh pr diff`/`git diff`/`git rev-parse` for the orchestrator, all six reviewers and the validator. The review was rebuilt statically: restore-set paths by comparing `.claude-pr/<path>` against the in-tree base copies, and other paths (scripts/, tests/, docs/, .env.example, .github/) from head content only. Provenance for findings outside the restore set is unverified."
+    },
+    {
+      "component": "orchestrator",
+      "description": "Could not read the PR title, body, closing issues or comment threads (gh unavailable), so there was no steering brief and no spec-source detection; `review-spec` was not spawned. The second freshness assertion (HEAD vs headRefOid) could not run. The full head SHA could not be resolved, so the important finding's body carries no SHA permalink."
+    },
+    {
+      "component": "orchestrator",
+      "description": "Size-gated instance scaling was skipped: correctness, security and maintainability ran as one instance each, since without the diff stat the gate couldn't be measured or split by subsystem. Maintainability ran on opus because the PR deletes ~30 skills, which is a large diff. One reviewer nit (plugin name `mattpocock-skills@claude-plugins-official` unverifiable offline) was dropped as an unproven mechanism."
+    }
+  ],
+  "comments_posted_actual": 1,
+  "is_error": false,
+  "incomplete_reason": null,
+  "cost_usd": 3.9071618,
+  "duration_ms": 266859,
+  "num_turns": 16,
+  "tokens": {
+    "input": 15,
+    "output": 13712,
+    "cache_read": 295585,
+    "cache_creation": 53738,
+    "total": 363050
+  },
+  "model_usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input": 176,
+      "output": 47243,
+      "cache_read": 4539357,
+      "cache_creation": 273948,
+      "cost_usd": 3.3843893999999994
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "input": 42,
+      "output": 16167,
+      "cache_read": 408959,
+      "cache_creation": 128049,
+      "cost_usd": 0.5227724
+    }
+  ],
+  "permission_denials": [
+    {
+      "tool": "Bash",
+      "input": "git -C /home/runner/work/claude-code-config/claude-code-config status --short | head -5"
+    }
+  ]
+}
