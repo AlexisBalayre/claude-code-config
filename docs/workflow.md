@@ -62,6 +62,19 @@ Every PR is reviewed in CI by `.github/workflows/claude-code-review.yml`; nothin
 
 A comment steers a round: `@claude review [quick|deep|full] [areas]`. A quick or area-restricted round is partial and leaves the status to a full pass. The round and merge rules (importants block, minors never do, when a PR is ready) are in `.claude/skills/pr-ci-review/REVIEW.md`; `/address-review-comments` works the open threads with you deciding each call. `claude-review-base-change.yml` marks a retargeted PR's head pending, and `pr-size.yml` warns at 400 added production lines and fails at 800.
 
+## Releases
+
+`.github/workflows/release.yml` releases on its own: after each merge to the trunk, `scripts/next-version.sh` reads the commit subjects since the last `vX.Y.Z` tag and the workflow tags that commit and publishes a GitHub release with generated notes. The PR title is the squash commit's subject, so it decides the version:
+
+| Since the last tag | Next version |
+| :--- | :--- |
+| a `type!:` subject or a `BREAKING CHANGE:` footer | major |
+| `feat` | minor |
+| `fix` or `perf` | patch |
+| only `docs`, `chore`, `test`, `refactor` | no release |
+
+Mark a PR that removes or renames a file adopters copy with `!` and say what to do in its body: the generated notes link the PR, and they are the upgrade guide. The trunk name in the workflow's `branches:` follows `GIT_TRUNK`.
+
 ## Dispatching agents into worktrees
 
 For independent tasks, subagents can run in their own worktree so their edits never collide

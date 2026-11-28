@@ -1,0 +1,45 @@
+name: Release
+
+# Tags and publishes a release when a merge to the trunk warrants one:
+# scripts/next-version.sh reads the Conventional Commit subjects since the last
+# vX.Y.Z tag, and a range of docs, chore, test or refactor commits releases
+# nothing. No file is committed back, so the trunk stays PR-only.
+on:
+  push:
+    # GIT_TRUNK of .claude/project.env; a workflow cannot read that file here.
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Release
+    # Queued, never cancelled: a run stopped between the tag and the release
+    # would leave a tag without notes.
+    concurrency:
+      group: release
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history and tags: the version is counted from the last tag.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Tag and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          next=$(bash scripts/next-version.sh)
+          if [ -z "$next" ]; then
+            echo "No feat, fix, perf or breaking commit since the last release: nothing to publish."
+            exit 0
+          fi
+          # The pushed commit, not the branch: a later merge may already be the tip.
+          gh release create "$next" --target "$GITHUB_SHA" --generate-notes
+          echo "### Released \`$next\`" >>"$GITHUB_STEP_SUMMARY"
