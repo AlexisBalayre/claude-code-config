@@ -27,7 +27,8 @@ executable (`chmod +x`). Each hook's hand-run cases live in `tests/hooks/`:
 
 **Rust port, in progress:** the hooks are moving into one binary, `claude-hooks <hook-name>`, built
 from [`tools/hooks-rs`](../../tools/hooks-rs). It holds `git-safety`, `frozen-paths`,
-`tool-result-size`, `protect-generated` and `validate-file-naming` so far, plus the git side of
+`tool-result-size`, `protect-generated`, `validate-file-naming`, `quality-checks`,
+`convention-spot-check`, `comment-pruner` and `post-compact-state` so far, plus the git side of
 `scripts/`: `pre-commit`, `pre-push`, `added-lines`, `check-dashes`, `worktree-create` and
 `worktree-remove`. `settings.json` and the git hooks still call the shell files until every one is
 ported. Its cases are `cargo test --release` there, and
