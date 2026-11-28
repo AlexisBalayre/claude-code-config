@@ -27,7 +27,7 @@ SETUP=.claude/skills/setup-agent-env
 while IFS= read -r file; do
   case $file in "$SETUP"/lead-tools/* | "$SETUP"/params/*) globs="$SETUP/lead-tools/*.test.sh" ;; esac
   case $file in docs/conventions/* | .claude/rules/*) rules=tests/scripts/conventions-rules.test.sh ;; esac
-  case $file in scripts/* | tests/* | .github/workflows/*) harnesses=true ;; esac
+  case $file in scripts/* | tests/scripts/* | tests/hooks/* | .github/workflows/*) harnesses=true ;; esac
   case $file in
     *.sh) ;;
     # An extensionless file here (pre-commit, pre-push) is shell when its shebang says so. A

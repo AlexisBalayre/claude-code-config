@@ -34,7 +34,9 @@ jobs:
         (github.event_name == 'pull_request' && github.event.pull_request.draft == false) ||
         (github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, '@claude review'))
       )
-    runs-on: ubuntu-latest
+    # Pinned: on the ubuntu-26.04 image the Bash sandbox cannot create its nested
+    # user namespace, so every Bash call fails and no reviewer is spawned.
+    runs-on: ubuntu-24.04
     # Generous headroom: a run cancelled at the timeout is a fully billed review
     # discarded for want of a few minutes.
     timeout-minutes: 40

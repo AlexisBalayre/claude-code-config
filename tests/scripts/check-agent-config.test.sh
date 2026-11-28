@@ -98,7 +98,7 @@ expect 0 'in harness order' test "$(grep -oE '[a-z0-9]+\.test\.sh (passed|failed
 rm -f "$T/a" "$T/b" "$T/c"
 
 new_repo; put tests/hooks/new.test.sh 'echo hooks >>"$MARK"'; commit next
-expect 0 'a new harness under .claude/hooks/' check
+expect 0 'a new harness under tests/hooks/' check
 expect 0 'is found and run' grep -qx hooks "$MARK"
 
 new_repo; put .claude/hooks/h.sh 'echo ok'; commit next
@@ -114,6 +114,10 @@ expect 0 'runs the harnesses' ran
 new_repo; put tools/x.test.sh 'echo ok'; commit next
 expect 0 'a .test.sh outside tests/' check
 expect 0 'runs the harnesses' ran
+
+new_repo; put tests/unit/test_x.py 'pass'; commit next
+expect 0 'a project test outside tests/scripts/ and tests/hooks/' check
+expect 1 'runs no harness' ran
 
 LT=.claude/skills/setup-agent-env/lead-tools
 new_repo; put $LT/l.test.sh 'echo lead >>"$MARK"'; commit harness; put $LT/README.md text; commit next
