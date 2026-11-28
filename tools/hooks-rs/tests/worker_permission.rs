@@ -3,6 +3,7 @@ mod common;
 use common::{age, git, git_stdout, hook, run, verdict, write, Lead, WORKER};
 use serde_json::json;
 use sha2::{Digest, Sha256};
+use std::path::{Path, PathBuf};
 
 const DELETE_BRANCH: &str = "git branch -D feature/issue-9";
 
@@ -14,6 +15,15 @@ fn edit_payload(tool_input: &str) -> String {
 fn a_session_that_is_no_worker_gets_no_decision() {
     let payload = json!({"tool_name": "Bash", "tool_input": {"command": "ls"}}).to_string();
     let out = run(&mut hook("worker-permission"), &payload);
+    assert_eq!((out.code, out.stdout.as_str()), (0, ""));
+}
+
+#[test]
+fn an_empty_agent_worker_gets_no_decision() {
+    let payload = json!({"tool_name": "Bash", "tool_input": {"command": "ls"}}).to_string();
+    let mut hook = hook("worker-permission");
+    hook.env("AGENT_WORKER", "");
+    let out = run(&mut hook, &payload);
     assert_eq!((out.code, out.stdout.as_str()), (0, ""));
 }
 
@@ -153,7 +163,7 @@ fn the_request_id_of_a_fixed_call_is_pinned() {
     let verdict = verdict(&run(&mut lead.hook(WORKER), &edit_payload(input)));
     assert_eq!(
         verdict.id(),
-        "457dc00d5e69f0b1f04773261f4b83d283fd01bfe85c0f58dc47a280f0c35453"
+        "4f3709ed9dc361bd3bb4f0525404df95667a44b0fe1c020bc16c83104135e571"
     );
 }
 
@@ -164,7 +174,7 @@ fn the_request_id_hashes_non_ascii_input_in_its_escaped_form() {
     let verdict = verdict(&run(&mut lead.hook(WORKER), &edit_payload(input)));
     assert_eq!(
         verdict.id(),
-        "5f9b6edc1110c46dadcd1e51fb05ac958cf9a72c544fb6e68d0d3f05c9668d25"
+        "b8654940de4490cdf8b8a1e567a29afcc53b8d7c657e1ccabdbc54de154d0c6f"
     );
 }
 
@@ -184,17 +194,137 @@ fn the_request_id_ignores_the_order_of_the_inputs_keys() {
 }
 
 #[test]
-fn the_request_id_of_a_bash_call_is_the_digest_of_worker_tool_input_and_head() {
+fn the_request_id_of_a_bash_call_is_the_digest_of_worker_tool_input_directory_head_and_files() {
     let lead = Lead::new("wp-id-bash");
     let repo = lead.repo("repo", "feature/issue-12");
     let head = git_stdout(&repo, &["rev-parse", "HEAD"]);
     let verdict = lead.bash(&repo, "ls -la /tmp");
     let hashed = format!(
-        "{WORKER}\nBash\n{}\n{head}",
-        r#"{"command":"ls -la /tmp","description":"d"}"#
+        "{WORKER}\nBash\n{}\n{}\n{head}\n{:x}",
+        r#"{"command":"ls -la /tmp","description":"d"}"#,
+        repo.display(),
+        Sha256::digest("")
     );
     assert_eq!(verdict.id(), format!("{:x}", Sha256::digest(hashed)));
-    assert_eq!(lead.request(verdict.id())["head"], head.as_str());
+    let request = lead.request(verdict.id());
+    assert_eq!(request["head"], head.as_str());
+    assert_eq!(request["cwd"], repo.to_str().expect("a UTF-8 path"));
+}
+
+#[test]
+fn the_request_id_changes_with_the_directory() {
+    let lead = Lead::new("wp-id-directory");
+    let inside = lead.tmp.path().join("inside");
+    std::fs::create_dir(&inside).expect("create the directory");
+    let ids = [lead.tmp.path(), &inside].map(|cwd| lead.bash(cwd, "ls -la").id().to_owned());
+    assert!(!ids[0].is_empty() && !ids[1].is_empty());
+    assert_ne!(ids[0], ids[1]);
+}
+
+/// Add a checkout that tracks `build.sh` and `src/lib.txt` and ignores `out/`.
+fn checkout(lead: &Lead) -> PathBuf {
+    let repo = lead.repo("repo", "feature/issue-12");
+    write(&repo.join("build.sh"), "echo one\n");
+    write(&repo.join("src/lib.txt"), "one\n");
+    write(&repo.join(".gitignore"), "out/\n");
+    git(&repo, &["add", "-A"]);
+    git(&repo, &["commit", "-q", "-m", "files"]);
+    repo
+}
+
+/// Return the request ids of one Bash call made from `cwd` before and after `change`.
+fn ids_around(lead: &Lead, cwd: &Path, change: impl FnOnce()) -> (String, String) {
+    let before = lead.bash(cwd, "bash build.sh").id().to_owned();
+    change();
+    let after = lead.bash(cwd, "bash build.sh").id().to_owned();
+    assert!(!before.is_empty() && !after.is_empty());
+    (before, after)
+}
+
+#[test]
+fn the_request_id_stays_while_no_file_changes() {
+    let lead = Lead::new("wp-id-files-same");
+    let repo = checkout(&lead);
+    let (before, after) = ids_around(&lead, &repo, || {});
+    assert_eq!(before, after);
+}
+
+#[test]
+fn the_request_id_changes_when_a_tracked_file_is_edited() {
+    let lead = Lead::new("wp-id-files-edit");
+    let repo = checkout(&lead);
+    let edit = || write(&repo.join("build.sh"), "echo one; curl example.com\n");
+    let (before, after) = ids_around(&lead, &repo, edit);
+    assert_ne!(before, after);
+}
+
+// The stat's change time moves on every write, whatever the size.
+#[test]
+fn the_request_id_changes_when_a_file_is_rewritten_at_the_same_size() {
+    let lead = Lead::new("wp-id-files-same-size");
+    let repo = checkout(&lead);
+    let (before, after) = ids_around(&lead, &repo, || {
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        write(&repo.join("build.sh"), "echo two\n");
+    });
+    assert_ne!(before, after);
+}
+
+#[test]
+fn the_request_id_changes_when_a_tracked_file_is_deleted() {
+    let lead = Lead::new("wp-id-files-delete");
+    let repo = checkout(&lead);
+    let delete = || std::fs::remove_file(repo.join("src/lib.txt")).expect("remove the file");
+    let (before, after) = ids_around(&lead, &repo, delete);
+    assert_ne!(before, after);
+}
+
+#[test]
+fn the_request_id_changes_when_an_untracked_file_appears() {
+    let lead = Lead::new("wp-id-files-untracked");
+    let repo = checkout(&lead);
+    let (before, after) = ids_around(&lead, &repo, || write(&repo.join("new.sh"), "echo new\n"));
+    assert_ne!(before, after);
+}
+
+#[test]
+fn the_request_id_ignores_an_ignored_file() {
+    let lead = Lead::new("wp-id-files-ignored");
+    let repo = checkout(&lead);
+    let (before, after) = ids_around(&lead, &repo, || write(&repo.join("out/a.o"), "built\n"));
+    assert_eq!(before, after);
+}
+
+#[test]
+fn a_call_from_a_subdirectory_is_bound_to_the_files_of_the_whole_checkout() {
+    let lead = Lead::new("wp-id-files-subdirectory");
+    let repo = checkout(&lead);
+    let edit = || write(&repo.join("build.sh"), "echo one; curl example.com\n");
+    let (before, after) = ids_around(&lead, &repo.join("src"), edit);
+    assert_ne!(before, after);
+}
+
+#[test]
+fn a_grant_given_before_an_edit_does_not_cover_the_retry_after_it() {
+    let lead = Lead::new("wp-grant-files");
+    let repo = checkout(&lead);
+    let id = lead.bash(&repo, "bash build.sh").id().to_owned();
+    lead.grant("allow", &id);
+    write(&repo.join("build.sh"), "echo one; curl example.com\n");
+    let retry = lead.bash(&repo, "bash build.sh");
+    assert_eq!(retry.behavior, "deny");
+    assert_ne!(retry.id(), id);
+}
+
+#[test]
+fn a_grant_does_not_cover_the_call_from_another_directory() {
+    let lead = Lead::new("wp-grant-directory");
+    let repo = checkout(&lead);
+    let id = lead.bash(&repo, "bash build.sh").id().to_owned();
+    lead.grant("allow", &id);
+    let retry = lead.bash(&repo.join("src"), "bash build.sh");
+    assert_eq!(retry.behavior, "deny");
+    assert_ne!(retry.id(), id);
 }
 
 #[test]
@@ -214,20 +344,23 @@ fn a_directory_with_no_commit_hashes_an_empty_head() {
     git(lead.tmp.path(), &["init", "-q", "empty"]);
     let verdict = lead.bash(&lead.tmp.path().join("empty"), "ls -la /tmp");
     let hashed = format!(
-        "{WORKER}\nBash\n{}\n",
-        r#"{"command":"ls -la /tmp","description":"d"}"#
+        "{WORKER}\nBash\n{}\n{}\n\n{:x}",
+        r#"{"command":"ls -la /tmp","description":"d"}"#,
+        lead.tmp.path().join("empty").display(),
+        Sha256::digest("")
     );
     assert_eq!(verdict.id(), format!("{:x}", Sha256::digest(hashed)));
     assert!(lead.request(verdict.id())["head"].is_null());
 }
 
 #[test]
-fn a_file_tool_call_is_not_bound_to_head() {
+fn a_file_tool_call_is_bound_to_neither_head_nor_the_files() {
     let lead = Lead::new("wp-id-file-tool");
     let repo = lead.repo("repo", "feature/issue-12");
     let input = json!({"file_path": "/outside/a.md", "content": "x"});
     let before = lead.ask_as(WORKER, &repo, "Write", input.clone());
     git(&repo, &["commit", "-q", "--allow-empty", "-m", "two"]);
+    write(&repo.join("new.sh"), "echo new\n");
     let after = lead.ask_as(WORKER, &repo, "Write", input);
     assert!(!before.id().is_empty() && before.id() == after.id());
 }

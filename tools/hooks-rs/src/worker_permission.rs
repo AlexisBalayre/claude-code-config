@@ -1,10 +1,11 @@
 use crate::common::{agent_work, git, grep, payload, project_dir, Config};
-use crate::push_gate::{is_word, planned_url, push_url, remapped};
+use crate::push_gate::{is_word, planned, push_url, remapped};
 use regex_lite::Regex;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::os::unix::fs::MetadataExt;
+use std::path::Path;
 use std::process::exit;
 use std::time::Duration;
 
@@ -45,14 +46,6 @@ fn issue_of(name: &str) -> Option<&str> {
             .is_some_and(|c| (b'1'..=b'9').contains(&c))
         && issue.bytes().all(|c| c.is_ascii_digit()))
     .then_some(issue)
-}
-
-/// The git directory every worktree of the repository holding `dir` shares.
-fn common_dir(dir: &str) -> Option<String> {
-    git(
-        dir,
-        &["rev-parse", "--path-format=absolute", "--git-common-dir"],
-    )
 }
 
 /// The text with each character outside printable ASCII as a `\uXXXX` escape: a bidi or format
@@ -128,9 +121,12 @@ fn literal_words(command: &str) -> Option<Vec<String>> {
 }
 
 /// Whether the command is a tracker call a worker makes with no grant: a comment on its own
-/// issue, a new body for it, or a read of any issue. Only the listed options pass, so one that
-/// aims the call at another repository (`-R`) or deletes a comment takes the grant route.
-fn tracker_call(command: &str, issue: &str) -> bool {
+/// issue of `repo`, a new body for it, or a read of any issue there. Only the listed options
+/// pass, so one that deletes a comment, or that posts a file (`--body-file` would publish any
+/// file the worker can read), takes the grant route.
+// `gh` reads the repository from the remotes of the directory it runs in, which the worker
+// writes (`git remote set-url`, the gh-resolved key), so the call names it with `-R`.
+fn tracker_call(command: &str, issue: &str, repo: &str) -> bool {
     let Some(words) = literal_words(command.trim_matches([' ', '\t', '\n'])) else {
         return false;
     };
@@ -138,7 +134,7 @@ fn tracker_call(command: &str, issue: &str) -> bool {
     let ["gh", "issue", verb, args @ ..] = words.as_slice() else {
         return false;
     };
-    let body = ["--body", "-b", "--body-file", "-F"];
+    let body = ["--body", "-b"];
     let (valued, plain): (&[&str], &[&str]) = match *verb {
         "view" => (
             &["--json", "--jq", "-q", "--template", "-t"],
@@ -149,28 +145,38 @@ fn tracker_call(command: &str, issue: &str) -> bool {
         _ => return false,
     };
     let mut numbers = Vec::new();
+    let mut aimed = false;
     let mut args = args.iter();
     while let Some(arg) = args.next() {
-        if valued.contains(arg) {
-            if args.next().is_none() {
+        let (option, inline) = arg
+            .split_once('=')
+            .filter(|(option, _)| option.starts_with("--"))
+            .map_or((*arg, None), |(option, value)| (option, Some(value)));
+        let names_repo = matches!(option, "-R" | "--repo");
+        if names_repo || valued.contains(&option) {
+            let Some(value) = inline.or_else(|| args.next().copied()) else {
                 return false;
+            };
+            if names_repo {
+                if value != repo {
+                    return false;
+                }
+                aimed = true;
             }
-        } else if arg.starts_with('-') {
-            let inline = arg
-                .split_once('=')
-                .is_some_and(|(option, _)| option.starts_with("--") && valued.contains(&option));
-            if !(inline || plain.contains(arg)) {
+        } else if option.starts_with('-') {
+            if inline.is_some() || !plain.contains(&option) {
                 return false;
             }
         } else {
             numbers.push(*arg);
         }
     }
-    match numbers.as_slice() {
-        [number] if *verb == "view" => number.bytes().all(|c| c.is_ascii_digit()),
-        [number] => *number == issue,
-        _ => false,
-    }
+    aimed
+        && match numbers.as_slice() {
+            [number] if *verb == "view" => number.bytes().all(|c| c.is_ascii_digit()),
+            [number] => *number == issue,
+            _ => false,
+        }
 }
 
 /// The words of a command as Python's shlex splits them in POSIX mode: quotes and escapes
@@ -338,12 +344,16 @@ pub fn run() {
     // came in.
     let shown = ascii(&input.to_string());
 
-    // `gh` resolves the repository from the directory it runs in, and the call is the whole
-    // command, so the session's directory must sit in this repository: issue 12 of another
-    // clone is another issue.
-    if tracker_call(command, issue)
-        && common_dir(cwd).is_some_and(|dir| Some(dir) == common_dir(&project_dir()))
-    {
+    // A standing yes is for a call the sandbox holds. One that asks to leave it takes the grant
+    // route, where the lead sees the flag in the input.
+    let sandboxed = matches!(
+        input["dangerouslyDisableSandbox"],
+        Value::Null | Value::Bool(false)
+    );
+    // The launcher names the repository in the session's environment, which no call of the
+    // worker's can change.
+    let repo = std::env::var("AGENT_REPO").unwrap_or_default();
+    if sandboxed && !repo.is_empty() && tracker_call(command, issue, &repo) {
         allow();
     }
 
@@ -393,20 +403,47 @@ pub fn run() {
                 "{PUSH_SHAPE}: {branch} is not the checked-out branch."
             ));
         }
-        // The approved plan is the go for every push of its branch, to the one URL the lead
-        // listed and under no setting that sends it to another ref.
+        // The approved plan is the go for every push of the worker's own branch, to the one URL
+        // the lead listed and under no setting that sends it to another ref or sends more.
         let prefix = Some(Config::load(project_dir()).get("WORKTREE_BRANCH_PREFIX"))
             .filter(|prefix| !prefix.is_empty())
             .unwrap_or_else(|| "feature".into());
-        let plans = std::env::var_os("AGENT_APPROVED_PLANS")
-            .filter(|file| !file.is_empty())
-            .map_or_else(|| work.join("approved-plans"), PathBuf::from);
-        if remote == "origin"
-            && branch.starts_with(&format!("{prefix}/issue-"))
+        if sandboxed
+            && remote == "origin"
+            && *branch == format!("{prefix}/issue-{issue}")
             && !remapped(cwd)
-            && push_url(cwd).is_some_and(|url| planned_url(&plans, branch) == Some(url))
+            && push_url(cwd).is_some_and(|url| planned(branch, &url))
         {
             allow();
+        }
+    }
+
+    // A grant is also for the files the call can run: a script edited since the request makes
+    // the retry a new request. The files are read by their stat, as git's own index does, since
+    // `git status` would run the clean filters the repository's config names, and the worker
+    // writes that config while this hook runs outside its sandbox. Ignored files are left out.
+    let mut files = Sha256::new();
+    if tool == "Bash" {
+        // With an untracked cache, a listing of untracked files runs the core.fsmonitor command.
+        let listed = git(
+            cwd,
+            &[
+                "-c",
+                "core.fsmonitor=false",
+                "ls-files",
+                "-z",
+                "--cached",
+                "--others",
+                "--exclude-standard",
+                ":/",
+            ],
+        )
+        .unwrap_or_default();
+        for file in listed.split('\0').filter(|file| !file.is_empty()) {
+            let stat = std::fs::symlink_metadata(Path::new(cwd).join(file))
+                .map(|meta| (meta.size(), meta.ctime(), meta.ctime_nsec()))
+                .ok();
+            files.update(format!("{file}\0{stat:?}\n"));
         }
     }
 
@@ -414,7 +451,11 @@ pub fn run() {
     // collide, reusing a grant for a call the user never saw.
     let id = format!(
         "{:x}",
-        Sha256::digest(format!("{worker}\n{tool}\n{shown}\n{head}"))
+        Sha256::digest(format!(
+            "{worker}\n{tool}\n{shown}\n{}\n{head}\n{:x}",
+            ascii(cwd),
+            files.finalize()
+        ))
     );
     let grant = work.join("grants").join(&id);
     let used = grant.with_extension(format!("used.{}", std::process::id()));
@@ -428,7 +469,7 @@ pub fn run() {
         }
     }
 
-    let mut request = json!({"id": id, "worker": worker, "tool": tool, "input": input});
+    let mut request = json!({"id": id, "worker": worker, "tool": tool, "input": input, "cwd": cwd});
     if !head.is_empty() {
         request["head"] = head.into();
     }
@@ -455,5 +496,5 @@ pub fn run() {
     if recorded.is_err() {
         deny("could not record the request");
     }
-    deny(&format!("this call needs the user's go, which the lead relays. Send the lead request {id} and the call. Once the lead reports the grant, retry this exact call, its description included, within 30 minutes and with no commit in between: a changed call or a moved HEAD is a new request."));
+    deny(&format!("this call needs the user's go, which the lead relays. Send the lead request {id} and the call. Once the lead reports the grant, retry this exact call, its description included, from this directory, within 30 minutes and with no commit or file change in between: a changed call, another directory, a moved HEAD or a changed working tree is a new request."));
 }

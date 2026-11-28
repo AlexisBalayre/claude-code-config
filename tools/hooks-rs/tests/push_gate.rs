@@ -243,6 +243,9 @@ fn asks_when_config_sends_an_approved_branch_to_another_ref() {
         ("remote.origin.mirror", "true"),
         ("push.default", "upstream"),
         ("push.default", "tracking"),
+        ("push.followTags", "true"),
+        ("push.recurseSubmodules", "on-demand"),
+        ("submodule.recurse", "true"),
     ] {
         fixture.git("w", &["config", key, value]);
         let out = run(

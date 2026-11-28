@@ -283,12 +283,59 @@ fn an_approved_plans_push_leaves_no_request() {
     assert_eq!(plan.lead.requests(), 0);
 }
 
+// worktree-remove prunes only the file the variable names, so a default path would keep the
+// line of a deleted branch.
 #[test]
-fn the_plans_file_defaults_to_the_one_in_the_state_directory() {
+fn with_no_plans_file_named_the_state_directorys_one_approves_nothing() {
     let plan = Plan::new("wpp-default-plans");
     std::fs::create_dir_all(plan.lead.state()).expect("create the state directory");
     std::fs::copy(&plan.plans, plan.lead.state().join("approved-plans")).expect("copy the plans");
-    assert_eq!(plan.lead.bash(&plan.repo, PUSH).behavior, "allow");
+    let verdict = plan.lead.bash(&plan.repo, PUSH);
+    assert!(!verdict.id().is_empty(), "{}", verdict.message);
+}
+
+// A relative path would resolve in a directory the worker chooses.
+#[test]
+fn a_plans_file_named_by_a_relative_path_approves_nothing() {
+    let plan = Plan::new("wpp-relative-plans");
+    let payload = json!({"cwd": &plan.repo, "tool_name": "Bash", "tool_input": {"command": PUSH}});
+    let mut hook = plan.lead.hook(WORKER);
+    hook.env("AGENT_APPROVED_PLANS", "plans")
+        .current_dir(plan.lead.tmp.path());
+    let verdict = verdict(&run(&mut hook, &payload.to_string()));
+    assert!(!verdict.id().is_empty(), "{}", verdict.message);
+}
+
+#[test]
+fn a_branch_listed_for_two_repositories_is_approved_for_each() {
+    let plan = Plan::new("wpp-two-repositories");
+    write(
+        &plan.plans,
+        &format!(
+            "feature/issue-12 {OTHER_URL} issue-12 13:40\nfeature/issue-12 {URL} issue-12 13:45\n"
+        ),
+    );
+    assert_eq!(plan.ask(PUSH).behavior, "allow");
+}
+
+#[test]
+fn an_approved_push_that_leaves_the_sandbox_takes_the_grant_route() {
+    let plan = Plan::new("wpp-unsandboxed");
+    for flag in [json!(true), json!("true")] {
+        let payload = json!({
+            "cwd": &plan.repo,
+            "tool_name": "Bash",
+            "tool_input": {"command": PUSH, "dangerouslyDisableSandbox": flag},
+        });
+        let mut hook = plan.lead.hook(WORKER);
+        hook.env("AGENT_APPROVED_PLANS", &plan.plans);
+        let verdict = verdict(&run(&mut hook, &payload.to_string()));
+        assert!(
+            !verdict.id().is_empty(),
+            "flag: {flag}: {}",
+            verdict.message
+        );
+    }
 }
 
 #[test]
@@ -355,6 +402,27 @@ fn a_listed_branch_pushed_to_another_remote_takes_the_grant_route() {
 fn a_branch_the_plans_do_not_list_for_this_url_takes_the_grant_route() {
     let plan = Plan::new("wpp-unlisted");
     for branch in ["feature/issue-3", "feature/issue-4"] {
+        git(&plan.repo, &["checkout", "-q", "-B", branch]);
+        let verdict = plan.ask(&format!("git push origin {branch}"));
+        assert!(
+            !verdict.id().is_empty(),
+            "branch: {branch}: {}",
+            verdict.message
+        );
+    }
+}
+
+#[test]
+fn a_listed_branch_of_another_issue_takes_the_grant_route() {
+    let plan = Plan::new("wpp-other-issue");
+    let branches = [
+        "feature/issue-5",
+        "feature/issue-120",
+        "feature/issue-12-more",
+    ];
+    let lines = branches.map(|branch| format!("{branch} {URL} issue 13:40\n"));
+    write(&plan.plans, &lines.concat());
+    for branch in branches {
         git(&plan.repo, &["checkout", "-q", "-B", branch]);
         let verdict = plan.ask(&format!("git push origin {branch}"));
         assert!(
@@ -489,6 +557,63 @@ fn a_multi_line_config_value_cannot_pass_for_push_default() {
     plan.config("push.default", "upstream");
     plan.config("test.x", "a\npush.default=simple");
     plan.assert_grant_route("a later value holding a push.default line");
+}
+
+#[test]
+fn a_setting_that_sends_tags_or_submodule_commits_along_takes_the_grant_route() {
+    let plan = Plan::new("wpp-sends-more");
+    for (key, value) in [
+        ("push.followTags", "true"),
+        ("push.followTags", "yes"),
+        ("push.followTags", "1"),
+        ("push.recurseSubmodules", "on-demand"),
+        ("push.recurseSubmodules", "only"),
+        ("submodule.recurse", "true"),
+    ] {
+        plan.config(key, value);
+        plan.assert_grant_route(&format!("{key} {value}"));
+        git(&plan.repo, &["config", "--unset", key]);
+    }
+}
+
+#[test]
+fn a_follow_tags_key_with_no_value_takes_the_grant_route() {
+    let plan = Plan::new("wpp-valueless");
+    let config = plan.repo.join(".git/config");
+    let text = std::fs::read_to_string(&config).expect("read the config");
+    write(&config, &format!("{text}[push]\n\tfollowTags\n"));
+    plan.assert_grant_route("a valueless push.followTags");
+}
+
+#[test]
+fn those_settings_switched_off_keep_the_approved_push() {
+    let plan = Plan::new("wpp-sends-no-more");
+    for (key, value) in [
+        ("push.followTags", "false"),
+        ("push.followTags", "No"),
+        ("push.followTags", "off"),
+        ("push.followTags", "0"),
+        ("push.recurseSubmodules", "no"),
+        ("push.recurseSubmodules", "check"),
+        ("submodule.recurse", "false"),
+    ] {
+        plan.config(key, value);
+        assert_eq!(plan.ask(PUSH).behavior, "allow", "setting: {key} {value}");
+        git(&plan.repo, &["config", "--unset", key]);
+    }
+}
+
+#[test]
+fn the_last_value_of_a_setting_decides_as_in_git() {
+    let plan = Plan::new("wpp-last-value");
+    plan.config("push.followTags", "true");
+    git(&plan.repo, &["config", "--add", "push.followTags", "false"]);
+    // The [submodule] section lands after [push], and git reads the two keys into one variable.
+    plan.config("push.recurseSubmodules", "on-demand");
+    plan.config("submodule.recurse", "false");
+    assert_eq!(plan.ask(PUSH).behavior, "allow");
+    git(&plan.repo, &["config", "--unset", "submodule.recurse"]);
+    plan.assert_grant_route("push.recurseSubmodules alone");
 }
 
 #[test]

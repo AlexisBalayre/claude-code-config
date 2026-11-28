@@ -49,6 +49,7 @@ fn show_prints_the_hooks_record_of_the_call() {
             "worker": WORKER,
             "tool": "Bash",
             "input": {"command": "git branch -D feature/issue-9", "description": "d"},
+            "cwd": requested.lead.tmp.path(),
         })
     );
 }
