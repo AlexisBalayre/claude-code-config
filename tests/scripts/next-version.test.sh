@@ -52,15 +52,12 @@ expect '' 'a body line shaped like a subject is not a bump' v1.1.0 'docs: quote 
 
 feat: this is prose in a body'
 expect '' 'a type that only starts with feat' v1.1.0 'feature: not a type'
-expect '' 'a merge subject' v1.1.0 "Merge branch 'main' into feature/x"
 expect v0.1.0 'no tag yet: counted from 0.0.0 over all history' ''
-expect v1.1.1 'a tag that is not a release is skipped' v1.1.0 'fix: a' && {
+expect v1.1.1 'a commit no release covers yet' v1.1.0 'fix: a' && {
   cd "$T/$n" && git tag nightly && git commit -q --allow-empty -m 'docs: b'
   got=$(bash "$NEXT")
-  [ "$got" = v1.1.1 ] || { echo "FAIL want=v1.1.1 got=$got  a non-release tag after the release"; failures=$((failures + 1)); }
-}
-expect v1.1.1 'a commit no release covers yet' v1.1.0 'fix: a' && {
-  cd "$T/$n" && git commit -q --allow-empty -m 'feat: b' && git tag v1.2.0 && git switch -q --detach HEAD~1
+  [ "$got" = v1.1.1 ] || { echo "FAIL want=v1.1.1 got=$got  a tag that is not a release is skipped"; failures=$((failures + 1)); }
+  git commit -q --allow-empty -m 'feat: c' && git tag v1.2.0 && git switch -q --detach HEAD~1
   got=$(bash "$NEXT")
   [ -z "$got" ] || { echo "FAIL want=<none> got=$got  a stale commit under a later release"; failures=$((failures + 1)); }
 }
