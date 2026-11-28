@@ -15,8 +15,8 @@ permissions:
 jobs:
   release:
     name: Release
-    # Queued, never cancelled: a run stopped between the tag and the release
-    # would leave a tag without notes.
+    # One release at a time. A waiting run that a newer one replaces loses
+    # nothing: the newer run's range holds its commits.
     concurrency:
       group: release
       cancel-in-progress: false

@@ -34,11 +34,18 @@ expect v1.1.1 'fix bumps the patch' v1.1.0 'fix(ci): pin the runner (#75)'
 expect v1.1.1 'perf bumps the patch' v1.1.0 'perf: skip the scan'
 expect v1.2.0 'feat bumps the minor and resets the patch' v1.1.4 'feat(review): add a panel (#76)'
 expect v1.2.0 'the highest bump in the range wins' v1.1.0 'feat: a' 'fix: b' 'docs: c'
+expect v1.2.0 'an older fix does not lower a newer feat' v1.1.0 'fix: a' 'feat: b'
+expect v2.0.0 'an older feat does not lower a newer breaking commit' v1.1.0 'feat: a' 'fix: b
+
+BREAKING CHANGE: x'
 expect v2.0.0 'a bang subject bumps the major' v1.4.2 'feat(skills)!: drop a skill' 'feat: a'
 expect v2.0.0 'a bang on any type bumps the major' v1.4.2 'refactor!: move the hooks'
 expect v2.0.0 'a BREAKING CHANGE footer bumps the major' v1.4.2 'fix: tighten the gate
 
 BREAKING CHANGE: the gate now refuses an unstamped tree.'
+expect v2.0.0 'a BREAKING-CHANGE footer bumps the major' v1.4.2 'fix: a
+
+BREAKING-CHANGE: x'
 expect '' 'docs, chore, test and refactor release nothing' v1.1.0 'docs: a' 'chore(ci): bump x' 'test: b' 'refactor(tests): c'
 expect '' 'no commit since the tag' v1.1.0
 expect '' 'a body line shaped like a subject is not a bump' v1.1.0 'docs: quote a title
@@ -51,6 +58,11 @@ expect v1.1.1 'a tag that is not a release is skipped' v1.1.0 'fix: a' && {
   cd "$T/$n" && git tag nightly && git commit -q --allow-empty -m 'docs: b'
   got=$(bash "$NEXT")
   [ "$got" = v1.1.1 ] || { echo "FAIL want=v1.1.1 got=$got  a non-release tag after the release"; failures=$((failures + 1)); }
+}
+expect v1.1.1 'a commit no release covers yet' v1.1.0 'fix: a' && {
+  cd "$T/$n" && git commit -q --allow-empty -m 'feat: b' && git tag v1.2.0 && git switch -q --detach HEAD~1
+  got=$(bash "$NEXT")
+  [ -z "$got" ] || { echo "FAIL want=<none> got=$got  a stale commit under a later release"; failures=$((failures + 1)); }
 }
 expect 'exit 1' 'a v tag with a suffix stops the release' v1.1.0-rc.1 'fix: a'
 

@@ -5,8 +5,11 @@
 #   `type!:` subject or a `BREAKING CHANGE:` footer  ->  major
 #   feat                                             ->  minor
 #   fix, perf                                        ->  patch
-#   scripts/next-version.sh   ->  v1.2.0   (.github/workflows/release.yml)
+# Called by .github/workflows/release.yml; prints for example `v1.2.0`.
 set -euo pipefail
+
+# A re-run of an old workflow run sits on a commit a later release already shipped.
+[ -z "$(git tag --contains HEAD --list 'v[0-9]*.[0-9]*.[0-9]*')" ] || exit 0
 
 last=$(git describe --tags --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]*' 2>/dev/null || true)
 if [ -n "$last" ] && ! [[ $last =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then

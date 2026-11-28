@@ -71,7 +71,7 @@ A comment steers a round: `@claude review [quick|deep|full] [areas]`. A quick or
 | a `type!:` subject or a `BREAKING CHANGE:` footer | major |
 | `feat` | minor |
 | `fix` or `perf` | patch |
-| only `docs`, `chore`, `test`, `refactor` | no release |
+| anything else (`docs`, `chore`, `test`, `refactor`, `ci`, a revert) | no release |
 
 Mark a PR that removes or renames a file adopters copy with `!` and say what to do in its body: the generated notes link the PR, and they are the upgrade guide. The trunk name in the workflow's `branches:` follows `GIT_TRUNK`.
 
