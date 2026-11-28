@@ -10,6 +10,7 @@ mod post_compact_state;
 mod pre_commit;
 mod pre_push;
 mod protect_generated;
+mod push_gate;
 mod quality_checks;
 mod session;
 mod tool_result_size;
@@ -35,6 +36,7 @@ fn main() {
         "frozen-paths" => frozen_paths::run(),
         "git-safety" => git_safety::run(),
         "protect-generated" => protect_generated::run(),
+        "push-gate" => push_gate::run(),
         "tool-result-size" => tool_result_size::run(),
         "validate-file-naming" => validate_file_naming::run(),
         // Exit 2 so a typo in the hook wiring blocks instead of failing open.
